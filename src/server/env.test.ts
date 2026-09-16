@@ -2,10 +2,8 @@ import { describe, expect, it } from "vitest";
 import { parseClientEnv, parseServerEnv } from "./env";
 
 describe("parseServerEnv", () => {
-  it("accepts APP_ENV alone, without DATABASE_URL", () => {
-    const result = parseServerEnv({ APP_ENV: "local" });
-    expect(result.APP_ENV).toBe("local");
-    expect(result.DATABASE_URL).toBeUndefined();
+  it("rejects a missing DATABASE_URL (required starting Commit 5)", () => {
+    expect(() => parseServerEnv({ APP_ENV: "local" })).toThrow(/DATABASE_URL/);
   });
 
   it("accepts a valid DATABASE_URL when present", () => {

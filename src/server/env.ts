@@ -4,7 +4,7 @@ export const APP_ENV_VALUES = ["local", "test", "demo", "preview", "production"]
 
 export const serverEnvSchema = z.object({
   APP_ENV: z.enum(APP_ENV_VALUES),
-  DATABASE_URL: z.url().optional(),
+  DATABASE_URL: z.url(),
   BETTER_AUTH_SECRET: z.string().min(1).optional(),
   BETTER_AUTH_URL: z.url().optional(),
   APP_URL: z.url().optional(),
