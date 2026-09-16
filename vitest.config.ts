@@ -15,10 +15,13 @@ export default defineConfig({
     exclude: ["**/node_modules/**", "**/*.integration.test.ts"],
     env: {
       APP_ENV: "test",
-      // Placeholder only: satisfies the required-URL format check so
-      // importing env.ts during unit test collection doesn't throw. No
-      // unit test ever opens a real connection with this value.
+      // Placeholders only: satisfy the required-field checks so importing
+      // env.ts during unit test collection doesn't throw. No unit test ever
+      // opens a real connection or session with these values.
       DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder",
+      BETTER_AUTH_SECRET: "placeholder-secret-not-used-by-unit-tests",
+      BETTER_AUTH_URL: "http://localhost:3000",
+      APP_URL: "http://localhost:3000",
     },
   },
 });

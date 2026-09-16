@@ -6,12 +6,52 @@ describe("parseServerEnv", () => {
     expect(() => parseServerEnv({ APP_ENV: "local" })).toThrow(/DATABASE_URL/);
   });
 
-  it("accepts a valid DATABASE_URL when present", () => {
-    const result = parseServerEnv({
-      APP_ENV: "local",
-      DATABASE_URL: "postgresql://user:pass@localhost:5432/dealflow",
-    });
-    expect(result.DATABASE_URL).toBe("postgresql://user:pass@localhost:5432/dealflow");
+  const validEnv = {
+    APP_ENV: "local",
+    DATABASE_URL: "postgresql://user:pass@localhost:5432/dealflow",
+    BETTER_AUTH_SECRET: "a-sufficiently-long-local-secret",
+    BETTER_AUTH_URL: "http://localhost:3000",
+    APP_URL: "http://localhost:3000",
+  } as const;
+
+  it("accepts a fully valid environment", () => {
+    const result = parseServerEnv(validEnv);
+    expect(result.DATABASE_URL).toBe(validEnv.DATABASE_URL);
+    expect(result.BETTER_AUTH_URL).toBe(validEnv.BETTER_AUTH_URL);
+    expect(result.APP_URL).toBe(validEnv.APP_URL);
+  });
+
+  it("rejects a missing BETTER_AUTH_SECRET (required starting Commit 7)", () => {
+    expect(() =>
+      parseServerEnv({
+        APP_ENV: validEnv.APP_ENV,
+        DATABASE_URL: validEnv.DATABASE_URL,
+        BETTER_AUTH_URL: validEnv.BETTER_AUTH_URL,
+        APP_URL: validEnv.APP_URL,
+      }),
+    ).toThrow(/BETTER_AUTH_SECRET/);
+  });
+
+  it("rejects a missing BETTER_AUTH_URL (required starting Commit 7)", () => {
+    expect(() =>
+      parseServerEnv({
+        APP_ENV: validEnv.APP_ENV,
+        DATABASE_URL: validEnv.DATABASE_URL,
+        BETTER_AUTH_SECRET: validEnv.BETTER_AUTH_SECRET,
+        APP_URL: validEnv.APP_URL,
+      }),
+    ).toThrow(/BETTER_AUTH_URL/);
+  });
+
+  it("rejects a missing APP_URL (required starting Commit 7)", () => {
+    expect(() =>
+      parseServerEnv({
+        APP_ENV: validEnv.APP_ENV,
+        DATABASE_URL: validEnv.DATABASE_URL,
+        BETTER_AUTH_SECRET: validEnv.BETTER_AUTH_SECRET,
+        BETTER_AUTH_URL: validEnv.BETTER_AUTH_URL,
+      }),
+    ).toThrow(/APP_URL/);
   });
 
   it("rejects a missing APP_ENV", () => {
