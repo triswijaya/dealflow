@@ -20,9 +20,16 @@ The authoritative product and engineering specification lives in [requirement.md
 
 ```sh
 pnpm install --frozen-lockfile
+cp .env.example .env.local
 docker compose up -d db
+pnpm db:migrate
 pnpm dev
 ```
+
+Edit `.env.local` after copying it:
+- `DATABASE_URL` and `DATABASE_MIGRATION_URL`: `postgresql://dealflow:dealflow@localhost:5432/dealflow` (matches `compose.yaml`).
+- `BETTER_AUTH_SECRET`: generate with `openssl rand -base64 32`.
+- `BETTER_AUTH_URL` and `APP_URL`: `http://localhost:3000`.
 
 Other commands that currently work:
 
@@ -37,4 +44,9 @@ pnpm db:migrate
 pnpm db:check
 ```
 
-`test:integration` and the `db:*` commands need `docker compose up -d db` running first. `db:generate`/`db:migrate`/`db:check` currently have no schema to act on (foundation only, no business tables yet). Seeding is not implemented yet.
+`test:integration` and the `db:*` commands need `docker compose up -d db` running first. The schema currently only has Better Auth's own tables (`user`/`session`/`account`/`verification`); no business tables yet. Seeding is not implemented yet.
+
+### Troubleshooting
+
+- `docker compose up -d db` fails with a port conflict: something else on this machine is already using `5432` (including another clone of this same repo). Stop it first, or change the host port in `compose.yaml`.
+- `pnpm dev`/`pnpm build` fails with "Invalid environment configuration": a required variable in `.env.local` is missing or malformed. The error lists exactly which field and why.
