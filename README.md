@@ -30,6 +30,11 @@ Other commands that currently work:
 pnpm lint
 pnpm typecheck
 pnpm build
+pnpm test:unit
+pnpm test:integration
+pnpm db:generate
+pnpm db:migrate
+pnpm db:check
 ```
 
-Database migration, seeding, and automated test commands will be documented once they exist.
+`test:integration` and the `db:*` commands need `docker compose up -d db` running first. `db:generate`/`db:migrate`/`db:check` currently have no schema to act on (foundation only, no business tables yet). Seeding is not implemented yet.
