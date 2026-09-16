@@ -8,7 +8,7 @@ export const serverEnvSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(1),
   BETTER_AUTH_URL: z.url(),
   APP_URL: z.url(),
-  EMAIL_FROM: z.email().optional(),
+  EMAIL_FROM: z.email(),
   EMAIL_PROVIDER_API_KEY: z.string().min(1).optional(),
   SENTRY_DSN: z.url().optional(),
   SENTRY_AUTH_TOKEN: z.string().min(1).optional(),

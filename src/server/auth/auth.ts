@@ -2,26 +2,12 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { organization } from "better-auth/plugins";
-import { and, eq, ne } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { member } from "@/server/db/schema";
+import { sendEmail } from "@/server/email/send-email";
 import { env } from "@/server/env";
 import { ac, roles } from "@/lib/auth-permissions";
-
-async function hasOtherOwner(organizationId: string, excludingMemberId: string) {
-  const otherOwners = await db
-    .select({ id: member.id })
-    .from(member)
-    .where(
-      and(
-        eq(member.organizationId, organizationId),
-        eq(member.role, "OWNER"),
-        ne(member.id, excludingMemberId),
-      ),
-    )
-    .limit(1);
-  return otherOwners.length > 0;
-}
 
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
@@ -40,6 +26,14 @@ export const auth = betterAuth({
       roles,
       // Matches the custom role key below, not Better Auth's built-in "owner".
       creatorRole: "OWNER",
+      async sendInvitationEmail(data) {
+        const inviteLink = `${env.APP_URL}/accept-invitation/${data.id}`;
+        await sendEmail({
+          to: data.email,
+          subject: `You've been invited to join ${data.organization.name} on DealFlow`,
+          text: `${data.inviter.user.name} invited you to join ${data.organization.name} as ${data.role}.\n\n${inviteLink}`,
+        });
+      },
       organizationHooks: {
         // AUTH-05: one active organization membership per user on MVP.
         // Applies uniformly to both org creation (creator becomes the first
@@ -58,23 +52,22 @@ export const auth = betterAuth({
             });
           }
         },
-        // RBAC-02: the last OWNER of an organization cannot be removed.
-        beforeRemoveMember: async ({ member: targetMember }) => {
-          if (targetMember.role !== "OWNER") return;
-          const stillHasOwner = await hasOtherOwner(targetMember.organizationId, targetMember.id);
-          if (!stillHasOwner) {
+        // RBAC-02 (last-owner protection, and admin cannot touch an owner's
+        // membership at all) is already enforced natively by Better Auth's
+        // organization plugin once creatorRole is set to our OWNER key.
+        // Confirmed empirically: removing/demoting the sole owner is
+        // rejected ("You cannot leave the organization ..."), an ADMIN
+        // cannot update an OWNER's role at all ("You are not allowed to
+        // update this member"), and removing one of several co-owners
+        // succeeds correctly. No custom hook needed here; see
+        // register-owner.integration.test.ts for the proof.
+
+        // RBAC-02: ownership transfer is not MVP UI, so invitations can only
+        // grant ADMIN/SALES/FINANCE, never OWNER.
+        beforeCreateInvitation: async ({ invitation }) => {
+          if (invitation.role === "OWNER") {
             throw new APIError("BAD_REQUEST", {
-              message: "Cannot remove the last owner of an organization",
-            });
-          }
-        },
-        // RBAC-02: the last OWNER cannot be demoted away from OWNER.
-        beforeUpdateMemberRole: async ({ member: targetMember, newRole }) => {
-          if (targetMember.role !== "OWNER" || newRole === "OWNER") return;
-          const stillHasOwner = await hasOtherOwner(targetMember.organizationId, targetMember.id);
-          if (!stillHasOwner) {
-            throw new APIError("BAD_REQUEST", {
-              message: "Cannot change the role of the last owner of an organization",
+              message: "Cannot invite a member directly as OWNER",
             });
           }
         },

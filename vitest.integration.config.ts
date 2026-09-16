@@ -6,7 +6,7 @@ import { defineConfig } from "vitest/config";
 try {
   process.loadEnvFile(".env.local");
 } catch {
-  // No .env.local (e.g. CI) — rely on already-exported env vars.
+  // No .env.local (e.g. CI); rely on already-exported env vars.
 }
 
 export default defineConfig({

@@ -1,6 +1,6 @@
 // Better Auth tables generated via `npx auth@1.7.2 generate` against
 // src/server/auth/auth.ts, then reviewed and committed here (TENANT-05:
-// review plugin-generated schema before migration) — includes one addition
+// review plugin-generated schema before migration); includes one addition
 // beyond the generated output: a unique index on member.userId, enforcing
 // AUTH-05 (one active organization per user) at the database level as a
 // defense-in-depth alongside the beforeAddMember hook in auth.ts. Better
@@ -111,7 +111,7 @@ export const member = pgTable(
   (table) => [
     index("member_organizationId_idx").on(table.organizationId),
     // AUTH-05 defense-in-depth: one membership row per user, period (no
-    // active/deactivated concept exists yet — see file header note).
+    // active/deactivated concept exists yet; see file header note).
     uniqueIndex("member_userId_uidx").on(table.userId),
   ],
 );

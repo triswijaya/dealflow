@@ -22,6 +22,7 @@ export default defineConfig({
       BETTER_AUTH_SECRET: "placeholder-secret-not-used-by-unit-tests",
       BETTER_AUTH_URL: "http://localhost:3000",
       APP_URL: "http://localhost:3000",
+      EMAIL_FROM: "placeholder@example.test",
     },
   },
 });

@@ -4,7 +4,7 @@ import { defineConfig } from "drizzle-kit";
 try {
   process.loadEnvFile(".env.local");
 } catch {
-  // No .env.local (e.g. CI) — rely on already-exported env vars.
+  // No .env.local (e.g. CI); rely on already-exported env vars.
 }
 
 const migrationUrl = process.env.DATABASE_MIGRATION_URL;

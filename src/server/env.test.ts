@@ -12,6 +12,7 @@ describe("parseServerEnv", () => {
     BETTER_AUTH_SECRET: "a-sufficiently-long-local-secret",
     BETTER_AUTH_URL: "http://localhost:3000",
     APP_URL: "http://localhost:3000",
+    EMAIL_FROM: "no-reply@dealflow.test",
   } as const;
 
   it("accepts a fully valid environment", () => {
@@ -19,6 +20,19 @@ describe("parseServerEnv", () => {
     expect(result.DATABASE_URL).toBe(validEnv.DATABASE_URL);
     expect(result.BETTER_AUTH_URL).toBe(validEnv.BETTER_AUTH_URL);
     expect(result.APP_URL).toBe(validEnv.APP_URL);
+    expect(result.EMAIL_FROM).toBe(validEnv.EMAIL_FROM);
+  });
+
+  it("rejects a missing EMAIL_FROM (required starting Commit 12)", () => {
+    expect(() =>
+      parseServerEnv({
+        APP_ENV: validEnv.APP_ENV,
+        DATABASE_URL: validEnv.DATABASE_URL,
+        BETTER_AUTH_SECRET: validEnv.BETTER_AUTH_SECRET,
+        BETTER_AUTH_URL: validEnv.BETTER_AUTH_URL,
+        APP_URL: validEnv.APP_URL,
+      }),
+    ).toThrow(/EMAIL_FROM/);
   });
 
   it("rejects a missing BETTER_AUTH_SECRET (required starting Commit 7)", () => {

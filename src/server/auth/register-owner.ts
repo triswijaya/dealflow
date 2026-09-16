@@ -47,7 +47,7 @@ async function generateUniqueSlug(companyName: string): Promise<string> {
  *
  * When the email already exists, the caller must still prove ownership via
  * the given password (a real sign-in attempt) before this resumes
- * provisioning on that account's behalf — otherwise anyone who knew or
+ * provisioning on that account's behalf; otherwise anyone who knew or
  * guessed an in-progress owner's email could hijack their registration.
  */
 export async function registerOwner(input: RegisterOwnerInput): Promise<RegisterOwnerResult> {
