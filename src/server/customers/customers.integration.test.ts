@@ -150,6 +150,28 @@ describe("customers", () => {
     expect(updated.updatedById).toBeTruthy();
   });
 
+  it("actually clears email/address/notes when the update omits them, not silently keeping the old value", async () => {
+    const { ownerCookie } = await setupOwner();
+    const created = await createCustomer({ headers: new Headers({ cookie: ownerCookie }), input: validInput });
+    expect(created.email).toBe("budi@example.com");
+    expect(created.address).toBeTruthy();
+    expect(created.notes).toBeTruthy();
+
+    const { email, address, notes, ...withoutOptionalFields } = validInput;
+    void email;
+    void address;
+    void notes;
+    const cleared = await updateCustomer({
+      headers: new Headers({ cookie: ownerCookie }),
+      customerId: created.id,
+      input: withoutOptionalFields,
+    });
+
+    expect(cleared.email).toBeNull();
+    expect(cleared.address).toBeNull();
+    expect(cleared.notes).toBeNull();
+  });
+
   it("returns not-found for a customer in a different organization (TENANT-04), on both read and update", async () => {
     const orgA = await setupOwner();
     const orgB = await setupOwner();

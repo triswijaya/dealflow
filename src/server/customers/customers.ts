@@ -8,6 +8,11 @@ import { normalizePhone } from "./phone";
 
 // CUS-01 field contract. Input is untrusted (API-01: client can't set
 // created_by/organization directly), validated here, not upstream.
+//
+// Empty/missing optional fields transform to null, not undefined. Drizzle's
+// .set() treats an undefined value as "leave this column alone", so
+// updateCustomer clearing a previously-set email/address/notes requires an
+// explicit null; undefined would silently keep the stale value instead.
 const customerInputSchema = z.object({
   companyName: z.string().trim().min(1).max(200),
   contactPerson: z.string().trim().min(1).max(150),
@@ -18,21 +23,21 @@ const customerInputSchema = z.object({
     .email()
     .optional()
     .or(z.literal(""))
-    .transform((value) => value || undefined),
+    .transform((value) => value || null),
   address: z
     .string()
     .trim()
     .max(2000)
     .optional()
     .or(z.literal(""))
-    .transform((value) => value || undefined),
+    .transform((value) => value || null),
   notes: z
     .string()
     .trim()
     .max(5000)
     .optional()
     .or(z.literal(""))
-    .transform((value) => value || undefined),
+    .transform((value) => value || null),
 });
 
 function normalizeOrThrow(phone: string) {
