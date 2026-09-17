@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { organization } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
@@ -8,6 +8,15 @@ import { member } from "@/server/db/schema";
 import { sendEmail } from "@/server/email/send-email";
 import { env } from "@/server/env";
 import { ac, roles } from "@/lib/auth-permissions";
+
+async function findMembershipDeactivation(userId: string) {
+  const [row] = await db
+    .select({ deactivatedAt: member.deactivatedAt })
+    .from(member)
+    .where(eq(member.userId, userId))
+    .limit(1);
+  return row?.deactivatedAt ?? null;
+}
 
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
@@ -20,12 +29,62 @@ export const auth = betterAuth({
     minPasswordLength: 12,
     maxPasswordLength: 128,
   },
+  // AUTH-06: a deactivated user cannot log in. This runs for every session
+  // creation path (not just email/password), always against a fresh DB read
+  // (we never enable session.cookieCache), so there is no stale-cache window.
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          const deactivatedAt = await findMembershipDeactivation(session.userId);
+          if (deactivatedAt) {
+            return false;
+          }
+        },
+      },
+    },
+  },
+  // AUTH-06: a deactivated user cannot run organization-management
+  // operations either. organizationHooks (below) only see target data, not
+  // the calling actor, and Better Auth's own role checks have no notion of
+  // deactivation, so this is the one choke point that covers every
+  // /organization/* endpoint (invite, cancel, list, add/remove/update-role).
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (!ctx.path.startsWith("/organization/")) {
+        return;
+      }
+      const session = await getSessionFromCtx(ctx);
+      if (!session) {
+        return;
+      }
+      const deactivatedAt = await findMembershipDeactivation(session.user.id);
+      if (deactivatedAt) {
+        throw new APIError("FORBIDDEN", {
+          message: "Your membership has been deactivated",
+        });
+      }
+    }),
+  },
   plugins: [
     organization({
       ac,
       roles,
       // Matches the custom role key below, not Better Auth's built-in "owner".
       creatorRole: "OWNER",
+      schema: {
+        member: {
+          additionalFields: {
+            // Managed only via server/auth/members.ts (deactivateMember /
+            // reactivateMember), never through Better Auth's addMember input.
+            deactivatedAt: {
+              type: "date",
+              required: false,
+              input: false,
+            },
+          },
+        },
+      },
       async sendInvitationEmail(data) {
         const inviteLink = `${env.APP_URL}/accept-invitation/${data.id}`;
         await sendEmail({

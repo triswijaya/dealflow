@@ -1,11 +1,11 @@
 // Better Auth tables generated via `npx auth@1.7.2 generate` against
 // src/server/auth/auth.ts, then reviewed and committed here (TENANT-05:
-// review plugin-generated schema before migration); includes one addition
+// review plugin-generated schema before migration); includes two additions
 // beyond the generated output: a unique index on member.userId, enforcing
 // AUTH-05 (one active organization per user) at the database level as a
-// defense-in-depth alongside the beforeAddMember hook in auth.ts. Better
-// Auth's own member table has no active/deactivated column yet (that
-// distinction only matters once AUTH-04 membership deactivation is built).
+// defense-in-depth alongside the beforeAddMember hook in auth.ts, and
+// member.deactivatedAt (AUTH-04), registered with Better Auth via the
+// organization plugin's schema.member.additionalFields config.
 import { relations } from "drizzle-orm";
 import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
@@ -107,11 +107,17 @@ export const member = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     role: text("role").default("member").notNull(),
     createdAt: timestamp("created_at").notNull(),
+    // AUTH-04/AUTH-06: null means active. Deactivation is a DealFlow concept
+    // (registered as an additionalField in auth.ts) with no Better Auth
+    // endpoint of its own; see server/auth/members.ts.
+    deactivatedAt: timestamp("deactivated_at"),
   },
   (table) => [
     index("member_organizationId_idx").on(table.organizationId),
-    // AUTH-05 defense-in-depth: one membership row per user, period (no
-    // active/deactivated concept exists yet; see file header note).
+    // AUTH-05 defense-in-depth: one membership row per user, period. Kept as
+    // a plain (not partial-on-active) unique index deliberately: no product
+    // flow re-admits a deactivated user into a different organization, so
+    // "one membership ever" stays the simpler MVP rule.
     uniqueIndex("member_userId_uidx").on(table.userId),
   ],
 );

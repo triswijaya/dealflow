@@ -1,5 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
+import { APIError } from "better-auth/api";
 import { auth } from "./auth";
+import { requirePermission } from "./require-membership";
 import { db } from "@/server/db/client";
 import { invitation, member } from "@/server/db/schema";
 
@@ -61,4 +63,72 @@ export async function acceptInvitation(params: { invitationId: string; userId: s
     }
     throw error;
   }
+}
+
+/**
+ * AUTH-04/RBAC-02: Better Auth has no built-in deactivation concept, so this
+ * mirrors the scope of its native last-owner protection by hand: an OWNER's
+ * membership can only be touched by another OWNER, and the last active
+ * OWNER can never be deactivated (including by themselves).
+ */
+export async function deactivateMember(params: { memberId: string; headers: Headers }) {
+  const actor = await requirePermission({ headers: params.headers, permission: { member: ["update"] } });
+
+  const target = await db.query.member.findFirst({
+    where: and(eq(member.id, params.memberId), eq(member.organizationId, actor.organizationId)),
+  });
+  if (!target) {
+    throw new APIError("NOT_FOUND", { message: "Member not found" });
+  }
+  if (target.deactivatedAt) {
+    return target; // already deactivated: idempotent
+  }
+
+  if (target.role === "OWNER") {
+    if (actor.role !== "OWNER") {
+      throw new APIError("FORBIDDEN", { message: "You are not allowed to deactivate this member" });
+    }
+    const [otherActiveOwner] = await db
+      .select({ id: member.id })
+      .from(member)
+      .where(
+        and(
+          eq(member.organizationId, actor.organizationId),
+          eq(member.role, "OWNER"),
+          isNull(member.deactivatedAt),
+          ne(member.id, target.id),
+        ),
+      )
+      .limit(1);
+    if (!otherActiveOwner) {
+      throw new APIError("BAD_REQUEST", { message: "Cannot deactivate the only active owner" });
+    }
+  }
+
+  const [updated] = await db
+    .update(member)
+    .set({ deactivatedAt: new Date() })
+    .where(eq(member.id, target.id))
+    .returning();
+  return updated;
+}
+
+export async function reactivateMember(params: { memberId: string; headers: Headers }) {
+  const actor = await requirePermission({ headers: params.headers, permission: { member: ["update"] } });
+
+  const target = await db.query.member.findFirst({
+    where: and(eq(member.id, params.memberId), eq(member.organizationId, actor.organizationId)),
+  });
+  if (!target) {
+    throw new APIError("NOT_FOUND", { message: "Member not found" });
+  }
+  if (!target.deactivatedAt) {
+    return target; // already active: idempotent
+  }
+  if (target.role === "OWNER" && actor.role !== "OWNER") {
+    throw new APIError("FORBIDDEN", { message: "You are not allowed to reactivate this member" });
+  }
+
+  const [updated] = await db.update(member).set({ deactivatedAt: null }).where(eq(member.id, target.id)).returning();
+  return updated;
 }
