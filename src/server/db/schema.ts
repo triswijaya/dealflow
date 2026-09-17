@@ -171,8 +171,11 @@ export const organizationSettings = pgTable("organization_settings", {
   currency: text("currency").default("IDR").notNull(),
   timezone: text("timezone").default("Asia/Jakarta").notNull(),
   defaultQuotationTerms: text("default_quotation_terms"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
+  // DATA-04: all instants use timestamptz UTC. Better Auth's own tables
+  // (above) intentionally don't (TENANT-01 exempts them, and that's what
+  // Better Auth's own schema generator produces), but this is our table.
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
@@ -197,8 +200,9 @@ export const customers = pgTable(
     email: text("email"),
     address: text("address"),
     notes: text("notes"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
+    // DATA-04: all instants use timestamptz UTC.
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
@@ -216,9 +220,7 @@ export const customers = pgTable(
 );
 
 // Business table (M1, DEAL-01-07). Status transitions, WON/LOST handling,
-// and the deal-scoped activities table are a separate, later commit; this
-// table's shape already includes the columns those need (status, lostReason,
-// lostNote, wonAt, wonValue, lostAt) so no migration churn when that lands.
+// and activity logging live in server/deals/deals.ts (transitionDeal).
 export const deals = pgTable(
   "deals",
   {
@@ -243,15 +245,16 @@ export const deals = pgTable(
     expectedCloseDate: date("expected_close_date", { mode: "string" }),
     lostReason: text("lost_reason"),
     lostNote: text("lost_note"),
-    wonAt: timestamp("won_at"),
+    // DATA-04: all instants use timestamptz UTC.
+    wonAt: timestamp("won_at", { withTimezone: true }),
     wonValue: bigint("won_value", { mode: "bigint" }),
-    lostAt: timestamp("lost_at"),
-    lastActivityAt: timestamp("last_activity_at").defaultNow().notNull(),
+    lostAt: timestamp("lost_at", { withTimezone: true }),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).defaultNow().notNull(),
     // DATA-07: optimistic concurrency. Every update checks and increments
     // this; a stale version means someone else edited first.
     version: integer("version").notNull().default(1),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
@@ -304,7 +307,8 @@ export const activities = pgTable(
     metadata: jsonb("metadata"),
     permissionCategory: text("permission_category").notNull(),
     operationId: text("operation_id"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    // DATA-04: all instants use timestamptz UTC.
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     foreignKey({

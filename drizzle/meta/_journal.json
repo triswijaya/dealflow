@@ -43,6 +43,13 @@
       "when": 1789637224515,
       "tag": "0005_goofy_meggan",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789638046269,
+      "tag": "0006_petite_shinobi_shaw",
+      "breakpoints": true
     }
   ]
 }
