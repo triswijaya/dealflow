@@ -7,7 +7,7 @@
 // member.deactivatedAt (AUTH-04), registered with Better Auth via the
 // organization plugin's schema.member.additionalFields config.
 import { relations } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, foreignKey, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -202,6 +202,68 @@ export const customers = pgTable(
   ],
 );
 
+// Business table (M1, DEAL-01-07). Status transitions, WON/LOST handling,
+// and the deal-scoped activities table are a separate, later commit; this
+// table's shape already includes the columns those need (status, lostReason,
+// lostNote, wonAt, wonValue, lostAt) so no migration churn when that lands.
+export const deals = pgTable(
+  "deals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    customerId: uuid("customer_id").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    notes: text("notes"),
+    // MONEY-01: rupiah as PostgreSQL bigint / TypeScript bigint, never a
+    // floating-point number, all the way from schema to domain code.
+    estimatedValue: bigint("estimated_value", { mode: "bigint" }).notNull(),
+    status: text("status").notNull().default("NEW"),
+    assignedToId: text("assigned_to_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    // DATA-04: date-only field. Kept as a plain string (not Drizzle's default
+    // Date-object mode) so it never round-trips through a JS Date and picks
+    // up a timezone-dependent off-by-one-day bug.
+    expectedCloseDate: date("expected_close_date", { mode: "string" }),
+    lostReason: text("lost_reason"),
+    lostNote: text("lost_note"),
+    wonAt: timestamp("won_at"),
+    wonValue: bigint("won_value", { mode: "bigint" }),
+    lostAt: timestamp("lost_at"),
+    lastActivityAt: timestamp("last_activity_at").defaultNow().notNull(),
+    // DATA-07: optimistic concurrency. Every update checks and increments
+    // this; a stale version means someone else edited first.
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    updatedById: text("updated_by_id").references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    // TENANT-03: composite FK, not just a plain customerId reference. A row
+    // whose customerId is valid but whose organizationId doesn't match that
+    // customer's is rejected by Postgres itself, not only by application code.
+    foreignKey({
+      name: "deals_customer_tenant_fk",
+      columns: [table.organizationId, table.customerId],
+      foreignColumns: [customers.organizationId, customers.id],
+    }).onDelete("restrict"),
+    index("deals_organizationId_status_idx").on(table.organizationId, table.status),
+    index("deals_organizationId_assignedToId_idx").on(table.organizationId, table.assignedToId),
+    index("deals_organizationId_customerId_idx").on(table.organizationId, table.customerId),
+    index("deals_organizationId_createdAt_idx").on(table.organizationId, table.createdAt),
+    index("deals_organizationId_wonAt_idx").on(table.organizationId, table.wonAt),
+  ],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
@@ -275,5 +337,31 @@ export const customersRelations = relations(customers, ({ one }) => ({
     fields: [customers.updatedById],
     references: [user.id],
     relationName: "customerUpdatedBy",
+  }),
+}));
+
+export const dealsRelations = relations(deals, ({ one }) => ({
+  organization: one(organization, {
+    fields: [deals.organizationId],
+    references: [organization.id],
+  }),
+  customer: one(customers, {
+    fields: [deals.customerId],
+    references: [customers.id],
+  }),
+  assignedTo: one(user, {
+    fields: [deals.assignedToId],
+    references: [user.id],
+    relationName: "dealAssignedTo",
+  }),
+  createdBy: one(user, {
+    fields: [deals.createdById],
+    references: [user.id],
+    relationName: "dealCreatedBy",
+  }),
+  updatedBy: one(user, {
+    fields: [deals.updatedById],
+    references: [user.id],
+    relationName: "dealUpdatedBy",
   }),
 }));
