@@ -165,6 +165,43 @@ export const organizationSettings = pgTable("organization_settings", {
     .notNull(),
 });
 
+// Business table (M1, CUS-01-03). UNIQUE(organizationId, id) exists purely
+// so child tables (deals, later) can carry a composite FK
+// (organizationId, customerId) REFERENCES customers(organizationId, id):
+// TENANT-03's defense-in-depth against a wrong-tenant parent reference,
+// enforced by Postgres itself, not just application-level WHERE clauses.
+export const customers = pgTable(
+  "customers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    companyName: text("company_name").notNull(),
+    contactPerson: text("contact_person").notNull(),
+    phoneRaw: text("phone_raw").notNull(),
+    phoneNormalized: text("phone_normalized").notNull(),
+    email: text("email"),
+    address: text("address"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    updatedById: text("updated_by_id").references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    uniqueIndex("customers_organizationId_id_uidx").on(table.organizationId, table.id),
+    index("customers_organizationId_idx").on(table.organizationId),
+    index("customers_companyName_idx").on(table.companyName),
+    index("customers_phoneNormalized_idx").on(table.phoneNormalized),
+  ],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
@@ -221,5 +258,22 @@ export const organizationSettingsRelations = relations(organizationSettings, ({ 
   organization: one(organization, {
     fields: [organizationSettings.organizationId],
     references: [organization.id],
+  }),
+}));
+
+export const customersRelations = relations(customers, ({ one }) => ({
+  organization: one(organization, {
+    fields: [customers.organizationId],
+    references: [organization.id],
+  }),
+  createdBy: one(user, {
+    fields: [customers.createdById],
+    references: [user.id],
+    relationName: "customerCreatedBy",
+  }),
+  updatedBy: one(user, {
+    fields: [customers.updatedById],
+    references: [user.id],
+    relationName: "customerUpdatedBy",
   }),
 }));
