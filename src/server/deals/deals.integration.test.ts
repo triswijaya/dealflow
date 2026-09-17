@@ -140,6 +140,21 @@ describe("deals", () => {
     ).rejects.toThrow(/assignedToId/);
   });
 
+  it("rejects a SALES rep explicitly assigning a new deal to someone else (§6.2: creation defaults to self only)", async () => {
+    const owner = await setupOwnerAndMember("SALES");
+    const customer = await createCustomer({
+      headers: new Headers({ cookie: owner.ownerCookie }),
+      input: { companyName: "PT Maju Jaya", contactPerson: "Budi", phone: "08123456789" },
+    });
+
+    await expect(
+      createDeal({
+        headers: new Headers({ cookie: owner.memberCookie }),
+        input: dealInput(customer.id, { assignedToId: owner.ownerUserId }),
+      }),
+    ).rejects.toThrow(/only assign a new deal to themselves/);
+  });
+
   it("rejects a negative or decimal estimatedValue", async () => {
     const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
     await expect(
@@ -205,6 +220,14 @@ describe("deals", () => {
 
     expect(updated.title).toBe("CCTV Installation - Bekasi (revised)");
     expect(updated.version).toBe(2);
+
+    // AUD-01: "deal updated" is a required minimum event.
+    const log = await db.query.activities.findMany({ where: eq(activities.dealId, created.id) });
+    expect(log.map((a) => a.eventType).sort()).toEqual(["created", "updated"]);
+    const updateEvent = log.find((a) => a.eventType === "updated");
+    const metadata = updateEvent?.metadata as { before: { title: string }; after: { title: string } };
+    expect(metadata.before.title).toBe("CCTV Installation - Bekasi");
+    expect(metadata.after.title).toBe("CCTV Installation - Bekasi (revised)");
   });
 
   it("actually clears notes and expectedCloseDate when the update omits them, not silently keeping the old value", async () => {
@@ -397,6 +420,10 @@ describe("deals", () => {
     expect(log.map((a) => a.eventType).sort()).toEqual(
       ["created", "stage_changed", "stage_changed", "stage_changed", "won"].sort(),
     );
+
+    const wonEvent = log.find((a) => a.eventType === "won");
+    const metadata = wonEvent?.metadata as { wonValue: string };
+    expect(metadata.wonValue).toBe("30000000");
   });
 
   it("rejects an illegal transition (skipping stages) without mutating the deal", async () => {
@@ -468,10 +495,19 @@ describe("deals", () => {
       headers: new Headers({ cookie: ownerCookie }),
       dealId: created.id,
       expectedVersion: created.version,
-      input: { toStatus: "LOST", lostReason: "NO_RESPONSE" },
+      input: { toStatus: "LOST", lostReason: "NO_RESPONSE", lostNote: "Tidak ada balasan setelah 3 minggu" },
     });
     expect(lost.lostReason).toBe("NO_RESPONSE");
     expect(lost.lostAt).not.toBeNull();
+
+    // AUD-01: "simpan lost_at dan event alasan" -- the reason belongs on
+    // the activity event itself, not just the deals row.
+    const lostEvent = await db.query.activities.findFirst({
+      where: and(eq(activities.dealId, created.id), eq(activities.eventType, "lost")),
+    });
+    const metadata = lostEvent?.metadata as { lostReason: string; lostNote: string };
+    expect(metadata.lostReason).toBe("NO_RESPONSE");
+    expect(metadata.lostNote).toBe("Tidak ada balasan setelah 3 minggu");
   });
 
   it("rejects marking a zero-value deal WON (DEAL-04)", async () => {

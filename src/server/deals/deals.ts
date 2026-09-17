@@ -127,6 +127,11 @@ export async function createDeal(params: { headers: Headers; input: unknown }) {
       throw new APIError("BAD_REQUEST", { message: "assignedToId is required" });
     }
     assignedToId = actor.userId;
+  } else if (actor.role === "SALES" && assignedToId !== actor.userId) {
+    // §6.2: Sales creating a deal can only assign it to themselves, never
+    // explicitly hand it to someone else -- the omitted-defaults-to-self
+    // path above isn't the only way this could have been set.
+    throw new APIError("FORBIDDEN", { message: "Sales can only assign a new deal to themselves" });
   }
   await assertActiveAssignee(actor.organizationId, assignedToId);
   await assertCustomerInOrganization(actor.organizationId, parsed.customerId);
@@ -212,34 +217,64 @@ export async function updateDeal(params: {
     await assertCustomerInOrganization(actor.organizationId, parsed.customerId);
   }
 
-  const [updated] = await db
-    .update(deals)
-    .set({
-      customerId: parsed.customerId,
-      title: parsed.title,
-      description: parsed.description,
-      notes: parsed.notes,
-      estimatedValue: parsed.estimatedValue,
-      assignedToId: parsed.assignedToId,
-      expectedCloseDate: parsed.expectedCloseDate,
-      updatedById: actor.userId,
-      version: sql`${deals.version} + 1`,
-    })
-    .where(
-      and(
-        eq(deals.id, params.dealId),
-        eq(deals.organizationId, actor.organizationId),
-        eq(deals.version, params.expectedVersion),
-      ),
-    )
-    .returning();
+  return db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(deals)
+      .set({
+        customerId: parsed.customerId,
+        title: parsed.title,
+        description: parsed.description,
+        notes: parsed.notes,
+        estimatedValue: parsed.estimatedValue,
+        assignedToId: parsed.assignedToId,
+        expectedCloseDate: parsed.expectedCloseDate,
+        updatedById: actor.userId,
+        version: sql`${deals.version} + 1`,
+      })
+      .where(
+        and(
+          eq(deals.id, params.dealId),
+          eq(deals.organizationId, actor.organizationId),
+          eq(deals.version, params.expectedVersion),
+        ),
+      )
+      .returning();
 
-  if (!updated) {
-    // existing was found above with the same tenant scope, so reaching
-    // here means the version check failed, not a missing/cross-tenant row.
-    throw new APIError("CONFLICT", { message: "Deal was modified by someone else, reload and try again" });
-  }
-  return updated;
+    if (!updated) {
+      // existing was found above with the same tenant scope, so reaching
+      // here means the version check failed, not a missing/cross-tenant row.
+      throw new APIError("CONFLICT", { message: "Deal was modified by someone else, reload and try again" });
+    }
+
+    // AUD-01: "deal updated" is a required minimum event, not just stage
+    // changes. estimatedValue is bigint and jsonb can't serialize that
+    // directly (JSON.stringify throws on a raw BigInt), so it's stringified
+    // before going into metadata.
+    await tx.insert(activities).values({
+      organizationId: actor.organizationId,
+      dealId: params.dealId,
+      entityType: "deal",
+      eventType: "updated",
+      actorId: actor.userId,
+      metadata: {
+        before: {
+          title: existing.title,
+          estimatedValue: existing.estimatedValue.toString(),
+          customerId: existing.customerId,
+          assignedToId: existing.assignedToId,
+        },
+        after: {
+          title: parsed.title,
+          estimatedValue: parsed.estimatedValue.toString(),
+          customerId: parsed.customerId,
+          assignedToId: parsed.assignedToId,
+        },
+      },
+      permissionCategory: "sales",
+    });
+
+    return updated;
+  });
 }
 
 /**
@@ -318,13 +353,24 @@ export async function transitionDeal(params: {
     }
 
     const eventType = parsed.toStatus === "WON" ? "won" : parsed.toStatus === "LOST" ? "lost" : "stage_changed";
+    // AUD-01 ("simpan lost_at dan event alasan") / AUD-02: the reason is
+    // part of the event, not just a column on the deal row. wonValue is
+    // bigint, stringified for the same reason as updateDeal's metadata.
+    const metadata: Record<string, unknown> = { fromStatus: existing.status, toStatus: parsed.toStatus };
+    if (parsed.toStatus === "WON") {
+      metadata.wonValue = existing.estimatedValue.toString();
+    }
+    if (parsed.toStatus === "LOST") {
+      metadata.lostReason = parsed.lostReason;
+      metadata.lostNote = parsed.lostNote;
+    }
     await tx.insert(activities).values({
       organizationId: actor.organizationId,
       dealId: params.dealId,
       entityType: "deal",
       eventType,
       actorId: actor.userId,
-      metadata: { fromStatus: existing.status, toStatus: parsed.toStatus },
+      metadata,
       permissionCategory: "sales",
     });
 
