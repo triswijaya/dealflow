@@ -7,7 +7,20 @@
 // member.deactivatedAt (AUTH-04), registered with Better Auth via the
 // organization plugin's schema.member.additionalFields config.
 import { relations } from "drizzle-orm";
-import { bigint, boolean, date, foreignKey, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  date,
+  foreignKey,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -256,11 +269,51 @@ export const deals = pgTable(
       columns: [table.organizationId, table.customerId],
       foreignColumns: [customers.organizationId, customers.id],
     }).onDelete("restrict"),
+    // Same purpose as customers_organizationId_id_uidx: lets a child table
+    // (activities) carry a composite FK to (organizationId, id) here.
+    // Postgres requires the referenced side of a composite FK to have an
+    // exact-match unique constraint, id alone being unique isn't enough.
+    uniqueIndex("deals_organizationId_id_uidx").on(table.organizationId, table.id),
     index("deals_organizationId_status_idx").on(table.organizationId, table.status),
     index("deals_organizationId_assignedToId_idx").on(table.organizationId, table.assignedToId),
     index("deals_organizationId_customerId_idx").on(table.organizationId, table.customerId),
     index("deals_organizationId_createdAt_idx").on(table.organizationId, table.createdAt),
     index("deals_organizationId_wonAt_idx").on(table.organizationId, table.wonAt),
+  ],
+);
+
+// Business table (M1, AUD-01-03). Write-only in this commit: logged
+// alongside deal creation/transitions in the same transaction (DATA-06), but
+// there is no read/list function or AUD-04 permission-category filtering
+// yet, since nothing consumes it (that's a UI timeline feature, later).
+// permissionCategory and operationId columns exist to match the documented
+// contract and avoid a future migration, not because they're used yet.
+export const activities = pgTable(
+  "activities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    dealId: uuid("deal_id").notNull(),
+    entityType: text("entity_type").notNull(),
+    eventType: text("event_type").notNull(),
+    // Nullable: a future system-generated event (e.g. an automated reminder)
+    // has no human actor.
+    actorId: text("actor_id").references(() => user.id, { onDelete: "restrict" }),
+    metadata: jsonb("metadata"),
+    permissionCategory: text("permission_category").notNull(),
+    operationId: text("operation_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "activities_deal_tenant_fk",
+      columns: [table.organizationId, table.dealId],
+      foreignColumns: [deals.organizationId, deals.id],
+    }).onDelete("restrict"),
+    // DATA-03: activities tenant+deal+created_at.
+    index("activities_organizationId_dealId_createdAt_idx").on(table.organizationId, table.dealId, table.createdAt),
   ],
 );
 
@@ -363,5 +416,20 @@ export const dealsRelations = relations(deals, ({ one }) => ({
     fields: [deals.updatedById],
     references: [user.id],
     relationName: "dealUpdatedBy",
+  }),
+}));
+
+export const activitiesRelations = relations(activities, ({ one }) => ({
+  organization: one(organization, {
+    fields: [activities.organizationId],
+    references: [organization.id],
+  }),
+  deal: one(deals, {
+    fields: [activities.dealId],
+    references: [deals.id],
+  }),
+  actor: one(user, {
+    fields: [activities.actorId],
+    references: [user.id],
   }),
 }));
