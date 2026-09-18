@@ -1,13 +1,16 @@
 import { createAccessControl } from "better-auth/plugins/access";
 
 // Business permissions are added in the commit that introduces each module,
-// not declared speculatively. customer.* and deal.* are M1's first (§6.2).
+// not declared speculatively. customer.* and deal.* are M1's; quotation.*
+// is M2's first (§6.2 "Membuat/mengubah quotation draft, revisi, status,
+// PDF": Owner/Admin/Sales Ya, Finance Tidak).
 const statement = {
   organization: ["update"],
   member: ["create", "update", "delete"],
   invitation: ["create", "cancel"],
   customer: ["read", "write"],
   deal: ["read", "write", "transition"],
+  quotation: ["read", "write"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -20,6 +23,7 @@ export const roles = {
     invitation: ["create", "cancel"],
     customer: ["read", "write"],
     deal: ["read", "write", "transition"],
+    quotation: ["read", "write"],
   }),
   ADMIN: ac.newRole({
     organization: ["update"],
@@ -27,17 +31,22 @@ export const roles = {
     invitation: ["create", "cancel"],
     customer: ["read", "write"],
     deal: ["read", "write", "transition"],
+    quotation: ["read", "write"],
   }),
   SALES: ac.newRole({
     customer: ["read", "write"],
     deal: ["read", "write", "transition"],
+    quotation: ["read", "write"],
   }),
   // §6.2: Finance can read every customer (not filtered), and can read
   // deals too, but only WON ones -- that filter happens in the deals
   // service query, not here, since ac/roles only grants/denies a whole
   // resource-action, it can't express a per-row status condition. Finance
   // cannot transition deal status at all ("Mengubah status, WON/LOST":
-  // Tidak).
+  // Tidak), and cannot read or write quotations in this milestone either
+  // ("Membaca quotation/PDF sebagai sumber invoice": hanya terkait deal
+  // WON -- that's an M3 invoice-sourcing concern, not a general
+  // quotation.read grant, so it's deliberately absent here).
   FINANCE: ac.newRole({
     customer: ["read"],
     deal: ["read"],

@@ -6,7 +6,7 @@
 // defense-in-depth alongside the beforeAddMember hook in auth.ts, and
 // member.deactivatedAt (AUTH-04), registered with Better Auth via the
 // organization plugin's schema.member.additionalFields config.
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -15,7 +15,9 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -250,6 +252,15 @@ export const deals = pgTable(
     wonValue: bigint("won_value", { mode: "bigint" }),
     lostAt: timestamp("lost_at", { withTimezone: true }),
     lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).defaultNow().notNull(),
+    // DEAL-02: once a deal has a quotation, its customer_id can no longer
+    // move via updateDeal's general edit path. Set once, inside the same
+    // transaction as the quotation insert (see quotations.ts createQuotation),
+    // and never cleared. Reading this alongside `existing` under
+    // updateDeal's own optimistic-concurrency check (below) is what closes
+    // the create-quotation-vs-update-deal race the requirement calls out:
+    // whichever transaction commits first bumps `version`, so the loser
+    // always reloads and sees hasQuotation already true.
+    hasQuotation: boolean("has_quotation").notNull().default(false),
     // DATA-07: optimistic concurrency. Every update checks and increments
     // this; a stale version means someone else edited first.
     version: integer("version").notNull().default(1),
@@ -318,6 +329,179 @@ export const activities = pgTable(
     }).onDelete("restrict"),
     // DATA-03: activities tenant+deal+created_at.
     index("activities_organizationId_dealId_createdAt_idx").on(table.organizationId, table.dealId, table.createdAt),
+  ],
+);
+
+// Business table (M2, QUO-04). One row per (organization, document type,
+// year); document-number.ts claims the next sequence with a single atomic
+// UPSERT inside the same transaction as the quotation insert, so two
+// concurrent creates in the same org/year can never receive the same
+// number. "QUOTATION" is the only documentType this milestone writes;
+// invoice numbering (M3) reuses this table rather than adding its own.
+export const documentCounters = pgTable(
+  "document_counters",
+  {
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    documentType: text("document_type").notNull(),
+    year: integer("year").notNull(),
+    // The next sequence number this (org, type, year) will hand out, i.e.
+    // one past the last number actually claimed.
+    nextSequence: integer("next_sequence").notNull().default(1),
+  },
+  // DATA-02: "counter tenant/type/year" -- the primary key both enforces
+  // the uniqueness and gives document-number.ts's UPSERT its conflict
+  // target.
+  (table) => [primaryKey({ columns: [table.organizationId, table.documentType, table.year] })],
+);
+
+// Business table (M2, QUO-01-07). All family/revision/snapshot columns are
+// added now even though revision creation (which is what first writes a
+// non-null previousRevisionId or a second row in a family) lands in a
+// later commit: the same reasoning as deals' won/lost columns in M1,
+// avoiding migration churn for a shape the requirement already documents
+// as this table's own field contract (§14.1).
+export const quotations = pgTable(
+  "quotations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    dealId: uuid("deal_id").notNull(),
+    customerId: uuid("customer_id").notNull(),
+    // QUO-04: server-generated, immutable, "QT-2026-00042" / "-R1" / "-R2".
+    quotationNumber: text("quotation_number").notNull(),
+    // QUO-05/06: the id of the family's original quotation. Equal to this
+    // row's own id when the row IS the original -- set explicitly by the
+    // service at insert time (an application-generated UUID, not
+    // defaultRandom()'s server-side default), since a self-referencing
+    // value has to be known before the row exists.
+    familyId: uuid("family_id").notNull(),
+    revisionNumber: integer("revision_number").notNull().default(1),
+    // Composite self-FK below ties this to the same tenant. Null for an
+    // original quotation.
+    previousRevisionId: uuid("previous_revision_id"),
+    // QUO-06: exactly one row per family has isLatest = true, enforced by
+    // the partial unique index below, not just application logic.
+    isLatest: boolean("is_latest").notNull().default(true),
+    // DATA-04: date-only fields, kept as plain strings for the same reason
+    // as deals.expectedCloseDate: never round-tripped through a JS Date.
+    issueDate: date("issue_date", { mode: "string" }).notNull(),
+    validUntil: date("valid_until", { mode: "string" }).notNull(),
+    // MONEY-01: bigint end to end, never a floating-point number.
+    subtotal: bigint("subtotal", { mode: "bigint" }).notNull(),
+    // A plain 0n default trips drizzle-kit's snapshot serializer (it
+    // JSON.stringifies column defaults, and JSON.stringify can't handle
+    // BigInt); sql`0` sidesteps that by storing the default as raw SQL
+    // instead of a JS value.
+    discount: bigint("discount", { mode: "bigint" }).notNull().default(sql`0`),
+    tax: bigint("tax", { mode: "bigint" }).notNull().default(sql`0`),
+    total: bigint("total", { mode: "bigint" }).notNull(),
+    // MONEY-03/MONEY-07: the calculation rule version baked into this
+    // snapshot, so a future formula change can never silently reinterpret
+    // an already-stored total.
+    calculationVersion: integer("calculation_version").notNull(),
+    notes: text("notes"),
+    terms: text("terms"),
+    status: text("status").notNull().default("DRAFT"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+    // QUO-06/PDF-02: once set, this version's commercial content
+    // (seller/customer snapshot, items, terms) is frozen and can no longer
+    // change, including via master-data edits elsewhere.
+    frozenAt: timestamp("frozen_at", { withTimezone: true }),
+    sellerSnapshot: jsonb("seller_snapshot"),
+    customerSnapshot: jsonb("customer_snapshot"),
+    // QUO-03/DATA-07: optimistic concurrency for commercial edits. Named
+    // distinctly from calculationVersion (a different axis entirely: this
+    // one is "has anyone edited since I last read this row") and from
+    // deals.version, so the two never get confused when both appear in the
+    // same function.
+    editVersion: integer("edit_version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    updatedById: text("updated_by_id").references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    // TENANT-03: composite FKs, matching the deals/customers pattern.
+    foreignKey({
+      name: "quotations_deal_tenant_fk",
+      columns: [table.organizationId, table.dealId],
+      foreignColumns: [deals.organizationId, deals.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "quotations_customer_tenant_fk",
+      columns: [table.organizationId, table.customerId],
+      foreignColumns: [customers.organizationId, customers.id],
+    }).onDelete("restrict"),
+    // Self-referencing composite FK: a revision's previousRevisionId must
+    // be a quotation in the same organization. Null on both sides (an
+    // original quotation) skips the check, matching every other nullable
+    // composite FK in this schema.
+    foreignKey({
+      name: "quotations_previous_revision_tenant_fk",
+      columns: [table.organizationId, table.previousRevisionId],
+      foreignColumns: [table.organizationId, table.id],
+    }).onDelete("restrict"),
+    // Lets quotation_items carry a composite FK to (organizationId, id)
+    // here, same purpose as customers_organizationId_id_uidx.
+    uniqueIndex("quotations_organizationId_id_uidx").on(table.organizationId, table.id),
+    // DATA-02: nomor quotation unik per tenant.
+    uniqueIndex("quotations_organizationId_number_uidx").on(table.organizationId, table.quotationNumber),
+    // DATA-02: family+revision index.
+    uniqueIndex("quotations_organizationId_familyId_revisionNumber_uidx").on(
+      table.organizationId,
+      table.familyId,
+      table.revisionNumber,
+    ),
+    // DATA-02: paling banyak satu latest version per family, enforced by
+    // Postgres itself via a partial unique index, not just application code
+    // remembering to flip the old row's isLatest off in the same transaction.
+    uniqueIndex("quotations_familyId_latest_uidx").on(table.familyId).where(sql`${table.isLatest} = true`),
+    // DATA-03: quotations tenant+deal (number lookup is already covered by
+    // the unique index above).
+    index("quotations_organizationId_dealId_idx").on(table.organizationId, table.dealId),
+  ],
+);
+
+// Business table (M2, QUO-02). subtotal is always server-computed
+// (calculateItemSubtotal), never trusted from the client (MONEY-06).
+export const quotationItems = pgTable(
+  "quotation_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    quotationId: uuid("quotation_id").notNull(),
+    description: text("description").notNull(),
+    // MONEY-02: numeric(12,3), read/written as a decimal string, never
+    // Number -- see server/money/quantity.ts for the scaled-bigint domain
+    // representation this round-trips through.
+    quantity: numeric("quantity", { precision: 12, scale: 3 }).notNull(),
+    unit: text("unit").notNull(),
+    unitPrice: bigint("unit_price", { mode: "bigint" }).notNull(),
+    subtotal: bigint("subtotal", { mode: "bigint" }).notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "quotation_items_quotation_tenant_fk",
+      columns: [table.organizationId, table.quotationId],
+      foreignColumns: [quotations.organizationId, quotations.id],
+    }).onDelete("restrict"),
+    index("quotation_items_organizationId_quotationId_idx").on(table.organizationId, table.quotationId),
+    // DATA-02: item sort order per parent.
+    uniqueIndex("quotation_items_quotationId_sortOrder_uidx").on(table.quotationId, table.sortOrder),
   ],
 );
 
@@ -435,5 +619,43 @@ export const activitiesRelations = relations(activities, ({ one }) => ({
   actor: one(user, {
     fields: [activities.actorId],
     references: [user.id],
+  }),
+}));
+
+export const quotationsRelations = relations(quotations, ({ one, many }) => ({
+  organization: one(organization, {
+    fields: [quotations.organizationId],
+    references: [organization.id],
+  }),
+  deal: one(deals, {
+    fields: [quotations.dealId],
+    references: [deals.id],
+  }),
+  customer: one(customers, {
+    fields: [quotations.customerId],
+    references: [customers.id],
+  }),
+  previousRevision: one(quotations, {
+    fields: [quotations.previousRevisionId],
+    references: [quotations.id],
+    relationName: "quotationRevisionChain",
+  }),
+  items: many(quotationItems),
+  createdBy: one(user, {
+    fields: [quotations.createdById],
+    references: [user.id],
+    relationName: "quotationCreatedBy",
+  }),
+  updatedBy: one(user, {
+    fields: [quotations.updatedById],
+    references: [user.id],
+    relationName: "quotationUpdatedBy",
+  }),
+}));
+
+export const quotationItemsRelations = relations(quotationItems, ({ one }) => ({
+  quotation: one(quotations, {
+    fields: [quotationItems.quotationId],
+    references: [quotations.id],
   }),
 }));

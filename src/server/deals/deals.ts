@@ -211,9 +211,15 @@ export async function updateDeal(params: {
   }
 
   if (parsed.customerId !== existing.customerId) {
-    // DEAL-02: reassigning to a different customer is only locked once a
-    // quotation exists; quotations don't exist yet (M2), so no lock check
-    // here yet. Revisit this function when quotations land.
+    // DEAL-02: once a quotation exists, the deal's customer is locked.
+    // hasQuotation is set inside createQuotation's own transaction, in the
+    // same statement that also bumps `version`, so a customerId change
+    // racing a concurrent createQuotation is caught by the version check
+    // below, not by this flag alone -- see the hasQuotation column comment
+    // in schema.ts for the full race argument.
+    if (existing.hasQuotation) {
+      throw new APIError("BAD_REQUEST", { message: "Cannot change the customer once a quotation exists" });
+    }
     await assertCustomerInOrganization(actor.organizationId, parsed.customerId);
   }
 
