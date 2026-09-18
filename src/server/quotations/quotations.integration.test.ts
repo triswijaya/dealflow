@@ -122,6 +122,26 @@ describe("quotations", () => {
     expect(created.items[0].subtotal).toBe(6_000_000n);
   });
 
+  it("round-trips a fractional quantity through the real numeric(12,3) column exactly (MONEY-02/MONEY-03)", async () => {
+    // Every other test in this file uses whole-number quantities. This is
+    // the one case that actually exercises quantity.ts's scaled-bigint
+    // encoding against a real Postgres numeric column instead of just the
+    // in-memory calculation slice 1 already unit-tests -- it proves the
+    // value Postgres stores and returns on a fresh SELECT still matches,
+    // not just what the same INSERT's .returning() echoed back.
+    const { ownerCookie, dealId } = await setupOwnerWithDeal();
+    const created = await createQuotation({
+      headers: new Headers({ cookie: ownerCookie }),
+      input: quotationInput(dealId, { items: oneItem({ quantity: "0.333", unitPrice: "1001" }) }),
+    });
+    expect(created.items[0].subtotal).toBe(333n);
+
+    const reread = await getQuotation({ headers: new Headers({ cookie: ownerCookie }), quotationId: created.id });
+    expect(reread.items[0].quantity).toBe("0.333");
+    expect(reread.items[0].subtotal).toBe(333n);
+    expect(reread.subtotal).toBe(333n);
+  });
+
   it("derives customerId from the deal rather than accepting it as input (DATA-02)", async () => {
     const { ownerCookie, dealId, customerId } = await setupOwnerWithDeal();
     const created = await createQuotation({
