@@ -15,11 +15,21 @@ export function normalizePhone(rawInput: string): string | null {
   }
 
   let normalized: string;
-  if (digitsOnly.startsWith("0")) {
+  if (hasPlusPrefix) {
+    // An explicit "+" commits the input to being an international number,
+    // so the digits after it are a country code, never re-interpreted as
+    // an Indonesian local "0" prefix -- no valid E.164 country code starts
+    // with 0, so "+0..." is self-contradictory input, not a number this
+    // function can guess the intent of and silently "correct".
+    if (digitsOnly.startsWith("0")) {
+      return null;
+    }
+    normalized = digitsOnly;
+  } else if (digitsOnly.startsWith("0")) {
     // Indonesian local format: 0812... -> 62812...
     normalized = `62${digitsOnly.slice(1)}`;
-  } else if (hasPlusPrefix || digitsOnly.startsWith("62")) {
-    // Already has an explicit country code (+62812... or 62812...).
+  } else if (digitsOnly.startsWith("62")) {
+    // Bare digits already carrying the country code, no leading 0 and no +.
     normalized = digitsOnly;
   } else {
     // No leading 0 and no explicit country code: can't tell what this is.

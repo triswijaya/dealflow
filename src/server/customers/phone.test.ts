@@ -41,4 +41,16 @@ describe("normalizePhone", () => {
   it("rejects a result that exceeds E.164's 15-digit maximum", () => {
     expect(normalizePhone("+62812345678901234")).toBeNull();
   });
+
+  it("rejects an explicit '+0...' instead of silently reinterpreting it as an Indonesian local number (CUS-01)", () => {
+    // No valid E.164 country code starts with 0, so a "+" paired with a
+    // leading 0 is self-contradictory input, not a number this function
+    // should guess the intent of.
+    expect(normalizePhone("+0812345678")).toBeNull();
+    expect(normalizePhone("+044 1234567")).toBeNull();
+  });
+
+  it("still normalizes a plain (no +) local 0-prefixed number the same as before", () => {
+    expect(normalizePhone("08123456789")).toBe("628123456789");
+  });
 });
