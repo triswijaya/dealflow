@@ -610,6 +610,194 @@ export const quotationItems = pgTable(
   ],
 );
 
+// Business table (M3, INV-01-04). One invoice per WON deal, immutable once
+// issued (INV-03), so there is deliberately no `version` column: nothing
+// ever edits an invoice row, and payment concurrency is handled by locking
+// this row inside recordPayment's transaction (PAY-03 "lock invoice row"),
+// not by an optimistic version check.
+//
+// paid_amount/remaining_amount are NOT stored: §14.1 lists them as "cached
+// paid/status jika dipakai" (optional), and PAY-03 computes the balance
+// fresh under the row lock anyway, so a cached copy would add an
+// invalidation path without buying correctness.
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    dealId: uuid("deal_id").notNull(),
+    customerId: uuid("customer_id").notNull(),
+    // INV-04: server-generated "INV-2026-00001", same numbering policy as
+    // quotations (§8.2), sharing documentCounters via documentType.
+    invoiceNumber: text("invoice_number").notNull(),
+    // INV-01/INV-02: optional, and when present must be a specific version
+    // belonging to this same deal.
+    quotationId: uuid("quotation_id"),
+    // DATA-04: date-only business fields, plain strings, never round-tripped
+    // through a JS Date.
+    issueDate: date("issue_date", { mode: "string" }).notNull(),
+    dueDate: date("due_date", { mode: "string" }).notNull(),
+    // MONEY-01: bigint end to end.
+    subtotal: bigint("subtotal", { mode: "bigint" }).notNull(),
+    discount: bigint("discount", { mode: "bigint" }).notNull().default(sql`0`),
+    tax: bigint("tax", { mode: "bigint" }).notNull().default(sql`0`),
+    total: bigint("total", { mode: "bigint" }).notNull(),
+    calculationVersion: integer("calculation_version").notNull(),
+    // §10.1 field table lists currency explicitly; §3 fixes it to IDR for
+    // the MVP, so this records what the stored amounts mean rather than
+    // offering a choice.
+    currency: text("currency").notNull().default("IDR"),
+    // Not in §10.1's field table, but INV-02 says an invoice copies
+    // "notes/terms yang relevan" from its source quotation, which needs
+    // somewhere to land. Commercially these matter more on an invoice than
+    // on a quotation (payment terms the customer already agreed to), and
+    // the eventual invoice PDF (INV-05, deferred) will need them.
+    notes: text("notes"),
+    terms: text("terms"),
+    // INV-03: the final snapshot, frozen at issue time. Same shape as a
+    // quotation's (shared/document-snapshots.ts).
+    sellerSnapshot: jsonb("seller_snapshot"),
+    customerSnapshot: jsonb("customer_snapshot"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    // TENANT-03: composite FKs, so a row whose parent belongs to another
+    // organization is rejected by Postgres, not only by service code.
+    foreignKey({
+      name: "invoices_deal_tenant_fk",
+      columns: [table.organizationId, table.dealId],
+      foreignColumns: [deals.organizationId, deals.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "invoices_customer_tenant_fk",
+      columns: [table.organizationId, table.customerId],
+      foreignColumns: [customers.organizationId, customers.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "invoices_quotation_tenant_fk",
+      columns: [table.organizationId, table.quotationId],
+      foreignColumns: [quotations.organizationId, quotations.id],
+    }).onDelete("restrict"),
+    // Lets invoice_items carry a composite FK to (organizationId, id).
+    uniqueIndex("invoices_organizationId_id_uidx").on(table.organizationId, table.id),
+    // INV-04: "Unique (organization_id, deal_id) mencegah dua invoice untuk
+    // satu deal." The last line of defence behind createInvoice's own
+    // idempotency handling.
+    uniqueIndex("invoices_organizationId_dealId_uidx").on(table.organizationId, table.dealId),
+    // DATA-02: nomor invoice unik per tenant.
+    uniqueIndex("invoices_organizationId_number_uidx").on(table.organizationId, table.invoiceNumber),
+    // DATA-03: invoices tenant+customer/due_date.
+    index("invoices_organizationId_customerId_idx").on(table.organizationId, table.customerId),
+    index("invoices_organizationId_dueDate_idx").on(table.organizationId, table.dueDate),
+    // §10.1: "due_date >= issue_date".
+    check("invoices_dueDate_after_issueDate_chk", sql`${table.dueDate} >= ${table.issueDate}`),
+    // MONEY-04/05/06, same ceilings as quotations.
+    check(
+      "invoices_subtotal_range_chk",
+      sql`${table.subtotal} >= 0 AND ${table.subtotal} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`,
+    ),
+    check("invoices_discount_range_chk", sql`${table.discount} >= 0 AND ${table.discount} <= ${table.subtotal}`),
+    check("invoices_tax_nonneg_chk", sql`${table.tax} >= 0`),
+    check("invoices_total_range_chk", sql`${table.total} > 0 AND ${table.total} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`),
+  ],
+);
+
+// Business table (M3, INV-02). Field/precision identical to
+// quotation_items by requirement ("field/precision sama dengan quotation
+// items"), which is also why both share documentItemSchema on the input
+// side rather than each defining their own.
+export const invoiceItems = pgTable(
+  "invoice_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    invoiceId: uuid("invoice_id").notNull(),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 12, scale: 3 }).notNull(),
+    unit: text("unit").notNull(),
+    unitPrice: bigint("unit_price", { mode: "bigint" }).notNull(),
+    subtotal: bigint("subtotal", { mode: "bigint" }).notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "invoice_items_invoice_tenant_fk",
+      columns: [table.organizationId, table.invoiceId],
+      foreignColumns: [invoices.organizationId, invoices.id],
+    }).onDelete("restrict"),
+    index("invoice_items_organizationId_invoiceId_idx").on(table.organizationId, table.invoiceId),
+    // DATA-02: item sort order per parent.
+    uniqueIndex("invoice_items_invoiceId_sortOrder_uidx").on(table.invoiceId, table.sortOrder),
+    check("invoice_items_quantity_range_chk", sql`${table.quantity} > 0 AND ${table.quantity} <= 1000000.000`),
+    check(
+      "invoice_items_unitPrice_range_chk",
+      sql`${table.unitPrice} >= 0 AND ${table.unitPrice} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`,
+    ),
+    check(
+      "invoice_items_subtotal_range_chk",
+      sql`${table.subtotal} >= 0 AND ${table.subtotal} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`,
+    ),
+  ],
+);
+
+// Business table (M3, PAY-01-05). Append-only: PAY-05 forbids editing or
+// deleting a recorded payment in the MVP, so there is no version column and
+// no updated_at -- the only write path is the insert inside recordPayment's
+// transaction.
+//
+// An invoice's paid/remaining balance is summed from these rows on every
+// read rather than cached on the invoice (§14.1 "cached paid/status jika
+// dipakai"), which is also what PAY-03's "hitung saldo terbaru" does under
+// the invoice row lock before accepting a new payment.
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    invoiceId: uuid("invoice_id").notNull(),
+    // MONEY-01: rupiah as bigint. PAY-02 requires strictly positive, which
+    // the CHECK below enforces at the database layer too.
+    amount: bigint("amount", { mode: "bigint" }).notNull(),
+    // DATA-04: a business date, not an instant. createdAt below records when
+    // it was actually entered, which PAY-02 keeps distinct from the date the
+    // money moved.
+    paymentDate: date("payment_date", { mode: "string" }).notNull(),
+    // PAY-01: BANK_TRANSFER, CASH, OTHER. Validated in the service's Zod
+    // schema, stored as plain text like every other status/enum column here.
+    paymentMethod: text("payment_method").notNull(),
+    reference: text("reference"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    foreignKey({
+      name: "payments_invoice_tenant_fk",
+      columns: [table.organizationId, table.invoiceId],
+      foreignColumns: [invoices.organizationId, invoices.id],
+    }).onDelete("restrict"),
+    // DATA-03: payments tenant+invoice.
+    index("payments_organizationId_invoiceId_idx").on(table.organizationId, table.invoiceId),
+    // PAY-02/MONEY-04/MONEY-06: strictly positive, within the money ceiling.
+    check("payments_amount_range_chk", sql`${table.amount} > 0 AND ${table.amount} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`),
+  ],
+);
+
 // Business table (M2, API-05). A natural-key lookup table, same shape as
 // documentCounters: no separate id, the composite primary key IS the
 // identity. First seen for quotation revisions; invoice/payment (M3) will
@@ -805,6 +993,58 @@ export const quotationsRelations = relations(quotations, ({ one, many }) => ({
     fields: [quotations.updatedById],
     references: [user.id],
     relationName: "quotationUpdatedBy",
+  }),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  organization: one(organization, {
+    fields: [invoices.organizationId],
+    references: [organization.id],
+  }),
+  deal: one(deals, {
+    fields: [invoices.dealId],
+    references: [deals.id],
+  }),
+  customer: one(customers, {
+    fields: [invoices.customerId],
+    references: [customers.id],
+  }),
+  sourceQuotation: one(quotations, {
+    fields: [invoices.quotationId],
+    references: [quotations.id],
+  }),
+  createdBy: one(user, {
+    fields: [invoices.createdById],
+    references: [user.id],
+    relationName: "invoiceCreatedBy",
+  }),
+  items: many(invoiceItems),
+}));
+
+export const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({
+  organization: one(organization, {
+    fields: [invoiceItems.organizationId],
+    references: [organization.id],
+  }),
+  invoice: one(invoices, {
+    fields: [invoiceItems.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  organization: one(organization, {
+    fields: [payments.organizationId],
+    references: [organization.id],
+  }),
+  invoice: one(invoices, {
+    fields: [payments.invoiceId],
+    references: [invoices.id],
+  }),
+  createdBy: one(user, {
+    fields: [payments.createdById],
+    references: [user.id],
+    relationName: "paymentCreatedBy",
   }),
 }));
 

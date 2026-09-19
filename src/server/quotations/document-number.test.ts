@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatQuotationNumber, formatRevisionNumber } from "./document-number";
+import { formatInvoiceNumber, formatQuotationNumber, formatRevisionNumber } from "./document-number";
 
 describe("formatQuotationNumber", () => {
   it("pads the sequence to 5 digits (QUO-04)", () => {
@@ -14,6 +14,22 @@ describe("formatQuotationNumber", () => {
 
   it("uses the exact 5-digit boundary without extra padding", () => {
     expect(formatQuotationNumber(2026, 99999)).toBe("QT-2026-99999");
+  });
+});
+
+describe("formatInvoiceNumber", () => {
+  it("pads the sequence to 5 digits (INV-04)", () => {
+    expect(formatInvoiceNumber(2026, 1)).toBe("INV-2026-00001");
+    expect(formatInvoiceNumber(2026, 42)).toBe("INV-2026-00042");
+  });
+
+  it("widens past 99999 instead of rolling over, same policy as quotations (§10.1)", () => {
+    expect(formatInvoiceNumber(2026, 99999)).toBe("INV-2026-99999");
+    expect(formatInvoiceNumber(2026, 100000)).toBe("INV-2026-100000");
+  });
+
+  it("never collides with a quotation number for the same year and sequence", () => {
+    expect(formatInvoiceNumber(2026, 42)).not.toBe(formatQuotationNumber(2026, 42));
   });
 });
 

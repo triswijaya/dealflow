@@ -16,6 +16,8 @@ const statement = {
   deal: ["read", "write", "transition"],
   quotation: ["read", "write"],
   followUp: ["read", "write"],
+  invoice: ["read", "write"],
+  payment: ["read", "write"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -30,6 +32,8 @@ export const roles = {
     deal: ["read", "write", "transition"],
     quotation: ["read", "write"],
     followUp: ["read", "write"],
+    invoice: ["read", "write"],
+    payment: ["read", "write"],
   }),
   ADMIN: ac.newRole({
     organization: ["update"],
@@ -39,6 +43,8 @@ export const roles = {
     deal: ["read", "write", "transition"],
     quotation: ["read", "write"],
     followUp: ["read", "write"],
+    invoice: ["read", "write"],
+    payment: ["read", "write"],
   }),
   SALES: ac.newRole({
     customer: ["read", "write"],
@@ -57,8 +63,24 @@ export const roles = {
   // quotation.read grant, so it's deliberately absent here). Same reasoning
   // keeps followUp off Finance entirely: no matrix row gives Finance any
   // follow-up access, read included.
+  //
+  // invoice.* and payment.* are Finance's own resources (§6.2
+  // "Membuat/membaca invoice" and "Mencatat/membaca payment": Owner/Admin
+  // Ya, Sales Tidak, Finance Ya). Sales is denied both outright, which is
+  // what AT-19's "Sales memanggil payment endpoint manual ditolak"
+  // exercises.
+  //
+  // invoice.write is also the only place Finance reaches quotation data,
+  // and only from inside createInvoice, which has already proven the deal
+  // is WON -- exactly the scope "Membaca quotation/PDF sebagai sumber
+  // invoice: hanya terkait deal WON" allows. A standalone quotation.read
+  // grant for Finance (for an invoice source picker) still needs the
+  // per-row WON filter only the quotations service can apply, so it stays
+  // absent until that UI exists.
   FINANCE: ac.newRole({
     customer: ["read"],
     deal: ["read"],
+    invoice: ["read", "write"],
+    payment: ["read", "write"],
   }),
 };

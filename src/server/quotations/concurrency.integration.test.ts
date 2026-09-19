@@ -8,6 +8,8 @@ import { createCustomer } from "@/server/customers/customers";
 import { createDeal, transitionDeal, updateDeal } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
 import { completeFollowUp, createFollowUp } from "@/server/follow-ups/follow-ups";
+import { createInvoice } from "@/server/invoices/invoices";
+import { recordPayment } from "@/server/invoices/payments";
 import { createQuotation, reviseQuotation, transitionQuotationStatus } from "./quotations";
 
 // AT-07/AT-22: race scenarios the acceptance table requires and nothing
@@ -249,6 +251,97 @@ describe("concurrency", () => {
     expect(fulfilled).toHaveLength(1);
     expect(rejected).toHaveLength(1);
     expect(String(rejected[0].reason)).toMatch(/modified by someone else/);
+  });
+
+  it("INV-04: two concurrent createInvoice calls on the same deal produce exactly one invoice", async () => {
+    const owner = await setupOwnerWithDeal();
+    for (const toStatus of ["CONTACTED", "QUOTATION", "NEGOTIATION", "WON"]) {
+      const current = await db.query.deals.findFirst({ where: (d, { eq }) => eq(d.id, owner.dealId) });
+      await transitionDeal({
+        headers: new Headers({ cookie: owner.ownerCookie }),
+        dealId: owner.dealId,
+        expectedVersion: current!.version,
+        input: { toStatus },
+      });
+    }
+
+    const invoiceInput = () => ({
+      dealId: owner.dealId,
+      dueDate: "2026-12-31",
+      items: [{ description: "CCTV Camera 4MP", quantity: "4", unit: "pcs", unitPrice: "1500000" }],
+      // Distinct keys on purpose: the idempotency layer is not what is
+      // under test here, the deal lock plus UNIQUE(organization_id, deal_id)
+      // is.
+      idempotencyKey: crypto.randomUUID(),
+    });
+
+    const results = await Promise.allSettled([
+      createInvoice({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput() }),
+      createInvoice({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput() }),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    // The loser must get a business-state CONFLICT, not a raw unique-violation
+    // error leaking out of Postgres (API-02).
+    expect(String(rejected[0].reason)).toMatch(/already has invoice/);
+
+    const stored = await db.query.invoices.findMany({ where: (i, { eq }) => eq(i.dealId, owner.dealId) });
+    expect(stored).toHaveLength(1);
+  });
+
+  it("AT-15/PAY-03: two concurrent payments cannot together exceed the outstanding balance", async () => {
+    const owner = await setupOwnerWithDeal();
+    for (const toStatus of ["CONTACTED", "QUOTATION", "NEGOTIATION", "WON"]) {
+      const current = await db.query.deals.findFirst({ where: (d, { eq }) => eq(d.id, owner.dealId) });
+      await transitionDeal({
+        headers: new Headers({ cookie: owner.ownerCookie }),
+        dealId: owner.dealId,
+        expectedVersion: current!.version,
+        input: { toStatus },
+      });
+    }
+    const invoice = await createInvoice({
+      headers: new Headers({ cookie: owner.ownerCookie }),
+      input: {
+        dealId: owner.dealId,
+        dueDate: "2026-12-31",
+        items: [{ description: "Paket CCTV terpasang", quantity: "1", unit: "paket", unitPrice: "30000000" }],
+        idempotencyKey: crypto.randomUUID(),
+      },
+    });
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+    // Both are individually valid against the balance each one reads before
+    // the other commits; together they would overpay by Rp10.000.000.
+    const payment = (amount: string) => ({
+      invoiceId: invoice.id,
+      amount,
+      paymentDate: today,
+      paymentMethod: "BANK_TRANSFER" as const,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    const results = await Promise.allSettled([
+      recordPayment({ headers: new Headers({ cookie: owner.ownerCookie }), input: payment("20000000") }),
+      recordPayment({ headers: new Headers({ cookie: owner.ownerCookie }), input: payment("20000000") }),
+    ]);
+
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    expect(rejected).toHaveLength(1);
+    expect(String(rejected[0].reason)).toMatch(/exceeds the remaining balance/);
+
+    const stored = await db.query.payments.findMany({ where: (p, { eq }) => eq(p.invoiceId, invoice.id) });
+    const paid = stored.reduce((sum, row) => sum + row.amount, 0n);
+    expect(paid).toBe(20_000_000n);
+    expect(paid).toBeLessThanOrEqual(invoice.total);
   });
 
   it("FUP-02: two concurrent completions of the same follow-up log exactly one 'completed' activity (AUD-03)", async () => {

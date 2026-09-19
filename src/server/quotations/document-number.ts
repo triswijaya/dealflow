@@ -51,6 +51,16 @@ export function formatQuotationNumber(year: number, sequence: number): string {
 }
 
 /**
+ * INV-04: `INV-2026-00001`. §10.1 says invoice numbering follows "policy
+ * nomor sama dengan §8.2", so this shares claimNextSequence and the same
+ * padding/widening rule as quotations, differing only in prefix and in the
+ * documentType the counter is keyed by.
+ */
+export function formatInvoiceNumber(year: number, sequence: number): string {
+  return `INV-${year}-${sequence.toString().padStart(MIN_SEQUENCE_DIGITS, "0")}`;
+}
+
+/**
  * QUO-04: `QT-2026-00042-R1`, then `-R2`. `baseNumber` must always be the
  * family's original quotation's number (the row where revisionNumber = 1),
  * never the immediate source's own number -- a revision made from an
