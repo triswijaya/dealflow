@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import { Document, Font, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatRupiah } from "@/server/money/amount";
 import { formatQuantityForDisplay } from "@/server/money/quantity";
-import type { QuotationCustomerSnapshot, QuotationSellerSnapshot } from "@/server/quotations/quotations";
+import type { CustomerSnapshot, SellerSnapshot } from "@/server/shared/document-snapshots";
 import { formatIndonesianDate } from "./format-date";
 
 // PDF-03: a bundled static font, not the library default (Helvetica) and
@@ -96,8 +96,8 @@ export type QuotationDocumentProps = {
   status: string;
   issueDate: string;
   validUntil: string;
-  seller: QuotationSellerSnapshot;
-  customer: QuotationCustomerSnapshot;
+  seller: SellerSnapshot;
+  customer: CustomerSnapshot;
   items: readonly QuotationDocumentItem[];
   subtotal: bigint;
   discount: bigint;

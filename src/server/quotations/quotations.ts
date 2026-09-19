@@ -3,26 +3,19 @@ import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
-import {
-  activities,
-  customers,
-  deals,
-  idempotencyRecords,
-  organization,
-  organizationSettings,
-  quotationItems,
-  quotations,
-} from "@/server/db/schema";
-import { moneyAmountSchema } from "@/server/money/amount";
+import { activities, deals, idempotencyRecords, quotationItems, quotations } from "@/server/db/schema";
 import { type CalculationErrorCode, calculateDocumentTotals } from "@/server/money/calculation";
-import { formatQuantityScaled, quantitySchema } from "@/server/money/quantity";
+import { formatQuantityScaled } from "@/server/money/quantity";
+import { MAX_DOCUMENT_ITEMS, documentItemSchema, optionalMoneyAmountSchema } from "@/server/shared/document-items";
+import {
+  type CustomerSnapshot,
+  type SellerSnapshot,
+  buildDocumentSnapshots,
+} from "@/server/shared/document-snapshots";
 import { organizationYear } from "@/server/shared/organization-date";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { claimNextSequence, formatQuotationNumber, formatRevisionNumber } from "./document-number";
 import { effectiveQuotationStatus } from "./effective-status";
-
-// QUO-02/API-04: MVP item-count ceiling.
-const MAX_ITEMS = 200;
 
 function calculationErrorMessage(code: CalculationErrorCode): string {
   switch (code) {
@@ -38,19 +31,6 @@ function calculationErrorMessage(code: CalculationErrorCode): string {
 }
 
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD");
-
-// QUO-02 field contract, shared by create and update.
-const itemInputSchema = z.object({
-  description: z.string().trim().min(1).max(1000),
-  quantity: quantitySchema,
-  unit: z.string().trim().min(1).max(50),
-  unitPrice: moneyAmountSchema,
-});
-
-// discount/tax are optional nominal amounts (MONEY-03), defaulting to "0"
-// before moneyAmountSchema ever sees them, so an omitted field and an
-// explicit "0" behave identically.
-const optionalMoneyAmountSchema = z.string().default("0").pipe(moneyAmountSchema);
 
 // null (not undefined) on empty/missing notes/terms, matching the
 // customers/deals precedent: Drizzle's .set() treats undefined as "leave
@@ -68,7 +48,7 @@ const notesLikeSchema = (maxLength: number) =>
 const quotationFieldsSchema = {
   issueDate: isoDateSchema.optional(),
   validUntil: isoDateSchema,
-  items: z.array(itemInputSchema).min(1).max(MAX_ITEMS),
+  items: z.array(documentItemSchema).min(1).max(MAX_DOCUMENT_ITEMS),
   discount: optionalMoneyAmountSchema,
   tax: optionalMoneyAmountSchema,
   notes: notesLikeSchema(10_000),
@@ -98,13 +78,6 @@ function computeTotalsOrThrow(parsed: {
   return result.totals;
 }
 
-/**
- * QUO-04/QUO-10: several operations need "today" in the organization's own
- * timezone -- issueDate defaulting and the numbering year at creation,
- * expiry at read time and at status transition. Centralized here so all
- * of them read the settings row the same way and agree on what "today" is
- * within one request.
- */
 /**
  * QUO-01/QUO-02/QUO-04. customer_id is deliberately not a client input: it
  * is always read from the deal itself (DATA-02: "customer harus berasal
@@ -405,59 +378,6 @@ const reviseQuotationInputSchema = z.object({
 });
 
 /**
- * Builds the point-in-time company/customer snapshot a freeze captures.
- * Reads current master data; the caller decides whether that's appropriate
- * (only ever call this for a row that is about to be frozen for the first
- * time -- see the frozenAt-is-null guard in reviseQuotation).
- */
-// PDF-01/PDF-02: named and exported so both the freeze call sites (inside
-// a transaction) and getQuotationForPdf (a plain read, no transaction
-// needed since nothing is written) can share one shape, and so
-// quotation-document.tsx has a real type for its props instead of `any`.
-export type QuotationSellerSnapshot = {
-  name: string | null;
-  address: string | null;
-  contactEmail: string | null;
-  contactPhone: string | null;
-};
-export type QuotationCustomerSnapshot = {
-  companyName: string | null;
-  contactPerson: string | null;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-};
-
-async function buildQuotationSnapshots(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db,
-  params: { organizationId: string; customerId: string },
-): Promise<{ seller: QuotationSellerSnapshot; customer: QuotationCustomerSnapshot }> {
-  const [org] = await tx.select().from(organization).where(eq(organization.id, params.organizationId));
-  const settings = await tx.query.organizationSettings.findFirst({
-    where: eq(organizationSettings.organizationId, params.organizationId),
-  });
-  const customer = await tx.query.customers.findFirst({
-    where: and(eq(customers.id, params.customerId), eq(customers.organizationId, params.organizationId)),
-  });
-
-  return {
-    seller: {
-      name: org?.name ?? null,
-      address: settings?.address ?? null,
-      contactEmail: settings?.contactEmail ?? null,
-      contactPhone: settings?.contactPhone ?? null,
-    },
-    customer: {
-      companyName: customer?.companyName ?? null,
-      contactPerson: customer?.contactPerson ?? null,
-      phone: customer?.phoneNormalized ?? null,
-      email: customer?.email ?? null,
-      address: customer?.address ?? null,
-    },
-  };
-}
-
-/**
  * QUO-05/QUO-06: creates a new DRAFT version in the same revision family,
  * copying its content from `sourceQuotationId` (which may be the family's
  * current latest version, or an older, already-frozen one). Nothing about
@@ -591,7 +511,7 @@ export async function reviseQuotation(params: { headers: Headers; input: unknown
     // a row that already has a snapshot (that would let today's master
     // data leak into what must stay historical, PDF-02).
     if (currentLatest.frozenAt === null) {
-      const snapshots = await buildQuotationSnapshots(tx, {
+      const snapshots = await buildDocumentSnapshots(tx, {
         organizationId: actor.organizationId,
         customerId: currentLatest.customerId,
       });
@@ -782,7 +702,7 @@ export async function transitionQuotationStatus(params: {
       // which would let today's master data leak into what must stay
       // historical (PDF-02).
       if (existing.frozenAt === null) {
-        const snapshots = await buildQuotationSnapshots(tx, {
+        const snapshots = await buildDocumentSnapshots(tx, {
           organizationId: actor.organizationId,
           customerId: existing.customerId,
         });
@@ -909,10 +829,10 @@ export async function getQuotationForPdf(params: { headers: Headers; quotationId
   const snapshots =
     quotation.frozenAt !== null
       ? {
-          seller: quotation.sellerSnapshot as QuotationSellerSnapshot,
-          customer: quotation.customerSnapshot as QuotationCustomerSnapshot,
+          seller: quotation.sellerSnapshot as SellerSnapshot,
+          customer: quotation.customerSnapshot as CustomerSnapshot,
         }
-      : await buildQuotationSnapshots(db, { organizationId: actor.organizationId, customerId: quotation.customerId });
+      : await buildDocumentSnapshots(db, { organizationId: actor.organizationId, customerId: quotation.customerId });
 
   return { quotation, items, seller: snapshots.seller, customer: snapshots.customer };
 }
