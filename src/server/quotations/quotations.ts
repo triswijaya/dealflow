@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
@@ -18,6 +18,7 @@ import { type CalculationErrorCode, calculateDocumentTotals } from "@/server/mon
 import { formatQuantityScaled, quantitySchema } from "@/server/money/quantity";
 import { organizationDateString, organizationYear } from "@/server/shared/organization-date";
 import { claimNextSequence, formatQuotationNumber, formatRevisionNumber } from "./document-number";
+import { effectiveQuotationStatus } from "./effective-status";
 
 // QUO-02/API-04: MVP item-count ceiling.
 const MAX_ITEMS = 200;
@@ -97,6 +98,26 @@ function computeTotalsOrThrow(parsed: {
 }
 
 /**
+ * QUO-04/QUO-10: several operations need "today" in the organization's own
+ * timezone -- issueDate defaulting and the numbering year at creation,
+ * expiry at read time and at status transition. Centralized here so all
+ * of them read the settings row the same way and agree on what "today" is
+ * within one request.
+ */
+async function organizationClock(organizationId: string): Promise<{ timezone: string; today: string; now: Date }> {
+  const settings = await db.query.organizationSettings.findFirst({
+    where: eq(organizationSettings.organizationId, organizationId),
+  });
+  if (!settings) {
+    // Every organization gets a settings row at registration (AUTH-02);
+    // reaching here means that invariant broke, not a normal user error.
+    throw new APIError("INTERNAL_SERVER_ERROR", { message: "Organization settings not found" });
+  }
+  const now = new Date();
+  return { timezone: settings.timezone, today: organizationDateString(settings.timezone, now), now };
+}
+
+/**
  * QUO-01/QUO-02/QUO-04. customer_id is deliberately not a client input: it
  * is always read from the deal itself (DATA-02: "customer harus berasal
  * dari deal yang benar"), which also removes an entire class of
@@ -118,17 +139,8 @@ export async function createQuotation(params: { headers: Headers; input: unknown
   const parsed = quotationCreateInputSchema.parse(params.input);
   const totals = computeTotalsOrThrow(parsed);
 
-  const settings = await db.query.organizationSettings.findFirst({
-    where: eq(organizationSettings.organizationId, actor.organizationId),
-  });
-  if (!settings) {
-    // Every organization gets a settings row at registration (AUTH-02);
-    // reaching here means that invariant broke, not a normal user error.
-    throw new APIError("INTERNAL_SERVER_ERROR", { message: "Organization settings not found" });
-  }
-
-  const now = new Date();
-  const issueDate = parsed.issueDate ?? organizationDateString(settings.timezone, now);
+  const clock = await organizationClock(actor.organizationId);
+  const issueDate = parsed.issueDate ?? clock.today;
   // Field contract (§8.1): valid_until wajib, tidak sebelum issue_date.
   // Both are YYYY-MM-DD, so a plain string comparison is also a correct
   // chronological comparison.
@@ -137,7 +149,7 @@ export async function createQuotation(params: { headers: Headers; input: unknown
   }
   // QUO-04: the year comes from the server's creation instant in the
   // organization's timezone, never a client-editable date.
-  const year = organizationYear(settings.timezone, now);
+  const year = organizationYear(clock.timezone, clock.now);
 
   // Generated in application code (not defaultRandom()) because familyId
   // must equal this row's own id, and a self-referencing value has to be
@@ -327,6 +339,10 @@ export async function updateQuotation(params: {
 /**
  * TENANT-04: a quotation that doesn't exist and one that belongs to a
  * different organization produce the identical NOT_FOUND.
+ *
+ * QUO-10: the returned `status` is the effective one (SENT past
+ * validUntil displays as EXPIRED), computed here at read time -- the
+ * stored column is never overwritten just because a day passed.
  */
 export async function getQuotation(params: { headers: Headers; quotationId: string }) {
   const actor = await requirePermission({ headers: params.headers, permission: { quotation: ["read"] } });
@@ -347,7 +363,8 @@ export async function getQuotation(params: { headers: Headers; quotationId: stri
     where: eq(quotationItems.quotationId, quotation.id),
     orderBy: (item, { asc }) => asc(item.sortOrder),
   });
-  return { ...quotation, items };
+  const clock = await organizationClock(actor.organizationId);
+  return { ...quotation, status: effectiveQuotationStatus(quotation, clock.today), items };
 }
 
 /**
@@ -356,6 +373,8 @@ export async function getQuotation(params: { headers: Headers; quotationId: stri
  * dapat membuka versi lama dan membandingkan nomor/tanggal/totalnya" reads
  * through: every version of a family, old and new, is just a normal row
  * with isLatest telling the caller which one is current.
+ *
+ * QUO-10: same effective-status overlay as getQuotation, applied per row.
  */
 export async function listQuotations(params: { headers: Headers; dealId?: string; familyId?: string }) {
   const actor = await requirePermission({ headers: params.headers, permission: { quotation: ["read"] } });
@@ -367,10 +386,12 @@ export async function listQuotations(params: { headers: Headers; dealId?: string
     conditions.push(eq(quotations.familyId, params.familyId));
   }
 
-  return db.query.quotations.findMany({
+  const rows = await db.query.quotations.findMany({
     where: and(...conditions),
     orderBy: (quotation, { asc }) => asc(quotation.revisionNumber),
   });
+  const clock = await organizationClock(actor.organizationId);
+  return rows.map((row) => ({ ...row, status: effectiveQuotationStatus(row, clock.today) }));
 }
 
 // API-05: this operation type scopes the idempotency key namespace.
@@ -621,5 +642,185 @@ export async function reviseQuotation(params: { headers: Headers; input: unknown
     });
 
     return { ...created, items };
+  });
+}
+
+// QUO-08/QUO-09: DRAFT can only ever become SENT; SENT can become ACCEPTED
+// or REJECTED; ACCEPTED and REJECTED are terminal (their own forward path
+// is a new revision -- reviseQuotation -- not a status change on this
+// same row). EXPIRED never appears here: it is never a stored status,
+// only a read-time overlay (effective-status.ts).
+const VALID_QUOTATION_STATUS_TRANSITIONS: Record<string, readonly string[]> = {
+  DRAFT: ["SENT"],
+  SENT: ["ACCEPTED", "REJECTED"],
+  ACCEPTED: [],
+  REJECTED: [],
+};
+
+const transitionQuotationStatusInputSchema = z.object({
+  toStatus: z.enum(["SENT", "ACCEPTED", "REJECTED"]),
+});
+
+/**
+ * QUO-08/QUO-09/QUO-10. A request for the quotation's current status is an
+ * idempotent no-op (no error, no write, no version bump), matching
+ * transitionDeal's pattern in deals.ts.
+ *
+ * SENT and ACCEPTED both require the quotation not be expired (today_org
+ * <= validUntil); REJECTED deliberately does not -- the transition table
+ * only lists the expiry check for ACCEPTED, not REJECTED. A customer can
+ * still say no after the window closed; they just can't say yes to an
+ * offer that already lapsed.
+ */
+export async function transitionQuotationStatus(params: {
+  headers: Headers;
+  quotationId: string;
+  expectedEditVersion: number;
+  toStatus: unknown;
+}) {
+  const actor = await requirePermission({ headers: params.headers, permission: { quotation: ["write"] } });
+  const parsed = transitionQuotationStatusInputSchema.parse({ toStatus: params.toStatus });
+
+  const existing = await db.query.quotations.findFirst({
+    where: and(eq(quotations.id, params.quotationId), eq(quotations.organizationId, actor.organizationId)),
+  });
+  if (!existing) {
+    throw new APIError("NOT_FOUND", { message: "Quotation not found" });
+  }
+  if (existing.status === parsed.toStatus) {
+    return existing;
+  }
+
+  const allowedNext = VALID_QUOTATION_STATUS_TRANSITIONS[existing.status] ?? [];
+  if (!allowedNext.includes(parsed.toStatus)) {
+    throw new APIError("BAD_REQUEST", {
+      message: `Cannot transition a quotation from ${existing.status} to ${parsed.toStatus}`,
+    });
+  }
+  // QUO-05/QUO-06/§8.3 table: every row in the transition table above is
+  // "versi terbaru" -- a historical version cannot change status at all.
+  if (!existing.isLatest) {
+    throw new APIError("BAD_REQUEST", { message: "Only the latest version of a quotation can change status" });
+  }
+
+  const clock = await organizationClock(actor.organizationId);
+  if (parsed.toStatus !== "REJECTED" && clock.today > existing.validUntil) {
+    throw new APIError("CONFLICT", {
+      message: "This quotation has expired and can no longer be sent or accepted",
+    });
+  }
+
+  if (parsed.toStatus === "SENT") {
+    // QUO-08: "deal bukan NEW/LOST". A plain read, not a lock -- the same
+    // pattern deals.ts uses for assertActiveAssignee/
+    // assertCustomerInOrganization, validating a related row without
+    // needing to hold it: the actual side effect below is itself guarded
+    // by a conditional UPDATE, not by trusting this read.
+    const deal = await db.query.deals.findFirst({
+      where: and(eq(deals.id, existing.dealId), eq(deals.organizationId, actor.organizationId)),
+    });
+    if (!deal || deal.status === "NEW" || deal.status === "LOST") {
+      throw new APIError("BAD_REQUEST", {
+        message: "The deal must be at least CONTACTED and not LOST before a quotation can be sent",
+      });
+    }
+  }
+
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const statusFields: Record<string, unknown> = {
+      status: parsed.toStatus,
+      editVersion: sql`${quotations.editVersion} + 1`,
+    };
+
+    if (parsed.toStatus === "SENT") {
+      statusFields.sentAt = now;
+      // QUO-08: freeze only if not already frozen (e.g. by a future M3
+      // invoice-sourcing freeze on this same draft) -- never re-freeze,
+      // which would let today's master data leak into what must stay
+      // historical (PDF-02).
+      if (existing.frozenAt === null) {
+        const snapshots = await buildQuotationSnapshots(tx, {
+          organizationId: actor.organizationId,
+          customerId: existing.customerId,
+        });
+        statusFields.frozenAt = sql`now()`;
+        statusFields.sellerSnapshot = snapshots.seller;
+        statusFields.customerSnapshot = snapshots.customer;
+      }
+    } else if (parsed.toStatus === "ACCEPTED") {
+      statusFields.acceptedAt = now;
+      statusFields.acceptedById = actor.userId;
+    } else {
+      statusFields.rejectedAt = now;
+      statusFields.rejectedById = actor.userId;
+    }
+
+    const whereConditions = [
+      eq(quotations.id, params.quotationId),
+      eq(quotations.organizationId, actor.organizationId),
+      eq(quotations.editVersion, params.expectedEditVersion),
+    ];
+    // QUO-10: "diperiksa kembali di dalam transaksi acceptance" -- the
+    // expiry condition rides along in the same guarded UPDATE that
+    // performs the write, not just the read-side check above.
+    if (parsed.toStatus !== "REJECTED") {
+      whereConditions.push(gte(quotations.validUntil, clock.today));
+    }
+
+    const [updated] = await tx
+      .update(quotations)
+      .set(statusFields)
+      .where(and(...whereConditions))
+      .returning();
+
+    if (!updated) {
+      // existing was found under the same tenant/latest scope above, so
+      // reaching here means either the edit-version check failed
+      // (DATA-07) or the expiry re-check just failed -- both are
+      // legitimate "someone else changed the picture" conflicts.
+      throw new APIError("CONFLICT", { message: "Quotation was modified by someone else, reload and try again" });
+    }
+
+    // QUO-08: CONTACTED -> QUOTATION happens only on SENT, only if the
+    // deal is still CONTACTED, in the same transaction. The UPDATE's own
+    // WHERE status='CONTACTED' is the race guard: two concurrent SENT
+    // actions on different quotations of the same deal both attempt this,
+    // and only whichever commits first actually changes anything -- the
+    // second affects 0 rows and is simply skipped, not an error.
+    if (parsed.toStatus === "SENT") {
+      const [advancedDeal] = await tx
+        .update(deals)
+        .set({ status: "QUOTATION", version: sql`${deals.version} + 1` })
+        .where(and(eq(deals.id, existing.dealId), eq(deals.status, "CONTACTED")))
+        .returning();
+      if (advancedDeal) {
+        // AUD-01: "deal updated/stage changed" is a required minimum event.
+        await tx.insert(activities).values({
+          organizationId: actor.organizationId,
+          dealId: existing.dealId,
+          entityType: "deal",
+          eventType: "stage_changed",
+          actorId: actor.userId,
+          metadata: { fromStatus: "CONTACTED", toStatus: "QUOTATION", reason: "quotation_sent" },
+          permissionCategory: "sales",
+        });
+      }
+    }
+
+    // AUD-01: "quotation ... SENT/ACCEPTED/REJECTED" is a required minimum
+    // timeline event.
+    const eventType = parsed.toStatus === "SENT" ? "sent" : parsed.toStatus === "ACCEPTED" ? "accepted" : "rejected";
+    await tx.insert(activities).values({
+      organizationId: actor.organizationId,
+      dealId: existing.dealId,
+      entityType: "quotation",
+      eventType,
+      actorId: actor.userId,
+      metadata: { quotationId: updated.id, quotationNumber: updated.quotationNumber },
+      permissionCategory: "sales",
+    });
+
+    return updated;
   });
 }

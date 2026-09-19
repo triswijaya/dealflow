@@ -9,9 +9,16 @@ import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
 import { createDeal, transitionDeal, updateDeal } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
-import { activities, deals, organizationSettings } from "@/server/db/schema";
+import { activities, deals, organizationSettings, quotations } from "@/server/db/schema";
 import { organizationDateString } from "@/server/shared/organization-date";
-import { createQuotation, getQuotation, listQuotations, reviseQuotation, updateQuotation } from "./quotations";
+import {
+  createQuotation,
+  getQuotation,
+  listQuotations,
+  reviseQuotation,
+  transitionQuotationStatus,
+  updateQuotation,
+} from "./quotations";
 
 async function sessionCookieFor(email: string, password: string): Promise<string> {
   // signIn.token (the JSON body) is not the same value the cookie needs; see
@@ -808,6 +815,360 @@ describe("quotations", () => {
           },
         }),
       ).rejects.toThrow();
+    });
+  });
+
+  describe("transitionQuotationStatus", () => {
+    // Fixed dates far from "now" in either direction, so expiry tests
+    // never depend on which real calendar day the suite happens to run.
+    const PAST = { issueDate: "2020-01-01", validUntil: "2020-01-02" };
+    const FUTURE_VALID_UNTIL = "2099-12-31";
+
+    async function advanceDealToContacted(ownerCookie: string, dealId: string) {
+      const deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      await transitionDeal({
+        headers: new Headers({ cookie: ownerCookie }),
+        dealId,
+        expectedVersion: deal!.version,
+        input: { toStatus: "CONTACTED" },
+      });
+    }
+
+    it("sends a DRAFT, freezes it, and advances a CONTACTED deal to QUOTATION (QUO-08)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      await advanceDealToContacted(ownerCookie, dealId);
+      const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      expect(created.frozenAt).toBeNull();
+
+      const sent = await transitionQuotationStatus({
+        headers: new Headers({ cookie: ownerCookie }),
+        quotationId: created.id,
+        expectedEditVersion: created.editVersion,
+        toStatus: "SENT",
+      });
+
+      expect(sent.status).toBe("SENT");
+      expect(sent.sentAt).not.toBeNull();
+      expect(sent.frozenAt).not.toBeNull();
+      expect(sent.sellerSnapshot).not.toBeNull();
+      expect(sent.customerSnapshot).not.toBeNull();
+      expect(sent.editVersion).toBe(2);
+
+      const dealAfter = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      expect(dealAfter!.status).toBe("QUOTATION");
+
+      const log = await db.query.activities.findMany({ where: eq(activities.dealId, dealId) });
+      const eventTypes = log.map((a) => a.eventType).sort();
+      expect(eventTypes).toContain("sent");
+      expect(eventTypes).toContain("stage_changed");
+    });
+
+    it("rejects SENT while the deal is still NEW (QUO-08)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+
+      await expect(
+        transitionQuotationStatus({
+          headers: new Headers({ cookie: ownerCookie }),
+          quotationId: created.id,
+          expectedEditVersion: created.editVersion,
+          toStatus: "SENT",
+        }),
+      ).rejects.toThrow(/CONTACTED/);
+    });
+
+    it("rejects SENT once the deal is LOST (QUO-08)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      await advanceDealToContacted(ownerCookie, dealId);
+      const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+
+      const deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      await transitionDeal({
+        headers: new Headers({ cookie: ownerCookie }),
+        dealId,
+        expectedVersion: deal!.version,
+        input: { toStatus: "LOST", lostReason: "NO_RESPONSE" },
+      });
+
+      await expect(
+        transitionQuotationStatus({
+          headers: new Headers({ cookie: ownerCookie }),
+          quotationId: created.id,
+          expectedEditVersion: created.editVersion,
+          toStatus: "SENT",
+        }),
+      ).rejects.toThrow(/LOST/);
+    });
+
+    it("rejects SENT on an already-expired draft, without a warning bypass (QUO-10)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      await advanceDealToContacted(ownerCookie, dealId);
+      const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId, PAST) });
+
+      await expect(
+        transitionQuotationStatus({
+          headers: new Headers({ cookie: ownerCookie }),
+          quotationId: created.id,
+          expectedEditVersion: created.editVersion,
+          toStatus: "SENT",
+        }),
+      ).rejects.toThrow(/expired/);
+    });
+
+    it("does not change the deal stage again once it is already past QUOTATION", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      await advanceDealToContacted(ownerCookie, dealId);
+      const deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      await transitionDeal({
+        headers: new Headers({ cookie: ownerCookie }),
+        dealId,
+        expectedVersion: deal!.version,
+        input: { toStatus: "QUOTATION" },
+      });
+      const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      // Captured after createQuotation, not before: createQuotation itself
+      // bumps deals.version once (the DEAL-02 hasQuotation lock from
+      // slice 2), so "before send" has to mean right before the SENT call.
+      const versionBeforeSend = (await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) }))!.version;
+      await transitionQuotationStatus({
+        headers: new Headers({ cookie: ownerCookie }),
+        quotationId: created.id,
+        expectedEditVersion: created.editVersion,
+        toStatus: "SENT",
+      });
+
+      const dealAfter = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      expect(dealAfter!.status).toBe("QUOTATION");
+      expect(dealAfter!.version).toBe(versionBeforeSend); // untouched: no redundant stage_changed side effect
+    });
+
+    it("still allows SENT on a WON deal, for record purposes, without reopening it (QUO-08)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      // createQuotation (slice 2) already refuses to create a fresh
+      // original on a closed deal, so the draft has to exist BEFORE the
+      // deal reaches WON -- this proves transitionQuotationStatus's own
+      // check doesn't additionally block SENT once it gets there, not
+      // that a brand new quotation can be created after the fact.
+      const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+
+      let deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      for (const toStatus of ["CONTACTED", "QUOTATION", "NEGOTIATION", "WON"] as const) {
+        await transitionDeal({
+          headers: new Headers({ cookie: ownerCookie }),
+          dealId,
+          expectedVersion: deal!.version,
+          input: { toStatus },
+        });
+        deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      }
+      expect(deal!.status).toBe("WON");
+
+      const sent = await transitionQuotationStatus({
+        headers: new Headers({ cookie: ownerCookie }),
+        quotationId: created.id,
+        expectedEditVersion: created.editVersion,
+        toStatus: "SENT",
+      });
+      expect(sent.status).toBe("SENT");
+
+      const dealAfter = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      expect(dealAfter!.status).toBe("WON");
+    });
+
+    it("rejects transitioning a non-latest (historical) version (QUO-05/QUO-06)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const original = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: { sourceQuotationId: original.id, expectedLatestQuotationId: original.id, idempotencyKey: crypto.randomUUID() },
+      });
+
+      await advanceDealToContacted(ownerCookie, dealId);
+      await expect(
+        transitionQuotationStatus({
+          headers: new Headers({ cookie: ownerCookie }),
+          quotationId: original.id,
+          expectedEditVersion: original.editVersion,
+          toStatus: "SENT",
+        }),
+      ).rejects.toThrow(/latest/);
+    });
+
+    async function sendQuotation(ownerCookie: string, dealId: string, overrides: Record<string, unknown> = {}) {
+      await advanceDealToContacted(ownerCookie, dealId);
+      const created = await createQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: quotationInput(dealId, { validUntil: FUTURE_VALID_UNTIL, ...overrides }),
+      });
+      return transitionQuotationStatus({
+        headers: new Headers({ cookie: ownerCookie }),
+        quotationId: created.id,
+        expectedEditVersion: created.editVersion,
+        toStatus: "SENT",
+      });
+    }
+
+    // A quotation can only ever be SENT while still valid (proven above),
+    // so "sent, and now expired" can't be constructed by dating it in the
+    // past up front -- it has to start valid and then lapse. Nothing in
+    // this test suite can make real time pass, so this simulates it the
+    // same way the PDF-02 snapshot test simulates a later master-data
+    // edit: a direct write to the row, bypassing the service layer.
+    async function backdateValidUntil(quotationId: string, validUntil: string) {
+      await db.update(quotations).set({ validUntil }).where(eq(quotations.id, quotationId));
+    }
+
+    it("accepts a SENT quotation, recording actor and timestamp (QUO-09)", async () => {
+      const { ownerCookie, dealId, ownerUserId } = await setupOwnerWithDeal();
+      const sent = await sendQuotation(ownerCookie, dealId, { validUntil: FUTURE_VALID_UNTIL });
+
+      const accepted = await transitionQuotationStatus({
+        headers: new Headers({ cookie: ownerCookie }),
+        quotationId: sent.id,
+        expectedEditVersion: sent.editVersion,
+        toStatus: "ACCEPTED",
+      });
+      expect(accepted.status).toBe("ACCEPTED");
+      expect(accepted.acceptedAt).not.toBeNull();
+      expect(accepted.acceptedById).toBe(ownerUserId);
+
+      const dealAfter = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      expect(dealAfter!.status).toBe("QUOTATION"); // QUO-09: ACCEPTED never auto-WONs the deal
+    });
+
+    it("rejects ACCEPTED on an expired SENT quotation (QUO-10)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const sent = await sendQuotation(ownerCookie, dealId);
+      await backdateValidUntil(sent.id, "2020-06-01");
+
+      await expect(
+        transitionQuotationStatus({
+          headers: new Headers({ cookie: ownerCookie }),
+          quotationId: sent.id,
+          expectedEditVersion: sent.editVersion,
+          toStatus: "ACCEPTED",
+        }),
+      ).rejects.toThrow(/expired/);
+    });
+
+    it("still accepts REJECTED on an expired SENT quotation -- the asymmetry QUO-10's table states (QUO-10)", async () => {
+      const { ownerCookie, dealId, ownerUserId } = await setupOwnerWithDeal();
+      const sent = await sendQuotation(ownerCookie, dealId);
+      await backdateValidUntil(sent.id, "2020-06-01");
+
+      const rejected = await transitionQuotationStatus({
+        headers: new Headers({ cookie: ownerCookie }),
+        quotationId: sent.id,
+        expectedEditVersion: sent.editVersion,
+        toStatus: "REJECTED",
+      });
+      expect(rejected.status).toBe("REJECTED");
+      expect(rejected.rejectedById).toBe(ownerUserId);
+    });
+
+    it("treats ACCEPTED and REJECTED as terminal -- no further transition is accepted", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const sent = await sendQuotation(ownerCookie, dealId, { validUntil: FUTURE_VALID_UNTIL });
+      const accepted = await transitionQuotationStatus({
+        headers: new Headers({ cookie: ownerCookie }),
+        quotationId: sent.id,
+        expectedEditVersion: sent.editVersion,
+        toStatus: "ACCEPTED",
+      });
+
+      await expect(
+        transitionQuotationStatus({
+          headers: new Headers({ cookie: ownerCookie }),
+          quotationId: accepted.id,
+          expectedEditVersion: accepted.editVersion,
+          toStatus: "REJECTED",
+        }),
+      ).rejects.toThrow(/Cannot transition/);
+    });
+
+    it("treats a request for the current status as an idempotent no-op", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const sent = await sendQuotation(ownerCookie, dealId, { validUntil: FUTURE_VALID_UNTIL });
+
+      const again = await transitionQuotationStatus({
+        headers: new Headers({ cookie: ownerCookie }),
+        quotationId: sent.id,
+        expectedEditVersion: sent.editVersion,
+        toStatus: "SENT",
+      });
+      expect(again.editVersion).toBe(sent.editVersion); // no write happened
+    });
+
+    it("rejects a stale editVersion (DATA-07)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      await advanceDealToContacted(ownerCookie, dealId);
+      const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+
+      await expect(
+        transitionQuotationStatus({
+          headers: new Headers({ cookie: ownerCookie }),
+          quotationId: created.id,
+          expectedEditVersion: created.editVersion + 1, // never actually current
+          toStatus: "SENT",
+        }),
+      ).rejects.toThrow(/modified by someone else/);
+    });
+
+    it("rejects a quotation from a different organization with NOT_FOUND (TENANT-04)", async () => {
+      const orgA = await setupOwnerWithDeal();
+      const orgB = await setupOwnerWithDeal();
+      const quotationB = await createQuotation({ headers: new Headers({ cookie: orgB.ownerCookie }), input: quotationInput(orgB.dealId) });
+
+      await expect(
+        transitionQuotationStatus({
+          headers: new Headers({ cookie: orgA.ownerCookie }),
+          quotationId: quotationB.id,
+          expectedEditVersion: quotationB.editVersion,
+          toStatus: "SENT",
+        }),
+      ).rejects.toThrow(/not found/i);
+    });
+
+    it("rejects FINANCE transitioning a quotation", async () => {
+      const owner = await setupOwnerWithDeal();
+      await advanceDealToContacted(owner.ownerCookie, owner.dealId);
+      const created = await createQuotation({ headers: new Headers({ cookie: owner.ownerCookie }), input: quotationInput(owner.dealId) });
+      const { memberCookie } = await setupMember(owner, "FINANCE");
+
+      await expect(
+        transitionQuotationStatus({
+          headers: new Headers({ cookie: memberCookie }),
+          quotationId: created.id,
+          expectedEditVersion: created.editVersion,
+          toStatus: "SENT",
+        }),
+      ).rejects.toThrow();
+    });
+
+    describe("effective status on read (QUO-10)", () => {
+      it("shows EXPIRED through getQuotation/listQuotations without ever writing it to the row", async () => {
+        const { ownerCookie, dealId } = await setupOwnerWithDeal();
+        const sent = await sendQuotation(ownerCookie, dealId);
+        await backdateValidUntil(sent.id, "2020-01-02");
+
+        const fetched = await getQuotation({ headers: new Headers({ cookie: ownerCookie }), quotationId: sent.id });
+        expect(fetched.status).toBe("EXPIRED");
+
+        const list = await listQuotations({ headers: new Headers({ cookie: ownerCookie }), dealId });
+        expect(list.find((q) => q.id === sent.id)!.status).toBe("EXPIRED");
+
+        // The stored column itself is untouched -- a raw read confirms it.
+        const raw = await db.query.quotations.findFirst({ where: (q, { eq: eqOp }) => eqOp(q.id, sent.id) });
+        expect(raw!.status).toBe("SENT");
+      });
+
+      it("does not show EXPIRED for a DRAFT past its own validUntil (QUO-10: stays DRAFT with a warning, not EXPIRED)", async () => {
+        const { ownerCookie, dealId } = await setupOwnerWithDeal();
+        const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId, PAST) });
+
+        const fetched = await getQuotation({ headers: new Headers({ cookie: ownerCookie }), quotationId: created.id });
+        expect(fetched.status).toBe("DRAFT");
+      });
     });
   });
 });

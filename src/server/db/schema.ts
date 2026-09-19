@@ -407,8 +407,12 @@ export const quotations = pgTable(
     terms: text("terms"),
     status: text("status").notNull().default("DRAFT"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
+    // QUO-09: "ACCEPTED dan REJECTED menyimpan timestamp/actor" -- who
+    // recorded the customer's decision, not who created the quotation.
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    acceptedById: text("accepted_by_id").references(() => user.id, { onDelete: "restrict" }),
     rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+    rejectedById: text("rejected_by_id").references(() => user.id, { onDelete: "restrict" }),
     // QUO-06/PDF-02: once set, this version's commercial content
     // (seller/customer snapshot, items, terms) is frozen and can no longer
     // change, including via master-data edits elsewhere.
