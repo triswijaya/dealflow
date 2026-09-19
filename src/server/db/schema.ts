@@ -10,6 +10,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  check,
   date,
   foreignKey,
   index,
@@ -23,6 +24,12 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+
+// MONEY-04: the same ceiling as MAX_MONEY_AMOUNT in server/money/amount.ts
+// (Rp1.000.000.000.000.000), duplicated here as a literal because these
+// CHECK constraints are raw SQL, not TypeScript, and so can't import it.
+// Keep the two in sync by hand if this value ever changes.
+const MAX_MONEY_AMOUNT_SQL = "1000000000000000";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -299,6 +306,18 @@ export const deals = pgTable(
     index("deals_organizationId_customerId_idx").on(table.organizationId, table.customerId),
     index("deals_organizationId_createdAt_idx").on(table.organizationId, table.createdAt),
     index("deals_organizationId_wonAt_idx").on(table.organizationId, table.wonAt),
+    // MONEY-04/MONEY-06: "estimated value ... maksimal Rp1e15", enforced at
+    // the database layer, not only by deals.ts's Zod schema.
+    check(
+      "deals_estimatedValue_range_chk",
+      sql`${table.estimatedValue} >= 0 AND ${table.estimatedValue} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`,
+    ),
+    // wonValue is a frozen copy of estimatedValue (DEAL-04) and nullable
+    // until WON, so the same range applies only once it is set.
+    check(
+      "deals_wonValue_range_chk",
+      sql`${table.wonValue} IS NULL OR (${table.wonValue} >= 0 AND ${table.wonValue} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)})`,
+    ),
   ],
 );
 
@@ -532,6 +551,19 @@ export const quotations = pgTable(
     // DATA-03: quotations tenant+deal (number lookup is already covered by
     // the unique index above).
     index("quotations_organizationId_dealId_idx").on(table.organizationId, table.dealId),
+    // MONEY-04/MONEY-05/MONEY-06: nonnegative/range enforced at the
+    // database layer, not only by the Zod schemas and calculation.ts.
+    check(
+      "quotations_subtotal_range_chk",
+      sql`${table.subtotal} >= 0 AND ${table.subtotal} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`,
+    ),
+    check("quotations_discount_range_chk", sql`${table.discount} >= 0 AND ${table.discount} <= ${table.subtotal}`),
+    check("quotations_tax_nonneg_chk", sql`${table.tax} >= 0`),
+    // MONEY-05: "quotation/invoice tersimpan harus mempunyai total > 0".
+    check(
+      "quotations_total_range_chk",
+      sql`${table.total} > 0 AND ${table.total} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`,
+    ),
   ],
 );
 
@@ -564,6 +596,17 @@ export const quotationItems = pgTable(
     index("quotation_items_organizationId_quotationId_idx").on(table.organizationId, table.quotationId),
     // DATA-02: item sort order per parent.
     uniqueIndex("quotation_items_quotationId_sortOrder_uidx").on(table.quotationId, table.sortOrder),
+    // MONEY-04/MONEY-06: "Quantity 0 < q <= 1.000.000,000; unit price 0
+    // sampai Rp1e15", enforced at the database layer too.
+    check("quotation_items_quantity_range_chk", sql`${table.quantity} > 0 AND ${table.quantity} <= 1000000.000`),
+    check(
+      "quotation_items_unitPrice_range_chk",
+      sql`${table.unitPrice} >= 0 AND ${table.unitPrice} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`,
+    ),
+    check(
+      "quotation_items_subtotal_range_chk",
+      sql`${table.subtotal} >= 0 AND ${table.subtotal} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`,
+    ),
   ],
 );
 

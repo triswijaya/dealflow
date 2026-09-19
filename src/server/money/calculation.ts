@@ -1,5 +1,5 @@
 import { MAX_MONEY_AMOUNT } from "./amount";
-import { QUANTITY_SCALE } from "./quantity";
+import { MAX_QUANTITY_SCALED, QUANTITY_SCALE } from "./quantity";
 
 // MONEY-03: the version of the calculation rules baked into a snapshot.
 // MONEY-07 forbids recalculating a frozen snapshot with a new formula
@@ -71,8 +71,9 @@ export function calculateDocumentTotals(input: {
     return { ok: false, code: "NO_ITEMS" };
   }
   // MONEY-05: discount and tax are document-level nominal amounts, never
-  // percentages, and neither may be negative.
-  if (input.discount < 0n || input.tax < 0n) {
+  // percentages, and neither may be negative. MONEY-04: both are still
+  // "amount" values, bounded by the same ceiling as any other money field.
+  if (input.discount < 0n || input.tax < 0n || input.discount > MAX_MONEY_AMOUNT || input.tax > MAX_MONEY_AMOUNT) {
     return { ok: false, code: "AMOUNT_OUT_OF_RANGE" };
   }
 
@@ -80,6 +81,14 @@ export function calculateDocumentTotals(input: {
   let subtotal = 0n;
   for (const item of input.items) {
     if (item.quantityScaled < 0n || item.unitPrice < 0n) {
+      return { ok: false, code: "AMOUNT_OUT_OF_RANGE" };
+    }
+    // MONEY-04: the Zod schemas already enforce these upper bounds on the
+    // create/update quotation request path, but this helper is the one
+    // MONEY-07 designates as shared with invoice (M3) and tests, so the
+    // bound belongs here too -- a caller that reaches this function
+    // through anything other than that Zod path must not slip through.
+    if (item.quantityScaled > MAX_QUANTITY_SCALED || item.unitPrice > MAX_MONEY_AMOUNT) {
       return { ok: false, code: "AMOUNT_OUT_OF_RANGE" };
     }
     const itemSubtotal = calculateItemSubtotal(item.quantityScaled, item.unitPrice);

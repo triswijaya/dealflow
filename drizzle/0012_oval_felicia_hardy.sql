@@ -1,0 +1,9 @@
+ALTER TABLE "deals" ADD CONSTRAINT "deals_estimatedValue_range_chk" CHECK ("deals"."estimated_value" >= 0 AND "deals"."estimated_value" <= 1000000000000000);--> statement-breakpoint
+ALTER TABLE "deals" ADD CONSTRAINT "deals_wonValue_range_chk" CHECK ("deals"."won_value" IS NULL OR ("deals"."won_value" >= 0 AND "deals"."won_value" <= 1000000000000000));--> statement-breakpoint
+ALTER TABLE "quotation_items" ADD CONSTRAINT "quotation_items_quantity_range_chk" CHECK ("quotation_items"."quantity" > 0 AND "quotation_items"."quantity" <= 1000000.000);--> statement-breakpoint
+ALTER TABLE "quotation_items" ADD CONSTRAINT "quotation_items_unitPrice_range_chk" CHECK ("quotation_items"."unit_price" >= 0 AND "quotation_items"."unit_price" <= 1000000000000000);--> statement-breakpoint
+ALTER TABLE "quotation_items" ADD CONSTRAINT "quotation_items_subtotal_range_chk" CHECK ("quotation_items"."subtotal" >= 0 AND "quotation_items"."subtotal" <= 1000000000000000);--> statement-breakpoint
+ALTER TABLE "quotations" ADD CONSTRAINT "quotations_subtotal_range_chk" CHECK ("quotations"."subtotal" >= 0 AND "quotations"."subtotal" <= 1000000000000000);--> statement-breakpoint
+ALTER TABLE "quotations" ADD CONSTRAINT "quotations_discount_range_chk" CHECK ("quotations"."discount" >= 0 AND "quotations"."discount" <= "quotations"."subtotal");--> statement-breakpoint
+ALTER TABLE "quotations" ADD CONSTRAINT "quotations_tax_nonneg_chk" CHECK ("quotations"."tax" >= 0);--> statement-breakpoint
+ALTER TABLE "quotations" ADD CONSTRAINT "quotations_total_range_chk" CHECK ("quotations"."total" > 0 AND "quotations"."total" <= 1000000000000000);

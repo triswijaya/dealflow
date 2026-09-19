@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MAX_MONEY_AMOUNT } from "./amount";
 import { CALCULATION_VERSION, calculateDocumentTotals, calculateItemSubtotal } from "./calculation";
-import { quantitySchema } from "./quantity";
+import { MAX_QUANTITY_SCALED, quantitySchema } from "./quantity";
 
 // Convenience so the tests read in the same units the requirement uses:
 // a decimal quantity string plus a rupiah unit price.
@@ -172,5 +172,47 @@ describe("calculateDocumentTotals", () => {
       calculateDocumentTotals({ items: [line("1", MAX_MONEY_AMOUNT)], discount: 0n, tax: 0n }),
     );
     expect(totals.total).toBe(MAX_MONEY_AMOUNT);
+  });
+
+  // The Zod schemas (quantitySchema/moneyAmountSchema) already enforce these
+  // ceilings on the create/update quotation request path, so `line()`'s own
+  // quantitySchema.parse can't construct an out-of-range input here -- these
+  // bypass it with a raw bigint to prove the shared calculation helper
+  // itself refuses the value too (MONEY-07: this helper is the one invoice
+  // and tests share, not just the request-path schema).
+  it("rejects a quantityScaled over MAX_QUANTITY_SCALED even when the resulting product stays small (MONEY-04)", () => {
+    const result = calculateDocumentTotals({
+      items: [{ quantityScaled: MAX_QUANTITY_SCALED + 1n, unitPrice: 1n }],
+      discount: 0n,
+      tax: 0n,
+    });
+    expect(result).toEqual({ ok: false, code: "AMOUNT_OUT_OF_RANGE" });
+  });
+
+  it("rejects a unitPrice over MAX_MONEY_AMOUNT even when quantity is zero and the product stays small (MONEY-04)", () => {
+    const result = calculateDocumentTotals({
+      items: [{ quantityScaled: 0n, unitPrice: MAX_MONEY_AMOUNT + 1n }],
+      discount: 0n,
+      tax: 1n, // keep the document total positive (MONEY-05) so this fails on the bound, not TOTAL_NOT_POSITIVE
+    });
+    expect(result).toEqual({ ok: false, code: "AMOUNT_OUT_OF_RANGE" });
+  });
+
+  it("rejects a discount over MAX_MONEY_AMOUNT (MONEY-04)", () => {
+    const result = calculateDocumentTotals({
+      items: [line("1", MAX_MONEY_AMOUNT)],
+      discount: MAX_MONEY_AMOUNT + 1n,
+      tax: 0n,
+    });
+    expect(result).toEqual({ ok: false, code: "AMOUNT_OUT_OF_RANGE" });
+  });
+
+  it("rejects a tax over MAX_MONEY_AMOUNT (MONEY-04)", () => {
+    const result = calculateDocumentTotals({
+      items: [line("1", 1n)],
+      discount: 0n,
+      tax: MAX_MONEY_AMOUNT + 1n,
+    });
+    expect(result).toEqual({ ok: false, code: "AMOUNT_OUT_OF_RANGE" });
   });
 });
