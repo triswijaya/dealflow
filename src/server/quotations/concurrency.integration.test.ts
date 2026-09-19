@@ -91,7 +91,7 @@ describe("concurrency", () => {
     expect(new Set(numbers).size).toBe(2);
   });
 
-  it("AT-22/DEAL-02: concurrent createQuotation and updateDeal never both win against the customer lock", async () => {
+  it("AT-22/DEAL-02: concurrent createQuotation and updateDeal never leave the quotation pointing at a stale customer", async () => {
     const owner = await setupOwnerWithDeal();
     const otherCustomer = await createCustomer({
       headers: new Headers({ cookie: owner.ownerCookie }),
@@ -99,7 +99,18 @@ describe("concurrency", () => {
     });
     const deal = await db.query.deals.findFirst({ where: (d, { eq }) => eq(d.id, owner.dealId) });
 
-    await Promise.allSettled([
+    // DEAL-02 allows the customer to change strictly BEFORE the first
+    // quotation exists, so either commit order is legitimate: updateDeal
+    // can win (the quotation, once it locks the row, correctly attaches to
+    // the NEW customer) or createQuotation can win (updateDeal's own
+    // hasQuotation pre-check, or its version-bump race with
+    // createQuotation's, then rejects the customer change). What must
+    // never happen is a quotation referencing a customer that isn't the
+    // deal's own customer_id by the time this settles -- not "the customer
+    // never changes at all", which an earlier version of this test
+    // incorrectly asserted (a real M1 audit caught the false positive:
+    // production code was correct, this test's invariant was too narrow).
+    const [quotationResult, updateResult] = await Promise.allSettled([
       createQuotation({ headers: new Headers({ cookie: owner.ownerCookie }), input: quotationInput(owner.dealId) }),
       updateDeal({
         headers: new Headers({ cookie: owner.ownerCookie }),
@@ -115,10 +126,15 @@ describe("concurrency", () => {
     ]);
 
     const after = await db.query.deals.findFirst({ where: (d, { eq }) => eq(d.id, owner.dealId) });
-    // The invariant DEAL-02 protects: a quotation must never end up on a
-    // deal whose customer moved out from under it, regardless of which of
-    // the two racing calls happened to commit first.
-    if (after!.hasQuotation) {
+
+    if (quotationResult.status === "fulfilled") {
+      const quotation = quotationResult.value as { customerId: string };
+      expect(quotation.customerId).toBe(after!.customerId);
+    }
+    // If the customer change was rejected (DEAL-02 fired, or it lost the
+    // version race), the deal's customer must still be the original one --
+    // not left in some third, inconsistent state.
+    if (updateResult.status === "rejected") {
       expect(after!.customerId).toBe(owner.customerId);
     }
   });

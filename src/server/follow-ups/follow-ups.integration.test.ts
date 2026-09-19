@@ -9,7 +9,7 @@ import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
 import { createDeal, transitionDeal } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
-import { activities } from "@/server/db/schema";
+import { activities, deals } from "@/server/db/schema";
 import { completeFollowUp, createFollowUp, getFollowUp, listActiveFollowUps, updateFollowUp } from "./follow-ups";
 
 async function sessionCookieFor(email: string, password: string): Promise<string> {
@@ -288,6 +288,13 @@ describe("follow-ups", () => {
 
   it("bumps deals.lastActivityAt on completion, without rewinding it for an older backdated completedAt (RISK-01/11.2)", async () => {
     const { ownerCookie, dealId } = await setupOwnerWithDeal();
+    // Backdated directly rather than relying on wall-clock ordering: the
+    // whole create-deal-then-complete-follow-up sequence can run fast
+    // enough (especially under a loaded test suite) to land within the
+    // same millisecond, which would make a plain toBeGreaterThan flaky
+    // without this -- not a product bug, just too strict a time budget for
+    // a real-clock assertion.
+    await db.update(deals).set({ lastActivityAt: new Date("2020-01-01T00:00:00Z") }).where(eq(deals.id, dealId));
     const before = (await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) }))!;
 
     const created = await createFollowUp({ headers: new Headers({ cookie: ownerCookie }), input: followUpInput(dealId) });
