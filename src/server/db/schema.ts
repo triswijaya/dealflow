@@ -338,6 +338,58 @@ export const activities = pgTable(
   ],
 );
 
+// Business table (M2, FUP-01-05). One row per scheduled/completed follow-up
+// interaction on a deal (call/WhatsApp/email/meeting/other). FUP-02:
+// reschedule history lives on the activities timeline (eventType
+// "rescheduled"), not as version rows here -- this table only ever holds
+// the current schedule/note/completion state.
+export const followUps = pgTable(
+  "follow_ups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    dealId: uuid("deal_id").notNull(),
+    type: text("type").notNull(),
+    note: text("note"),
+    // DATA-04: all instants use timestamptz UTC. followUpAt/completedAt are
+    // client-supplied (FUP-01/02: completedAt may log a past interaction),
+    // unlike deals.wonAt/lostAt elsewhere -- still a plain UTC instant
+    // either way, never round-tripped through anything timezone-dependent.
+    followUpAt: timestamp("follow_up_at", { withTimezone: true }).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    // DATA-07: optimistic concurrency, same pattern as deals/customers.
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    updatedById: text("updated_by_id").references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    // TENANT-03: composite FK, same pattern as activities_deal_tenant_fk.
+    foreignKey({
+      name: "follow_ups_deal_tenant_fk",
+      columns: [table.organizationId, table.dealId],
+      foreignColumns: [deals.organizationId, deals.id],
+    }).onDelete("restrict"),
+    // DATA-03: "follow-ups tenant+follow_up_at untuk yang belum selesai" --
+    // partial index, since FUP-03's bucket query only ever reads rows that
+    // are not yet completed.
+    index("follow_ups_organizationId_followUpAt_idx")
+      .on(table.organizationId, table.followUpAt)
+      .where(sql`${table.completedAt} IS NULL`),
+    // Per-deal listing (deal detail page, UX-01): cheap, and justified by
+    // that real query pattern even though DATA-03 doesn't name it directly.
+    index("follow_ups_organizationId_dealId_idx").on(table.organizationId, table.dealId),
+  ],
+);
+
 // Business table (M2, QUO-04). One row per (organization, document type,
 // year); document-number.ts claims the next sequence with a single atomic
 // UPSERT inside the same transaction as the quotation insert, so two
@@ -658,6 +710,27 @@ export const activitiesRelations = relations(activities, ({ one }) => ({
   actor: one(user, {
     fields: [activities.actorId],
     references: [user.id],
+  }),
+}));
+
+export const followUpsRelations = relations(followUps, ({ one }) => ({
+  organization: one(organization, {
+    fields: [followUps.organizationId],
+    references: [organization.id],
+  }),
+  deal: one(deals, {
+    fields: [followUps.dealId],
+    references: [deals.id],
+  }),
+  createdBy: one(user, {
+    fields: [followUps.createdById],
+    references: [user.id],
+    relationName: "followUpCreatedBy",
+  }),
+  updatedBy: one(user, {
+    fields: [followUps.updatedById],
+    references: [user.id],
+    relationName: "followUpUpdatedBy",
   }),
 }));
 

@@ -78,6 +78,13 @@
       "when": 1789816133727,
       "tag": "0010_lively_rockslide",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789835283791,
+      "tag": "0011_silly_spacker_dave",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,11 @@ import { createAccessControl } from "better-auth/plugins/access";
 // Business permissions are added in the commit that introduces each module,
 // not declared speculatively. customer.* and deal.* are M1's; quotation.*
 // is M2's first (§6.2 "Membuat/mengubah quotation draft, revisi, status,
-// PDF": Owner/Admin/Sales Ya, Finance Tidak).
+// PDF": Owner/Admin/Sales Ya, Finance Tidak); followUp.* is M2's second,
+// same three roles (§6.2 "Membuat/mengubah/menyelesaikan follow-up": Owner/
+// Admin/Sales Ya, Finance Tidak -- and unlike quotation, Finance gets no
+// read carve-out at all here, since nothing in §6/§9 grants Finance any
+// follow-up visibility).
 const statement = {
   organization: ["update"],
   member: ["create", "update", "delete"],
@@ -11,6 +15,7 @@ const statement = {
   customer: ["read", "write"],
   deal: ["read", "write", "transition"],
   quotation: ["read", "write"],
+  followUp: ["read", "write"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -24,6 +29,7 @@ export const roles = {
     customer: ["read", "write"],
     deal: ["read", "write", "transition"],
     quotation: ["read", "write"],
+    followUp: ["read", "write"],
   }),
   ADMIN: ac.newRole({
     organization: ["update"],
@@ -32,11 +38,13 @@ export const roles = {
     customer: ["read", "write"],
     deal: ["read", "write", "transition"],
     quotation: ["read", "write"],
+    followUp: ["read", "write"],
   }),
   SALES: ac.newRole({
     customer: ["read", "write"],
     deal: ["read", "write", "transition"],
     quotation: ["read", "write"],
+    followUp: ["read", "write"],
   }),
   // §6.2: Finance can read every customer (not filtered), and can read
   // deals too, but only WON ones -- that filter happens in the deals
@@ -46,7 +54,9 @@ export const roles = {
   // Tidak), and cannot read or write quotations in this milestone either
   // ("Membaca quotation/PDF sebagai sumber invoice": hanya terkait deal
   // WON -- that's an M3 invoice-sourcing concern, not a general
-  // quotation.read grant, so it's deliberately absent here).
+  // quotation.read grant, so it's deliberately absent here). Same reasoning
+  // keeps followUp off Finance entirely: no matrix row gives Finance any
+  // follow-up access, read included.
   FINANCE: ac.newRole({
     customer: ["read"],
     deal: ["read"],
