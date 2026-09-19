@@ -505,6 +505,35 @@ export const quotationItems = pgTable(
   ],
 );
 
+// Business table (M2, API-05). A natural-key lookup table, same shape as
+// documentCounters: no separate id, the composite primary key IS the
+// identity. First seen for quotation revisions; invoice/payment (M3) will
+// write their own operationType values into this same table rather than
+// each growing their own.
+export const idempotencyRecords = pgTable(
+  "idempotency_records",
+  {
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    operationType: text("operation_type").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    // API-05: "Entity ID dan normalized payload fingerprint disimpan
+    // sebagai data pembanding, bukan bagian unique key." A reused key with
+    // a different payload is a client bug, not a legitimate retry, and is
+    // rejected by comparing this column, not by the unique constraint alone.
+    payloadFingerprint: text("payload_fingerprint").notNull(),
+    resultEntityId: uuid("result_entity_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    // Explicit short name: the default auto-generated name exceeds
+    // Postgres's 63-char identifier limit and gets silently truncated
+    // otherwise (the same class of issue M1 hit on a composite FK name).
+    primaryKey({ name: "idempotency_records_pk", columns: [table.organizationId, table.operationType, table.idempotencyKey] }),
+  ],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),

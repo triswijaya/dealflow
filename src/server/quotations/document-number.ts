@@ -45,11 +45,17 @@ export async function claimNextSequence(
   return row.claimed;
 }
 
-// QUO-04's revision suffix ("QT-2026-00042-R1") is formatted where
-// revisions are created (M2 slice 3), not here: this slice only ever
-// creates an original, so a revision formatter would have no caller yet.
-
 /** QUO-04: `QT-2026-00042`. Padded to 5 digits, then simply widens past it. */
 export function formatQuotationNumber(year: number, sequence: number): string {
   return `QT-${year}-${sequence.toString().padStart(MIN_SEQUENCE_DIGITS, "0")}`;
+}
+
+/**
+ * QUO-04: `QT-2026-00042-R1`, then `-R2`. `baseNumber` must always be the
+ * family's original quotation's number (the row where revisionNumber = 1),
+ * never the immediate source's own number -- a revision made from an
+ * already-revised version stays "-R2", it does not stack into "-R1-R2".
+ */
+export function formatRevisionNumber(baseNumber: string, revisionNumber: number): string {
+  return `${baseNumber}-R${revisionNumber}`;
 }

@@ -3,12 +3,21 @@ import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
-import { activities, deals, organizationSettings, quotationItems, quotations } from "@/server/db/schema";
+import {
+  activities,
+  customers,
+  deals,
+  idempotencyRecords,
+  organization,
+  organizationSettings,
+  quotationItems,
+  quotations,
+} from "@/server/db/schema";
 import { moneyAmountSchema } from "@/server/money/amount";
 import { type CalculationErrorCode, calculateDocumentTotals } from "@/server/money/calculation";
 import { formatQuantityScaled, quantitySchema } from "@/server/money/quantity";
 import { organizationDateString, organizationYear } from "@/server/shared/organization-date";
-import { claimNextSequence, formatQuotationNumber } from "./document-number";
+import { claimNextSequence, formatQuotationNumber, formatRevisionNumber } from "./document-number";
 
 // QUO-02/API-04: MVP item-count ceiling.
 const MAX_ITEMS = 200;
@@ -323,23 +332,294 @@ export async function getQuotation(params: { headers: Headers; quotationId: stri
   const actor = await requirePermission({ headers: params.headers, permission: { quotation: ["read"] } });
   const quotation = await db.query.quotations.findFirst({
     where: and(eq(quotations.id, params.quotationId), eq(quotations.organizationId, actor.organizationId)),
-    with: { items: { orderBy: (item, { asc }) => asc(item.sortOrder) } },
   });
   if (!quotation) {
     throw new APIError("NOT_FOUND", { message: "Quotation not found" });
   }
-  return quotation;
+  // Deliberately not `with: { items: ... }` on the query above: drizzle's
+  // relational query API silently drops trailing zeros on a nested
+  // numeric-mode-string column ("1.500" comes back "1.5"), while a plain,
+  // separate query on the same column does not. A top-level query (this
+  // one) is unaffected too -- the bug is specific to numeric columns
+  // reached through a nested `with` relation. MONEY-02 requires the exact
+  // stored string, so items are fetched as their own query instead.
+  const items = await db.query.quotationItems.findMany({
+    where: eq(quotationItems.quotationId, quotation.id),
+    orderBy: (item, { asc }) => asc(item.sortOrder),
+  });
+  return { ...quotation, items };
 }
 
-/** Optionally scoped to one deal; otherwise every quotation in the tenant. */
-export async function listQuotations(params: { headers: Headers; dealId?: string }) {
+/**
+ * Optionally scoped to one deal or one revision family; otherwise every
+ * quotation in the tenant. The familyId filter is what QUO-06's "UI selalu
+ * dapat membuka versi lama dan membandingkan nomor/tanggal/totalnya" reads
+ * through: every version of a family, old and new, is just a normal row
+ * with isLatest telling the caller which one is current.
+ */
+export async function listQuotations(params: { headers: Headers; dealId?: string; familyId?: string }) {
   const actor = await requirePermission({ headers: params.headers, permission: { quotation: ["read"] } });
-  const scope = params.dealId
-    ? and(eq(quotations.organizationId, actor.organizationId), eq(quotations.dealId, params.dealId))
-    : eq(quotations.organizationId, actor.organizationId);
+  const conditions = [eq(quotations.organizationId, actor.organizationId)];
+  if (params.dealId) {
+    conditions.push(eq(quotations.dealId, params.dealId));
+  }
+  if (params.familyId) {
+    conditions.push(eq(quotations.familyId, params.familyId));
+  }
 
   return db.query.quotations.findMany({
-    where: scope,
-    orderBy: (quotation, { desc }) => desc(quotation.createdAt),
+    where: and(...conditions),
+    orderBy: (quotation, { asc }) => asc(quotation.revisionNumber),
+  });
+}
+
+// API-05: this operation type scopes the idempotency key namespace.
+// Invoice/payment (M3) will add their own values into the same table.
+const REVISE_QUOTATION_OPERATION = "QUOTATION_REVISION";
+
+const reviseQuotationInputSchema = z.object({
+  sourceQuotationId: z.string().min(1),
+  // API-01's "expected family version": the id of whichever quotation the
+  // caller currently believes is the family's latest version. The
+  // requirement never names a separate family-version counter column in
+  // §14.1's field list, and checking "is this row still the latest" is
+  // exactly equivalent in what it protects against, since the only thing
+  // that ever changes a family's latest row is this same function.
+  expectedLatestQuotationId: z.string().min(1),
+  idempotencyKey: z.string().trim().min(1).max(200),
+});
+
+/**
+ * Builds the point-in-time company/customer snapshot a freeze captures.
+ * Reads current master data; the caller decides whether that's appropriate
+ * (only ever call this for a row that is about to be frozen for the first
+ * time -- see the frozenAt-is-null guard in reviseQuotation).
+ */
+async function buildQuotationSnapshots(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  params: { organizationId: string; customerId: string },
+) {
+  const [org] = await tx.select().from(organization).where(eq(organization.id, params.organizationId));
+  const settings = await tx.query.organizationSettings.findFirst({
+    where: eq(organizationSettings.organizationId, params.organizationId),
+  });
+  const customer = await tx.query.customers.findFirst({
+    where: and(eq(customers.id, params.customerId), eq(customers.organizationId, params.organizationId)),
+  });
+
+  return {
+    seller: {
+      name: org?.name ?? null,
+      address: settings?.address ?? null,
+      contactEmail: settings?.contactEmail ?? null,
+      contactPhone: settings?.contactPhone ?? null,
+    },
+    customer: {
+      companyName: customer?.companyName ?? null,
+      contactPerson: customer?.contactPerson ?? null,
+      phone: customer?.phoneNormalized ?? null,
+      email: customer?.email ?? null,
+      address: customer?.address ?? null,
+    },
+  };
+}
+
+/**
+ * QUO-05/QUO-06: creates a new DRAFT version in the same revision family,
+ * copying its content from `sourceQuotationId` (which may be the family's
+ * current latest version, or an older, already-frozen one). Nothing about
+ * commercial content is accepted as input here -- API-01 lists this
+ * operation's inputs as only the source id, expected family version, and
+ * idempotency key, unlike create/edit quotation's full field list. A
+ * caller changes the new draft's content afterward through updateQuotation.
+ *
+ * Whichever row is currently the family's latest is frozen (if it isn't
+ * already) and demoted, regardless of whether it is also the source: a
+ * historical source is always already frozen by induction (the only way a
+ * row stops being latest is through this same function, which always
+ * freezes it in the same step), so in practice this always freezes exactly
+ * the row that was latest, never the source specifically.
+ *
+ * QUO-07: no deal-status check here. That belongs to createQuotation (the
+ * first attachment point); a family's deal association is fixed at
+ * original-creation and revising never touches it, so a revision on a WON
+ * (or LOST) deal is simply never blocked.
+ *
+ * API-05: the whole operation, including the idempotency claim, is one
+ * transaction, so a thrown validation error rolls the claim back too --
+ * a failed attempt never permanently consumes the caller's key.
+ */
+export async function reviseQuotation(params: { headers: Headers; input: unknown }) {
+  const actor = await requirePermission({ headers: params.headers, permission: { quotation: ["write"] } });
+  const parsed = reviseQuotationInputSchema.parse(params.input);
+
+  // Small, fixed-shape payload (two UUIDs) -- a plain delimited string is
+  // already a deterministic, normalized fingerprint; hashing it would add
+  // a dependency for no real benefit at this size.
+  const payloadFingerprint = `${parsed.sourceQuotationId}|${parsed.expectedLatestQuotationId}`;
+  const newQuotationId = crypto.randomUUID();
+
+  return db.transaction(async (tx) => {
+    const [claimed] = await tx
+      .insert(idempotencyRecords)
+      .values({
+        organizationId: actor.organizationId,
+        operationType: REVISE_QUOTATION_OPERATION,
+        idempotencyKey: parsed.idempotencyKey,
+        payloadFingerprint,
+        resultEntityId: newQuotationId,
+      })
+      .onConflictDoNothing({
+        target: [idempotencyRecords.organizationId, idempotencyRecords.operationType, idempotencyRecords.idempotencyKey],
+      })
+      .returning();
+
+    if (!claimed) {
+      const existing = await tx.query.idempotencyRecords.findFirst({
+        where: and(
+          eq(idempotencyRecords.organizationId, actor.organizationId),
+          eq(idempotencyRecords.operationType, REVISE_QUOTATION_OPERATION),
+          eq(idempotencyRecords.idempotencyKey, parsed.idempotencyKey),
+        ),
+      });
+      // existing cannot be missing: the conflict that got us here means a
+      // row with this exact key already exists in this same table.
+      if (existing!.payloadFingerprint !== payloadFingerprint) {
+        throw new APIError("CONFLICT", { message: "Idempotency key was already used with a different request" });
+      }
+      const previous = await tx.query.quotations.findFirst({
+        where: and(eq(quotations.id, existing!.resultEntityId), eq(quotations.organizationId, actor.organizationId)),
+      });
+      if (!previous) {
+        throw new APIError("INTERNAL_SERVER_ERROR", { message: "Idempotency record points at a missing quotation" });
+      }
+      // Same nested-`with` numeric-truncation issue as getQuotation: items
+      // fetched as their own top-level query, not nested.
+      const previousItems = await tx.query.quotationItems.findMany({
+        where: eq(quotationItems.quotationId, previous.id),
+        orderBy: (item, { asc }) => asc(item.sortOrder),
+      });
+      return { ...previous, items: previousItems };
+    }
+
+    const sourceLookup = await tx.query.quotations.findFirst({
+      where: and(eq(quotations.id, parsed.sourceQuotationId), eq(quotations.organizationId, actor.organizationId)),
+      columns: { familyId: true },
+    });
+    if (!sourceLookup) {
+      throw new APIError("NOT_FOUND", { message: "Quotation not found" });
+    }
+
+    // QUO-05: "satu transaksi mengunci family dan memastikan hanya satu
+    // latest version." The whole family, not just one row: scenario B
+    // below needs to read and update two different rows (the source and
+    // the current latest) consistently.
+    const family = await tx
+      .select()
+      .from(quotations)
+      .where(and(eq(quotations.familyId, sourceLookup.familyId), eq(quotations.organizationId, actor.organizationId)))
+      .for("update");
+
+    const source = family.find((row) => row.id === parsed.sourceQuotationId)!;
+    const currentLatest = family.find((row) => row.isLatest)!;
+    const original = family.find((row) => row.revisionNumber === 1)!;
+
+    if (currentLatest.id !== parsed.expectedLatestQuotationId) {
+      throw new APIError("CONFLICT", {
+        message: "This quotation family already has a newer version, reload and try again",
+      });
+    }
+
+    // QUO-06: freeze the row that is about to lose latest status, using
+    // its own current content -- never the source's, and never re-freezing
+    // a row that already has a snapshot (that would let today's master
+    // data leak into what must stay historical, PDF-02).
+    if (currentLatest.frozenAt === null) {
+      const snapshots = await buildQuotationSnapshots(tx, {
+        organizationId: actor.organizationId,
+        customerId: currentLatest.customerId,
+      });
+      await tx
+        .update(quotations)
+        .set({
+          frozenAt: sql`now()`,
+          sellerSnapshot: snapshots.seller,
+          customerSnapshot: snapshots.customer,
+          isLatest: false,
+        })
+        .where(eq(quotations.id, currentLatest.id));
+    } else {
+      await tx.update(quotations).set({ isLatest: false }).where(eq(quotations.id, currentLatest.id));
+    }
+
+    // revisionNumber is the row's 1-indexed position in the family
+    // (original = 1), so the Nth revision is at position N+1. QUO-04's
+    // display suffix counts revisions only ("-R1" for the first revision,
+    // never for the original), which is one less than that position.
+    const nextRevisionNumber = Math.max(...family.map((row) => row.revisionNumber)) + 1;
+    const displayRevisionNumber = nextRevisionNumber - 1;
+    const sourceItems = await tx.query.quotationItems.findMany({
+      where: eq(quotationItems.quotationId, source.id),
+      orderBy: (item, { asc }) => asc(item.sortOrder),
+    });
+
+    const [created] = await tx
+      .insert(quotations)
+      .values({
+        id: newQuotationId,
+        organizationId: actor.organizationId,
+        dealId: source.dealId,
+        customerId: source.customerId,
+        quotationNumber: formatRevisionNumber(original.quotationNumber, displayRevisionNumber),
+        familyId: source.familyId,
+        revisionNumber: nextRevisionNumber,
+        previousRevisionId: source.id,
+        isLatest: true,
+        issueDate: source.issueDate,
+        validUntil: source.validUntil,
+        subtotal: source.subtotal,
+        discount: source.discount,
+        tax: source.tax,
+        total: source.total,
+        calculationVersion: source.calculationVersion,
+        notes: source.notes,
+        terms: source.terms,
+        createdById: actor.userId,
+      })
+      .returning();
+
+    const items = await tx
+      .insert(quotationItems)
+      .values(
+        sourceItems.map((item) => ({
+          organizationId: actor.organizationId,
+          quotationId: created.id,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unitPrice: item.unitPrice,
+          subtotal: item.subtotal,
+          sortOrder: item.sortOrder,
+        })),
+      )
+      .returning();
+
+    // AUD-01: "quotation ... revised" is a required minimum timeline event.
+    await tx.insert(activities).values({
+      organizationId: actor.organizationId,
+      dealId: source.dealId,
+      entityType: "quotation",
+      eventType: "revised",
+      actorId: actor.userId,
+      metadata: {
+        newQuotationId: created.id,
+        newQuotationNumber: created.quotationNumber,
+        sourceQuotationId: source.id,
+        sourceQuotationNumber: source.quotationNumber,
+      },
+      permissionCategory: "sales",
+    });
+
+    return { ...created, items };
   });
 }

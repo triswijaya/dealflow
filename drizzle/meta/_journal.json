@@ -57,6 +57,13 @@
       "when": 1789721652026,
       "tag": "0007_free_gravity",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789803038741,
+      "tag": "0008_overrated_gravity",
+      "breakpoints": true
     }
   ]
 }

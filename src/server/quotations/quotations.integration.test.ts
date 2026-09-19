@@ -11,7 +11,7 @@ import { createDeal, transitionDeal, updateDeal } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
 import { activities, deals, organizationSettings } from "@/server/db/schema";
 import { organizationDateString } from "@/server/shared/organization-date";
-import { createQuotation, getQuotation, listQuotations, updateQuotation } from "./quotations";
+import { createQuotation, getQuotation, listQuotations, reviseQuotation, updateQuotation } from "./quotations";
 
 async function sessionCookieFor(email: string, password: string): Promise<string> {
   // signIn.token (the JSON body) is not the same value the cookie needs; see
@@ -459,6 +459,24 @@ describe("quotations", () => {
       expect(fetched.items.map((i) => i.description)).toEqual(["Second", "First"]);
     });
 
+    it("preserves trailing zeros on quantity exactly as stored (MONEY-02)", async () => {
+      // Regression test: drizzle's relational query API silently drops
+      // trailing zeros on a numeric column when it's read through a nested
+      // `with` relation ("1.500" comes back "1.5"), even though the exact
+      // same column read as its own top-level query is unaffected. Whole
+      // numbers hide this ("4" and "4.000" are numerically identical, easy
+      // to not notice), so this specifically checks a value where a
+      // trimmed and an exact reading would visibly differ.
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const created = await createQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: quotationInput(dealId, { items: oneItem({ quantity: "1.500" }) }),
+      });
+
+      const fetched = await getQuotation({ headers: new Headers({ cookie: ownerCookie }), quotationId: created.id });
+      expect(fetched.items[0].quantity).toBe("1.500");
+    });
+
     it("hides a quotation from a different organization behind NOT_FOUND (TENANT-04)", async () => {
       const orgA = await setupOwnerWithDeal();
       const orgB = await setupOwnerWithDeal();
@@ -506,6 +524,290 @@ describe("quotations", () => {
 
       const listA = await listQuotations({ headers: new Headers({ cookie: orgA.ownerCookie }) });
       expect(listA).toHaveLength(1);
+    });
+
+    it("scopes listQuotations to a revision family, ordered by revisionNumber", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const r1 = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: { sourceQuotationId: r1.id, expectedLatestQuotationId: r1.id, idempotencyKey: crypto.randomUUID() },
+      });
+
+      const family = await listQuotations({ headers: new Headers({ cookie: ownerCookie }), familyId: r1.familyId });
+      expect(family.map((q) => q.revisionNumber)).toEqual([1, 2]);
+    });
+  });
+
+  describe("reviseQuotation", () => {
+    it("creates a DRAFT -R1 revision from the current latest and freezes the source (QUO-05/QUO-06)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const original = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      expect(original.frozenAt).toBeNull();
+
+      const revision = await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: {
+          sourceQuotationId: original.id,
+          expectedLatestQuotationId: original.id,
+          idempotencyKey: crypto.randomUUID(),
+        },
+      });
+
+      expect(revision.status).toBe("DRAFT");
+      expect(revision.isLatest).toBe(true);
+      expect(revision.revisionNumber).toBe(2); // family position: original=1, this revision=2
+      expect(revision.familyId).toBe(original.familyId);
+      expect(revision.previousRevisionId).toBe(original.id);
+      expect(revision.quotationNumber).toBe(`${original.quotationNumber}-R1`); // display suffix counts revisions only
+      expect(revision.frozenAt).toBeNull();
+      expect(revision.editVersion).toBe(1);
+      expect(revision.total).toBe(original.total);
+      expect(revision.items).toHaveLength(1);
+
+      const sourceAfter = await db.query.quotations.findFirst({ where: (q, { eq: eqOp }) => eqOp(q.id, original.id) });
+      expect(sourceAfter?.isLatest).toBe(false);
+      expect(sourceAfter?.frozenAt).not.toBeNull();
+    });
+
+    it("numbers the very first revision -R1, matching QUO-04's example format", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const original = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      const revision = await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: {
+          sourceQuotationId: original.id,
+          expectedLatestQuotationId: original.id,
+          idempotencyKey: crypto.randomUUID(),
+        },
+      });
+      expect(revision.quotationNumber).toMatch(/^QT-\d{4}-\d{5}-R1$/);
+    });
+
+    it("freezes the demoted current-latest even when revising from an older historical version, and keeps the original base number (QUO-05/QUO-06)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const r1 = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      const r2 = await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: { sourceQuotationId: r1.id, expectedLatestQuotationId: r1.id, idempotencyKey: crypto.randomUUID() },
+      });
+      // r2 is now latest, DRAFT, never frozen. Revise from r1 (the old,
+      // already-frozen version) instead of r2.
+      const r2Before = await db.query.quotations.findFirst({ where: (q, { eq: eqOp }) => eqOp(q.id, r2.id) });
+      expect(r2Before?.frozenAt).toBeNull();
+
+      const r3 = await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: { sourceQuotationId: r1.id, expectedLatestQuotationId: r2.id, idempotencyKey: crypto.randomUUID() },
+      });
+
+      expect(r3.revisionNumber).toBe(3); // family position: r1=1, r2=2, r3=3
+      expect(r3.previousRevisionId).toBe(r1.id);
+      expect(r3.quotationNumber).toBe(`${r1.quotationNumber}-R2`); // this is the family's 2nd revision
+
+      // r2 was never the source of this revision, but it must still end up
+      // frozen and demoted -- the whole family must be read-only except r3.
+      const r2After = await db.query.quotations.findFirst({ where: (q, { eq: eqOp }) => eqOp(q.id, r2.id) });
+      expect(r2After?.isLatest).toBe(false);
+      expect(r2After?.frozenAt).not.toBeNull();
+    });
+
+    it("captures a frozen snapshot that a later organization settings change cannot alter (PDF-02)", async () => {
+      const { ownerCookie, dealId, organizationId } = await setupOwnerWithDeal();
+      const original = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: {
+          sourceQuotationId: original.id,
+          expectedLatestQuotationId: original.id,
+          idempotencyKey: crypto.randomUUID(),
+        },
+      });
+
+      const frozen = await db.query.quotations.findFirst({ where: (q, { eq: eqOp }) => eqOp(q.id, original.id) });
+      const snapshotBefore = frozen?.sellerSnapshot as { address: string | null };
+
+      await db
+        .update(organizationSettings)
+        .set({ address: "Jl. Berubah No. 999" })
+        .where(eq(organizationSettings.organizationId, organizationId));
+
+      const stillFrozen = await db.query.quotations.findFirst({ where: (q, { eq: eqOp }) => eqOp(q.id, original.id) });
+      expect((stillFrozen?.sellerSnapshot as { address: string | null }).address).toBe(snapshotBefore.address);
+      expect((stillFrozen?.sellerSnapshot as { address: string | null }).address).not.toBe("Jl. Berubah No. 999");
+    });
+
+    it("replays an identical retry through the same idempotency key without creating a second row (API-05)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const original = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      const key = crypto.randomUUID();
+      const input = { sourceQuotationId: original.id, expectedLatestQuotationId: original.id, idempotencyKey: key };
+
+      const first = await reviseQuotation({ headers: new Headers({ cookie: ownerCookie }), input });
+      const second = await reviseQuotation({ headers: new Headers({ cookie: ownerCookie }), input });
+
+      expect(second.id).toBe(first.id);
+      const family = await listQuotations({ headers: new Headers({ cookie: ownerCookie }), familyId: original.familyId });
+      expect(family).toHaveLength(2); // original + exactly one revision, not two
+    });
+
+    it("rejects reusing an idempotency key with a different payload (API-05)", async () => {
+      const { ownerCookie, dealId, customerId, ownerUserId } = await setupOwnerWithDeal();
+      const original = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      const other = await createDeal({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: { customerId, title: "Other", estimatedValue: "1000000", assignedToId: ownerUserId },
+      });
+      const otherQuotation = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(other.id) });
+      const key = crypto.randomUUID();
+
+      await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: { sourceQuotationId: original.id, expectedLatestQuotationId: original.id, idempotencyKey: key },
+      });
+
+      await expect(
+        reviseQuotation({
+          headers: new Headers({ cookie: ownerCookie }),
+          input: { sourceQuotationId: otherQuotation.id, expectedLatestQuotationId: otherQuotation.id, idempotencyKey: key },
+        }),
+      ).rejects.toThrow(/different request/);
+    });
+
+    it("rejects a stale expectedLatestQuotationId when someone else already revised the family (DATA-07)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const original = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: {
+          sourceQuotationId: original.id,
+          expectedLatestQuotationId: original.id,
+          idempotencyKey: crypto.randomUUID(),
+        },
+      });
+
+      await expect(
+        reviseQuotation({
+          headers: new Headers({ cookie: ownerCookie }),
+          input: {
+            sourceQuotationId: original.id,
+            expectedLatestQuotationId: original.id, // stale: no longer the latest
+            idempotencyKey: crypto.randomUUID(),
+          },
+        }),
+      ).rejects.toThrow(/newer version/);
+    });
+
+    it("rejects a source quotation from a different organization with NOT_FOUND (TENANT-04)", async () => {
+      const orgA = await setupOwnerWithDeal();
+      const orgB = await setupOwnerWithDeal();
+      const quotationB = await createQuotation({ headers: new Headers({ cookie: orgB.ownerCookie }), input: quotationInput(orgB.dealId) });
+
+      await expect(
+        reviseQuotation({
+          headers: new Headers({ cookie: orgA.ownerCookie }),
+          input: {
+            sourceQuotationId: quotationB.id,
+            expectedLatestQuotationId: quotationB.id,
+            idempotencyKey: crypto.randomUUID(),
+          },
+        }),
+      ).rejects.toThrow(/not found/i);
+    });
+
+    it("allows revising a quotation family on a WON deal (QUO-07)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const original = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+
+      let deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      for (const toStatus of ["CONTACTED", "QUOTATION", "NEGOTIATION", "WON"] as const) {
+        await transitionDeal({
+          headers: new Headers({ cookie: ownerCookie }),
+          dealId,
+          expectedVersion: deal!.version,
+          input: { toStatus },
+        });
+        deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      }
+      expect(deal!.status).toBe("WON");
+
+      const revision = await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: {
+          sourceQuotationId: original.id,
+          expectedLatestQuotationId: original.id,
+          idempotencyKey: crypto.randomUUID(),
+        },
+      });
+      expect(revision.status).toBe("DRAFT");
+
+      const dealAfter = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      expect(dealAfter!.status).toBe("WON"); // revising never reopens the deal
+    });
+
+    it("copies items independently: editing the new revision does not touch the frozen source's items", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const original = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      const revision = await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: {
+          sourceQuotationId: original.id,
+          expectedLatestQuotationId: original.id,
+          idempotencyKey: crypto.randomUUID(),
+        },
+      });
+
+      await updateQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        quotationId: revision.id,
+        expectedEditVersion: revision.editVersion,
+        input: quotationInput(dealId, { items: oneItem({ quantity: "99" }) }),
+      });
+
+      // "4.000", not "4": also the regression test for getQuotation's fix
+      // to a real drizzle relational-query bug found while writing this
+      // test, where a numeric column read through a nested `with` relation
+      // silently dropped trailing zeros.
+      const sourceItems = await getQuotation({ headers: new Headers({ cookie: ownerCookie }), quotationId: original.id });
+      expect(sourceItems.items[0].quantity).toBe("4.000");
+    });
+
+    it("records a 'revised' activity on the deal (AUD-01)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      const original = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      const revision = await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: {
+          sourceQuotationId: original.id,
+          expectedLatestQuotationId: original.id,
+          idempotencyKey: crypto.randomUUID(),
+        },
+      });
+
+      const log = await db.query.activities.findMany({
+        where: and(eq(activities.dealId, dealId), eq(activities.eventType, "revised")),
+      });
+      expect(log).toHaveLength(1);
+      const metadata = log[0].metadata as { newQuotationId: string; sourceQuotationId: string };
+      expect(metadata.newQuotationId).toBe(revision.id);
+      expect(metadata.sourceQuotationId).toBe(original.id);
+    });
+
+    it("rejects FINANCE revising a quotation", async () => {
+      const owner = await setupOwnerWithDeal();
+      const original = await createQuotation({ headers: new Headers({ cookie: owner.ownerCookie }), input: quotationInput(owner.dealId) });
+      const { memberCookie } = await setupMember(owner, "FINANCE");
+
+      await expect(
+        reviseQuotation({
+          headers: new Headers({ cookie: memberCookie }),
+          input: {
+            sourceQuotationId: original.id,
+            expectedLatestQuotationId: original.id,
+            idempotencyKey: crypto.randomUUID(),
+          },
+        }),
+      ).rejects.toThrow();
     });
   });
 });
