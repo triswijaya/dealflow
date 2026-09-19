@@ -126,7 +126,7 @@ describe("QuotationDocument (PDF-01)", () => {
     expect(text).not.toContain("undefined");
   });
 
-  it("renders a 200-item fixture across multiple pages, with the item table header repeated (PDF-03/NFR-02)", async () => {
+  it("renders a 200-item fixture across multiple pages, with the item table header and page number repeated (PDF-03/NFR-02)", async () => {
     const items = Array.from({ length: 200 }, (_, i) => ({
       description: `Item baris ke-${i + 1}`,
       quantity: "1.000",
@@ -146,6 +146,35 @@ describe("QuotationDocument (PDF-01)", () => {
     // for the whole document. Uppercase: the header style transforms it.
     const headerOccurrences = text.split("DESKRIPSI").length - 1;
     expect(headerOccurrences).toBe(pdf.numPages);
+    // PDF-03: "nomor halaman tersedia pada dokumen multi-halaman" -- one
+    // "Halaman N dari totalPages" string per page, not just on the last one.
+    for (let page = 1; page <= pdf.numPages; page++) {
+      expect(text).toContain(`Halaman ${page} dari ${pdf.numPages}`);
+    }
+  }, 15000);
+
+  it("does not truncate terms/notes at their 10,000-character maximum, even when that spans multiple pages (PDF-03)", async () => {
+    // Realistic word-wrapped prose, not one unbroken token: a giant
+    // unbroken string has its own separate horizontal-overflow behavior in
+    // @react-pdf/renderer that isn't representative of real terms/notes
+    // text, which always has natural word breaks.
+    const longTerms = "Syarat pembayaran dan ketentuan pengerjaan proyek instalasi CCTV. ".repeat(130).slice(0, 9_950) + " AKHIR-SYARAT";
+    const longNotes = "Catatan tambahan mengenai jadwal pemasangan dan garansi perangkat. ".repeat(130).slice(0, 9_950) + " AKHIR-CATATAN";
+    const buffer = await renderQuotationPdf(baseProps({ terms: longTerms, notes: longNotes }));
+
+    const pdf = await getDocument({ data: new Uint8Array(buffer) }).promise;
+    expect(pdf.numPages).toBeGreaterThan(1);
+
+    const text = await extractText(buffer);
+    expect(text).toContain("AKHIR-SYARAT");
+    expect(text).toContain("AKHIR-CATATAN");
+    // Every page that carries any part of the item table / footer must
+    // still show the document number and a page-number string -- the
+    // original bug also dropped these because the oversized block ate the
+    // rest of its own page without the footer rendering.
+    for (let page = 1; page <= pdf.numPages; page++) {
+      expect(text).toContain(`Halaman ${page} dari ${pdf.numPages}`);
+    }
   }, 15000);
 
   it("renders a 20-item fixture within the NFR-02 preview time budget (<= 5s)", async () => {

@@ -170,8 +170,15 @@ export function QuotationDocument(props: QuotationDocumentProps) {
           <Text style={styles.headerCellNum}>Harga Satuan</Text>
           <Text style={styles.headerCellNum}>Subtotal</Text>
         </View>
+        {/* PDF-03: no wrap={false} here. @react-pdf/renderer does not push a
+            wrap={false} block taller than one page to the next page --  it
+            clips it in place, silently truncating whatever didn't fit. A
+            row's description is capped at 1000 characters (QUO-02) and
+            currently always fits within one page at this layout's font
+            size, but "tanpa terpotong" has to hold regardless of that
+            limit, not by accident of today's numbers. */}
         {props.items.map((item, index) => (
-          <View style={styles.row} key={index} wrap={false}>
+          <View style={styles.row} key={index}>
             <Text style={styles.cellDesc}>{item.description}</Text>
             <Text style={styles.cellNum}>{formatQuantityForDisplay(item.quantity)}</Text>
             <Text style={styles.cellNum}>{item.unit}</Text>
@@ -202,14 +209,20 @@ export function QuotationDocument(props: QuotationDocumentProps) {
           </View>
         </View>
 
+        {/* PDF-03: "total ... tanpa terpotong" also covers terms/notes, and
+            each can run up to 10,000 characters (§8.1) -- far more than
+            fits on one page. wrap={false} would clip whatever overflowed
+            the current page instead of continuing it onto the next one, so
+            these are left to wrap normally; only the small, always-bounded
+            totals block above keeps wrap={false}. */}
         {props.terms && (
-          <View style={styles.textBlock} wrap={false}>
+          <View style={styles.textBlock}>
             <Text style={styles.textBlockLabel}>Syarat &amp; Ketentuan</Text>
             <Text style={styles.textBlockBody}>{props.terms}</Text>
           </View>
         )}
         {props.notes && (
-          <View style={styles.textBlock} wrap={false}>
+          <View style={styles.textBlock}>
             <Text style={styles.textBlockLabel}>Catatan</Text>
             <Text style={styles.textBlockBody}>{props.notes}</Text>
           </View>
