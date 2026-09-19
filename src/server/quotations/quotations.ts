@@ -416,10 +416,28 @@ const reviseQuotationInputSchema = z.object({
  * (only ever call this for a row that is about to be frozen for the first
  * time -- see the frozenAt-is-null guard in reviseQuotation).
  */
+// PDF-01/PDF-02: named and exported so both the freeze call sites (inside
+// a transaction) and getQuotationForPdf (a plain read, no transaction
+// needed since nothing is written) can share one shape, and so
+// quotation-document.tsx has a real type for its props instead of `any`.
+export type QuotationSellerSnapshot = {
+  name: string | null;
+  address: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+};
+export type QuotationCustomerSnapshot = {
+  companyName: string | null;
+  contactPerson: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+};
+
 async function buildQuotationSnapshots(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db,
   params: { organizationId: string; customerId: string },
-) {
+): Promise<{ seller: QuotationSellerSnapshot; customer: QuotationCustomerSnapshot }> {
   const [org] = await tx.select().from(organization).where(eq(organization.id, params.organizationId));
   const settings = await tx.query.organizationSettings.findFirst({
     where: eq(organizationSettings.organizationId, params.organizationId),
@@ -823,4 +841,39 @@ export async function transitionQuotationStatus(params: {
 
     return updated;
   });
+}
+
+/**
+ * PDF-01/PDF-02/PDF-04: everything the PDF route needs, already resolved.
+ * A plain read like getQuotation -- no transaction, since nothing is
+ * written (QUO-08: "Download PDF sendiri tidak mengubah status", and by
+ * extension, never freezes anything either).
+ *
+ * Seller/customer come from the frozen snapshot when one exists; a DRAFT
+ * that has never been frozen has no snapshot to fall back to, so its PDF
+ * reflects current master data instead, built fresh on every call and
+ * never persisted here.
+ */
+export async function getQuotationForPdf(params: { headers: Headers; quotationId: string }) {
+  const actor = await requirePermission({ headers: params.headers, permission: { quotation: ["read"] } });
+  const quotation = await db.query.quotations.findFirst({
+    where: and(eq(quotations.id, params.quotationId), eq(quotations.organizationId, actor.organizationId)),
+  });
+  if (!quotation) {
+    throw new APIError("NOT_FOUND", { message: "Quotation not found" });
+  }
+  const items = await db.query.quotationItems.findMany({
+    where: eq(quotationItems.quotationId, quotation.id),
+    orderBy: (item, { asc }) => asc(item.sortOrder),
+  });
+
+  const snapshots =
+    quotation.frozenAt !== null
+      ? {
+          seller: quotation.sellerSnapshot as QuotationSellerSnapshot,
+          customer: quotation.customerSnapshot as QuotationCustomerSnapshot,
+        }
+      : await buildQuotationSnapshots(db, { organizationId: actor.organizationId, customerId: quotation.customerId });
+
+  return { quotation, items, seller: snapshots.seller, customer: snapshots.customer };
 }

@@ -46,3 +46,18 @@ export function formatQuantityScaled(scaled: bigint): string {
   const fraction = scaled % QUANTITY_SCALE;
   return `${whole}.${fraction.toString().padStart(QUANTITY_DECIMALS, "0")}`;
 }
+
+/**
+ * Human-display form of a stored quantity string: trailing zeros dropped,
+ * so a whole-number quantity reads "4" on a PDF/UI instead of the
+ * numeric(12,3) column's stored "4.000". Purely cosmetic -- operates on
+ * the string only, never touches the underlying stored/scaled value, and
+ * never routes through Number.
+ */
+export function formatQuantityForDisplay(stored: string): string {
+  if (!stored.includes(".")) {
+    return stored;
+  }
+  const trimmed = stored.replace(/0+$/, "").replace(/\.$/, "");
+  return trimmed === "" ? "0" : trimmed;
+}

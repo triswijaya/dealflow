@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_QUANTITY_SCALED, formatQuantityScaled, quantitySchema } from "./quantity";
+import { MAX_QUANTITY_SCALED, formatQuantityForDisplay, formatQuantityScaled, quantitySchema } from "./quantity";
 
 describe("quantitySchema", () => {
   it("scales a whole number by 1000", () => {
@@ -82,5 +82,31 @@ describe("formatQuantityScaled", () => {
 
   it("refuses a negative scaled quantity", () => {
     expect(() => formatQuantityScaled(-1n)).toThrow();
+  });
+});
+
+describe("formatQuantityForDisplay", () => {
+  it("drops trailing zeros for a whole-number quantity", () => {
+    expect(formatQuantityForDisplay("4.000")).toBe("4");
+    expect(formatQuantityForDisplay("1000000.000")).toBe("1000000");
+  });
+
+  it("trims a partial trailing zero but keeps significant fraction digits", () => {
+    expect(formatQuantityForDisplay("1.500")).toBe("1.5");
+    expect(formatQuantityForDisplay("12.340")).toBe("12.34");
+  });
+
+  it("leaves an already-exact fraction untouched", () => {
+    expect(formatQuantityForDisplay("0.333")).toBe("0.333");
+  });
+
+  it("leaves a value with no decimal point untouched", () => {
+    expect(formatQuantityForDisplay("4")).toBe("4");
+  });
+
+  it("never mutates the underlying stored string, only its own return value", () => {
+    const stored = formatQuantityScaled(quantitySchema.parse("4"));
+    expect(stored).toBe("4.000"); // the exact stored form is unaffected
+    expect(formatQuantityForDisplay(stored)).toBe("4");
   });
 });

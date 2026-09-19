@@ -9,11 +9,12 @@ import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
 import { createDeal, transitionDeal, updateDeal } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
-import { activities, deals, organizationSettings, quotations } from "@/server/db/schema";
+import { activities, customers, deals, organizationSettings, quotations } from "@/server/db/schema";
 import { organizationDateString } from "@/server/shared/organization-date";
 import {
   createQuotation,
   getQuotation,
+  getQuotationForPdf,
   listQuotations,
   reviseQuotation,
   transitionQuotationStatus,
@@ -1169,6 +1170,74 @@ describe("quotations", () => {
         const fetched = await getQuotation({ headers: new Headers({ cookie: ownerCookie }), quotationId: created.id });
         expect(fetched.status).toBe("DRAFT");
       });
+    });
+  });
+
+  describe("getQuotationForPdf", () => {
+    it("resolves seller/customer from current master data for a DRAFT that was never frozen (QUO-08: download itself never freezes)", async () => {
+      const { ownerCookie, dealId, organizationId } = await setupOwnerWithDeal();
+      const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+
+      const forPdf = await getQuotationForPdf({ headers: new Headers({ cookie: ownerCookie }), quotationId: created.id });
+      expect(forPdf.quotation.frozenAt).toBeNull();
+      expect(forPdf.customer.companyName).toBe("PT Maju Jaya");
+
+      // Change the customer's live master data, then fetch for PDF again:
+      // an unfrozen DRAFT has no snapshot to protect, so it must reflect
+      // the change -- and the row itself must still show no frozenAt,
+      // proving the read alone never freezes it.
+      await db.update(customers).set({ companyName: "PT Berubah Nama" }).where(eq(customers.organizationId, organizationId));
+      const again = await getQuotationForPdf({ headers: new Headers({ cookie: ownerCookie }), quotationId: created.id });
+      expect(again.customer.companyName).toBe("PT Berubah Nama");
+      const rawAfter = await db.query.quotations.findFirst({ where: (q, { eq: eqOp }) => eqOp(q.id, created.id) });
+      expect(rawAfter!.frozenAt).toBeNull();
+    });
+
+    it("resolves seller/customer from the frozen snapshot once SENT, immune to a later master-data change (PDF-02)", async () => {
+      const { ownerCookie, dealId, organizationId } = await setupOwnerWithDeal();
+      const dealBefore = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      await transitionDeal({
+        headers: new Headers({ cookie: ownerCookie }),
+        dealId,
+        expectedVersion: dealBefore!.version,
+        input: { toStatus: "CONTACTED" },
+      });
+      const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      const sent = await transitionQuotationStatus({
+        headers: new Headers({ cookie: ownerCookie }),
+        quotationId: created.id,
+        expectedEditVersion: created.editVersion,
+        toStatus: "SENT",
+      });
+      expect(sent.frozenAt).not.toBeNull();
+
+      const beforeChange = await getQuotationForPdf({ headers: new Headers({ cookie: ownerCookie }), quotationId: created.id });
+      expect(beforeChange.customer.companyName).toBe("PT Maju Jaya");
+
+      await db.update(customers).set({ companyName: "PT Berubah Nama" }).where(eq(customers.organizationId, organizationId));
+
+      const afterChange = await getQuotationForPdf({ headers: new Headers({ cookie: ownerCookie }), quotationId: created.id });
+      expect(afterChange.customer.companyName).toBe("PT Maju Jaya"); // unchanged: frozen snapshot, not live data
+    });
+
+    it("hides a quotation from a different organization behind NOT_FOUND (TENANT-04)", async () => {
+      const orgA = await setupOwnerWithDeal();
+      const orgB = await setupOwnerWithDeal();
+      const quotationB = await createQuotation({ headers: new Headers({ cookie: orgB.ownerCookie }), input: quotationInput(orgB.dealId) });
+
+      await expect(
+        getQuotationForPdf({ headers: new Headers({ cookie: orgA.ownerCookie }), quotationId: quotationB.id }),
+      ).rejects.toThrow(/not found/i);
+    });
+
+    it("rejects FINANCE, who has no quotation permission at all (§6.2)", async () => {
+      const owner = await setupOwnerWithDeal();
+      const created = await createQuotation({ headers: new Headers({ cookie: owner.ownerCookie }), input: quotationInput(owner.dealId) });
+      const { memberCookie } = await setupMember(owner, "FINANCE");
+
+      await expect(
+        getQuotationForPdf({ headers: new Headers({ cookie: memberCookie }), quotationId: created.id }),
+      ).rejects.toThrow();
     });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_MONEY_AMOUNT, moneyAmountSchema } from "./amount";
+import { MAX_MONEY_AMOUNT, formatRupiah, moneyAmountSchema } from "./amount";
 
 describe("moneyAmountSchema", () => {
   it("parses a valid integer string into a bigint", () => {
@@ -37,5 +37,36 @@ describe("moneyAmountSchema", () => {
 
   it("rejects an empty string", () => {
     expect(() => moneyAmountSchema.parse("")).toThrow();
+  });
+});
+
+describe("formatRupiah", () => {
+  it("formats with a period thousands separator (UX-05: 'Rp30.000.000')", () => {
+    expect(formatRupiah(30_000_000n)).toBe("Rp30.000.000");
+  });
+
+  it("formats an amount under 1000 with no separator", () => {
+    expect(formatRupiah(500n)).toBe("Rp500");
+  });
+
+  it("formats zero", () => {
+    expect(formatRupiah(0n)).toBe("Rp0");
+  });
+
+  it("places separators correctly for a non-multiple-of-3 digit count", () => {
+    expect(formatRupiah(1_234n)).toBe("Rp1.234");
+    expect(formatRupiah(12_345n)).toBe("Rp12.345");
+  });
+
+  it("stays exact at the maximum money amount, never routing through Number", () => {
+    expect(formatRupiah(MAX_MONEY_AMOUNT)).toBe("Rp1.000.000.000.000.000");
+  });
+
+  it("formats a negative amount with the sign before Rp", () => {
+    expect(formatRupiah(-500_000n)).toBe("Rp-500.000");
+  });
+
+  it("round-trips through moneyAmountSchema's parse direction", () => {
+    expect(formatRupiah(moneyAmountSchema.parse("24420000"))).toBe("Rp24.420.000");
   });
 });

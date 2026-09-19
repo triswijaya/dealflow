@@ -18,3 +18,15 @@ export const moneyAmountSchema = z
   .refine((value) => value <= MAX_MONEY_AMOUNT, {
     message: `Amount exceeds the maximum of ${MAX_MONEY_AMOUNT.toString()}`,
   });
+
+// UX-05: "Angka uang ditampilkan Rp30.000.000" -- the human-display mirror
+// of moneyAmountSchema's parse direction. Period as the thousands
+// separator, no decimals (rupiah amounts are always whole, MONEY-01), and
+// never routes through Number, so it stays exact at any magnitude
+// moneyAmountSchema itself allows.
+export function formatRupiah(amount: bigint): string {
+  const isNegative = amount < 0n;
+  const digits = (isNegative ? -amount : amount).toString();
+  const withSeparators = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `Rp${isNegative ? "-" : ""}${withSeparators}`;
+}
