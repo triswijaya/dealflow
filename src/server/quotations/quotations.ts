@@ -544,9 +544,32 @@ export async function reviseQuotation(params: { headers: Headers; input: unknown
     }
 
     // QUO-05: "satu transaksi mengunci family dan memastikan hanya satu
-    // latest version." The whole family, not just one row: scenario B
-    // below needs to read and update two different rows (the source and
-    // the current latest) consistently.
+    // latest version." Lock the ORIGINAL row alone first -- a stable
+    // identity (revisionNumber 1 always exists and never changes) -- as a
+    // mutex for the whole family, rather than locking the family set
+    // directly in one query. SELECT ... FOR UPDATE only locks/returns rows
+    // matching its WHERE clause as of when the statement began: a single
+    // query locking the whole family can miss a revision a concurrent
+    // reviser inserts and commits while this transaction sits blocked
+    // waiting on the lock, because that new row was never in this
+    // statement's candidate set and stays invisible even after unblocking
+    // (proven by two racing revisions leaving the loser's `family` one row
+    // short, with no isLatest row in it at all). Re-reading the whole
+    // family fresh in a second statement, after the mutex is held, gets a
+    // new snapshot under READ COMMITTED that is guaranteed to include
+    // anything committed before this point.
+    await tx
+      .select({ id: quotations.id })
+      .from(quotations)
+      .where(
+        and(
+          eq(quotations.familyId, sourceLookup.familyId),
+          eq(quotations.organizationId, actor.organizationId),
+          eq(quotations.revisionNumber, 1),
+        ),
+      )
+      .for("update");
+
     const family = await tx
       .select()
       .from(quotations)
