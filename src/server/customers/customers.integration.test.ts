@@ -143,11 +143,33 @@ describe("customers", () => {
     const updated = await updateCustomer({
       headers: new Headers({ cookie: ownerCookie }),
       customerId: created.id,
+      expectedVersion: created.version,
       input: { ...validInput, companyName: "PT Maju Jaya Sentosa" },
     });
 
     expect(updated.companyName).toBe("PT Maju Jaya Sentosa");
     expect(updated.updatedById).toBeTruthy();
+    expect(updated.version).toBe(2);
+  });
+
+  it("rejects an update with a stale version (DATA-07/API-01)", async () => {
+    const { ownerCookie } = await setupOwner();
+    const created = await createCustomer({ headers: new Headers({ cookie: ownerCookie }), input: validInput });
+    await updateCustomer({
+      headers: new Headers({ cookie: ownerCookie }),
+      customerId: created.id,
+      expectedVersion: created.version,
+      input: { ...validInput, companyName: "First update" },
+    });
+
+    await expect(
+      updateCustomer({
+        headers: new Headers({ cookie: ownerCookie }),
+        customerId: created.id,
+        expectedVersion: created.version, // stale: already consumed above
+        input: { ...validInput, companyName: "Second update" },
+      }),
+    ).rejects.toThrow(/modified by someone else/);
   });
 
   it("actually clears email/address/notes when the update omits them, not silently keeping the old value", async () => {
@@ -164,6 +186,7 @@ describe("customers", () => {
     const cleared = await updateCustomer({
       headers: new Headers({ cookie: ownerCookie }),
       customerId: created.id,
+      expectedVersion: created.version,
       input: withoutOptionalFields,
     });
 
@@ -185,6 +208,7 @@ describe("customers", () => {
       updateCustomer({
         headers: new Headers({ cookie: orgB.ownerCookie }),
         customerId: created.id,
+        expectedVersion: created.version,
         input: validInput,
       }),
     ).rejects.toThrow(/not found/i);

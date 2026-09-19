@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
@@ -74,11 +74,28 @@ export async function createCustomer(params: { headers: Headers; input: unknown 
  * TENANT-04: a customer that doesn't exist and a customer that belongs to a
  * different organization produce the identical NOT_FOUND, never a message
  * that reveals which case it was.
+ *
+ * DATA-07/API-01: optimistic concurrency via `version`, the same pattern
+ * updateDeal uses -- `existing` is read first under full tenant scope so a
+ * missing/cross-tenant row (NOT_FOUND) can be told apart from a stale
+ * version on a row that does exist (CONFLICT).
  */
-export async function updateCustomer(params: { headers: Headers; customerId: string; input: unknown }) {
+export async function updateCustomer(params: {
+  headers: Headers;
+  customerId: string;
+  expectedVersion: number;
+  input: unknown;
+}) {
   const actor = await requirePermission({ headers: params.headers, permission: { customer: ["write"] } });
   const parsed = customerInputSchema.parse(params.input);
   const phoneNormalized = normalizeOrThrow(parsed.phone);
+
+  const existing = await db.query.customers.findFirst({
+    where: and(eq(customers.id, params.customerId), eq(customers.organizationId, actor.organizationId)),
+  });
+  if (!existing) {
+    throw new APIError("NOT_FOUND", { message: "Customer not found" });
+  }
 
   const [updated] = await db
     .update(customers)
@@ -91,12 +108,21 @@ export async function updateCustomer(params: { headers: Headers; customerId: str
       address: parsed.address,
       notes: parsed.notes,
       updatedById: actor.userId,
+      version: sql`${customers.version} + 1`,
     })
-    .where(and(eq(customers.id, params.customerId), eq(customers.organizationId, actor.organizationId)))
+    .where(
+      and(
+        eq(customers.id, params.customerId),
+        eq(customers.organizationId, actor.organizationId),
+        eq(customers.version, params.expectedVersion),
+      ),
+    )
     .returning();
 
   if (!updated) {
-    throw new APIError("NOT_FOUND", { message: "Customer not found" });
+    // existing was found above under the same tenant scope, so reaching
+    // here means the version check failed, not a missing/cross-tenant row.
+    throw new APIError("CONFLICT", { message: "Customer was modified by someone else, reload and try again" });
   }
   return updated;
 }

@@ -202,6 +202,12 @@ export const customers = pgTable(
     email: text("email"),
     address: text("address"),
     notes: text("notes"),
+    // DATA-07/API-01: optimistic concurrency. API-01's own contract table
+    // names "version" as required input for customer update ("ID/version
+    // saat update"), missed during M1 (that audit only checked §14.1's
+    // field-by-field description, not this table) and closed here before
+    // building on top of it further.
+    version: integer("version").notNull().default(1),
     // DATA-04: all instants use timestamptz UTC.
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
