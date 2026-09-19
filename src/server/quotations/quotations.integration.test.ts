@@ -940,7 +940,40 @@ describe("quotations", () => {
 
       const dealAfter = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
       expect(dealAfter!.status).toBe("QUOTATION");
-      expect(dealAfter!.version).toBe(versionBeforeSend); // untouched: no redundant stage_changed side effect
+      // version advances by exactly 1, for the lastActivityAt bump
+      // (RISK-01/11.2) -- a redundant stage_changed side effect would have
+      // advanced it by 2.
+      expect(dealAfter!.version).toBe(versionBeforeSend + 1);
+    });
+
+    it("bumps deals.lastActivityAt on quotation created, revised, and SENT (RISK-01/11.2)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      await advanceDealToContacted(ownerCookie, dealId);
+      const beforeCreate = (await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) }))!
+        .lastActivityAt;
+
+      const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      const afterCreate = (await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) }))!
+        .lastActivityAt;
+      expect(afterCreate.getTime()).toBeGreaterThan(beforeCreate.getTime());
+
+      const revision = await reviseQuotation({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: { sourceQuotationId: created.id, expectedLatestQuotationId: created.id, idempotencyKey: crypto.randomUUID() },
+      });
+      const afterRevise = (await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) }))!
+        .lastActivityAt;
+      expect(afterRevise.getTime()).toBeGreaterThan(afterCreate.getTime());
+
+      await transitionQuotationStatus({
+        headers: new Headers({ cookie: ownerCookie }),
+        quotationId: revision.id,
+        expectedEditVersion: revision.editVersion,
+        toStatus: "SENT",
+      });
+      const afterSent = (await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) }))!
+        .lastActivityAt;
+      expect(afterSent.getTime()).toBeGreaterThan(afterRevise.getTime());
     });
 
     it("still allows SENT on a WON deal, for record purposes, without reopening it (QUO-08)", async () => {

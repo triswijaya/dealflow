@@ -16,7 +16,8 @@ import {
 import { moneyAmountSchema } from "@/server/money/amount";
 import { type CalculationErrorCode, calculateDocumentTotals } from "@/server/money/calculation";
 import { formatQuantityScaled, quantitySchema } from "@/server/money/quantity";
-import { organizationDateString, organizationYear } from "@/server/shared/organization-date";
+import { organizationYear } from "@/server/shared/organization-date";
+import { organizationClock } from "@/server/shared/organization-clock";
 import { claimNextSequence, formatQuotationNumber, formatRevisionNumber } from "./document-number";
 import { effectiveQuotationStatus } from "./effective-status";
 
@@ -104,19 +105,6 @@ function computeTotalsOrThrow(parsed: {
  * of them read the settings row the same way and agree on what "today" is
  * within one request.
  */
-async function organizationClock(organizationId: string): Promise<{ timezone: string; today: string; now: Date }> {
-  const settings = await db.query.organizationSettings.findFirst({
-    where: eq(organizationSettings.organizationId, organizationId),
-  });
-  if (!settings) {
-    // Every organization gets a settings row at registration (AUTH-02);
-    // reaching here means that invariant broke, not a normal user error.
-    throw new APIError("INTERNAL_SERVER_ERROR", { message: "Organization settings not found" });
-  }
-  const now = new Date();
-  return { timezone: settings.timezone, today: organizationDateString(settings.timezone, now), now };
-}
-
 /**
  * QUO-01/QUO-02/QUO-04. customer_id is deliberately not a client input: it
  * is always read from the deal itself (DATA-02: "customer harus berasal
@@ -221,12 +209,18 @@ export async function createQuotation(params: { headers: Headers; input: unknown
     // updateDeal blocked on this row's lock (see function doc above) fails
     // its own version check after we commit, rather than silently
     // succeeding against a customerId this quotation already captured.
-    if (!deal.hasQuotation) {
-      await tx
-        .update(deals)
-        .set({ hasQuotation: true, version: sql`${deals.version} + 1` })
-        .where(eq(deals.id, deal.id));
-    }
+    //
+    // RISK-01/11.2: "quotation created" is meaningful activity every time,
+    // not only for the deal's first quotation, so lastActivityAt always
+    // advances here even when hasQuotation was already true.
+    await tx
+      .update(deals)
+      .set({
+        ...(deal.hasQuotation ? {} : { hasQuotation: true }),
+        lastActivityAt: clock.now,
+        version: sql`${deals.version} + 1`,
+      })
+      .where(eq(deals.id, deal.id));
 
     // AUD-01: "quotation created" is a required minimum timeline event.
     await tx.insert(activities).values({
@@ -643,6 +637,13 @@ export async function reviseQuotation(params: { headers: Headers; input: unknown
       )
       .returning();
 
+    // RISK-01/11.2: "quotation ... direvisi" is meaningful activity.
+    const now = new Date();
+    await tx
+      .update(deals)
+      .set({ lastActivityAt: now, version: sql`${deals.version} + 1` })
+      .where(eq(deals.id, source.dealId));
+
     // AUD-01: "quotation ... revised" is a required minimum timeline event.
     await tx.insert(activities).values({
       organizationId: actor.organizationId,
@@ -806,10 +807,15 @@ export async function transitionQuotationStatus(params: {
     // actions on different quotations of the same deal both attempt this,
     // and only whichever commits first actually changes anything -- the
     // second affects 0 rows and is simply skipped, not an error.
+    //
+    // RISK-01/11.2: SENT/ACCEPTED/REJECTED are all meaningful activity
+    // regardless of whether the stage itself also advances, so
+    // lastActivityAt/version bump on every branch below; the stage-change
+    // case folds that into its own guarded UPDATE instead of writing twice.
     if (parsed.toStatus === "SENT") {
       const [advancedDeal] = await tx
         .update(deals)
-        .set({ status: "QUOTATION", version: sql`${deals.version} + 1` })
+        .set({ status: "QUOTATION", lastActivityAt: now, version: sql`${deals.version} + 1` })
         .where(and(eq(deals.id, existing.dealId), eq(deals.status, "CONTACTED")))
         .returning();
       if (advancedDeal) {
@@ -823,7 +829,17 @@ export async function transitionQuotationStatus(params: {
           metadata: { fromStatus: "CONTACTED", toStatus: "QUOTATION", reason: "quotation_sent" },
           permissionCategory: "sales",
         });
+      } else {
+        await tx
+          .update(deals)
+          .set({ lastActivityAt: now, version: sql`${deals.version} + 1` })
+          .where(eq(deals.id, existing.dealId));
       }
+    } else {
+      await tx
+        .update(deals)
+        .set({ lastActivityAt: now, version: sql`${deals.version} + 1` })
+        .where(eq(deals.id, existing.dealId));
     }
 
     // AUD-01: "quotation ... SENT/ACCEPTED/REJECTED" is a required minimum
