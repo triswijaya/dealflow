@@ -1,6 +1,6 @@
 # DealFlow: Final Product & Engineering Requirements
 
-Versi: 1.0 · Tanggal: 14 September 2026 · Bahasa produk MVP: Bahasa Indonesia
+Versi: 1.1 · Tanggal: 20 September 2026 (revisi terakhir dari 1.0, 14 September 2026; lihat §23 untuk ringkasan perubahan) · Bahasa produk MVP: Bahasa Indonesia
 
 Status: baseline requirement untuk implementasi dan release MVP. Dokumen ini menetapkan apa yang harus dibangun; dokumen ini bukan laporan bahwa aplikasi sudah dibangun atau diuji.
 
@@ -141,26 +141,26 @@ Vercel: satu aplikasi Next.js 16 / Node.js 24
 src/
   app/                    # routes, layouts, thin actions/handlers
   components/             # shared UI dan komponen shadcn
-  modules/
-    organizations/
+  server/
+    auth/                  # Better Auth, organization plugin, session, membership, permission
     customers/
     deals/
     quotations/
     follow-ups/
-    invoices/
-    payments/
-    dashboard/
-    activities/
-  server/
-    auth/                  # Better Auth, session, membership, permission
+    whatsapp/
+    invoices/              # invoice dan payment (satu modul finance, bukan dua terpisah)
+    money/                 # amount/quantity/calculation, dipakai bersama quotation dan invoice
+    pdf/                   # rendering quotation PDF
+    shared/                # clock organisasi, snapshot builder, contract item dokumen bersama
     db/                    # client, schema, tenant context
-    observability/         # logger, error reporting
     email/                 # adapter email akun
-  lib/                     # money, date, pagination; pure shared utilities
+  lib/                     # auth-permissions dan pure shared utilities lain
 drizzle/                   # reviewed migrations
 tests/                     # integration fixtures dan E2E
 docs/adr/                  # keputusan arsitektur
 ```
+
+Struktur di atas diperbarui 20 September 2026 mengikuti implementasi nyata: setiap modul bisnis hidup langsung di bawah `server/`, bukan pada `modules/` terpisah seperti draft awal. Aturan substansinya (ARCH-02) tidak berubah -- ini murni koreksi lokasi folder, bukan keputusan arsitektur baru. `dashboard/` dan `activities/` sengaja tidak dicantumkan karena keduanya belum dibangun sebagai modul (M4); tambahkan mengikuti pola yang sama begitu ditulis.
 
 Di dalam modul, pisahkan schema validasi, domain/service, repository, type/DTO, komponen UI, dan tests. Nama file dapat mengikuti konvensi repository, tetapi business logic tidak boleh terkumpul di page atau route handler.
 
@@ -404,8 +404,9 @@ Invoice creation mengunci source quotation, memeriksa expected source edit versi
 | issue_date, due_date | Wajib; due_date >= issue_date |
 | items | Minimal satu, field/precision sama dengan quotation items |
 | subtotal, discount, tax, total | Dihitung server; total > 0 |
+| notes, terms | Opsional plain text; disalin dari quotation source jika ada (INV-02), dapat diubah user sebelum diterbitkan (INV-03) |
 | status | Effective status menurut §10.2 |
-| paid_amount, remaining_amount | Hasil perhitungan payment; bukan input user |
+| paid_amount, remaining_amount | Nilai turunan: dihitung ulang dari data payment pada setiap read, bukan kolom yang wajib di-cache (lihat §14.1 "cached ... jika dipakai"); bukan input user |
 | seller_snapshot, customer_snapshot, currency | Snapshot wajib; currency IDR |
 | created_at, updated_at, created_by | Metadata audit |
 
@@ -966,3 +967,7 @@ Sumber bisnis: PRD asal DealFlow, dipetakan lengkap pada §22. Sumber keputusan 
 Dokumentasi teknis diperiksa pada 14 September 2026. Versi patch, plan limits, dan dukungan provider tetap perlu divalidasi saat implementasi/release melalui dependency lock, production build, integration tests, dan smoke test. Dokumen ini tidak bergantung pada klaim popularitas stack, benchmark tanpa pengukuran, atau asumsi fitur gratis provider.
 
 Saat ada perubahan, update versi/tanggal dokumen, requirement terkait, ADR bila diperlukan, migration/release notes, dan acceptance tests. Tetap pertahankan core workflow serta batas modular monolith sampai ada kebutuhan yang terbukti untuk mengubahnya.
+
+**Riwayat revisi**
+
+- **1.1 (20 September 2026)**: tiga koreksi dokumentasi ditemukan lewat audit implementasi M1-M3, tidak ada perubahan aturan bisnis atau data. (1) §5.1: struktur folder ilustratif diperbarui dari `src/modules/` terpisah menjadi modul bisnis langsung di bawah `src/server/`, mengikuti konvensi yang sudah konsisten dipakai sejak M1 -- ARCH-02 sendiri tidak berubah. (2) §10.1: field table invoice menambahkan `notes`/`terms`, yang sebelumnya tidak tercantum padahal INV-02 mengharuskan keduanya disalin dari quotation source -- kontradiksi internal dokumen, bukan implementasi yang menyimpang. (3) §10.1: `paid_amount`/`remaining_amount` diperjelas sebagai nilai turunan yang dihitung ulang saat read, bukan kolom tersimpan, konsisten dengan §14.1 yang sejak awal menandai cache sebagai opsional. Tidak ada ADR terpisah dibuat untuk revisi ini karena ketiganya adalah koreksi framing dokumen terhadap keputusan yang sudah berjalan, bukan keputusan arsitektur baru.
