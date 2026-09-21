@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { customers, organization, organizationSettings } from "@/server/db/schema";
+import type { CustomerSnapshot, SellerSnapshot } from "./document-snapshot-types";
 
 /**
  * The point-in-time company/customer snapshot a document freeze captures.
@@ -9,21 +10,13 @@ import { customers, organization, organizationSettings } from "@/server/db/schem
  * `quotations` and `invoices`, and INV-02 requires an invoice to carry the
  * same customer snapshot shape a quotation does, so a second copy of these
  * types could drift from the contract instead of merely from each other.
+ *
+ * The types themselves live in document-snapshot-types.ts (re-exported
+ * here for every existing importer) so schema.ts can use them in a jsonb
+ * column's `.$type<>()` without importing this file and creating a cycle
+ * back through the `customers`/`organization` tables above.
  */
-export type SellerSnapshot = {
-  name: string | null;
-  address: string | null;
-  contactEmail: string | null;
-  contactPhone: string | null;
-};
-
-export type CustomerSnapshot = {
-  companyName: string | null;
-  contactPerson: string | null;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-};
+export type { SellerSnapshot, CustomerSnapshot } from "./document-snapshot-types";
 
 /**
  * Reads current master data; the caller decides whether that is appropriate

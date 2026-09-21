@@ -24,6 +24,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { CustomerSnapshot, SellerSnapshot } from "@/server/shared/document-snapshot-types";
 
 // MONEY-04: the same ceiling as MAX_MONEY_AMOUNT in server/money/amount.ts
 // (Rp1.000.000.000.000.000), duplicated here as a literal because these
@@ -494,8 +495,8 @@ export const quotations = pgTable(
     // (seller/customer snapshot, items, terms) is frozen and can no longer
     // change, including via master-data edits elsewhere.
     frozenAt: timestamp("frozen_at", { withTimezone: true }),
-    sellerSnapshot: jsonb("seller_snapshot"),
-    customerSnapshot: jsonb("customer_snapshot"),
+    sellerSnapshot: jsonb("seller_snapshot").$type<SellerSnapshot>(),
+    customerSnapshot: jsonb("customer_snapshot").$type<CustomerSnapshot>(),
     // QUO-03/DATA-07: optimistic concurrency for commercial edits. Named
     // distinctly from calculationVersion (a different axis entirely: this
     // one is "has anyone edited since I last read this row") and from
@@ -658,8 +659,8 @@ export const invoices = pgTable(
     terms: text("terms"),
     // INV-03: the final snapshot, frozen at issue time. Same shape as a
     // quotation's (shared/document-snapshots.ts).
-    sellerSnapshot: jsonb("seller_snapshot"),
-    customerSnapshot: jsonb("customer_snapshot"),
+    sellerSnapshot: jsonb("seller_snapshot").$type<SellerSnapshot>(),
+    customerSnapshot: jsonb("customer_snapshot").$type<CustomerSnapshot>(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
