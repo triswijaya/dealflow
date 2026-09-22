@@ -16,7 +16,7 @@ import {
 import { organizationClock } from "@/server/shared/organization-clock";
 import { organizationYear } from "@/server/shared/organization-date";
 import { paidAmountFor, paidAmountsFor } from "./balance";
-import { invoiceEffectiveStatus, invoiceRemainingAmount } from "./effective-status";
+import { toInvoiceDto } from "./dto";
 
 // API-05: this operation type scopes the idempotency key namespace, the
 // same table quotation revisions already use.
@@ -71,27 +71,7 @@ const createInvoiceInputSchema = z.object({
   idempotencyKey: z.string().min(1).max(200),
 });
 
-type InvoiceRow = typeof invoices.$inferSelect;
 type InvoiceItemRow = typeof invoiceItems.$inferSelect;
-
-/**
- * §10.2: paid/remaining/status are always derived, never stored, so a read
- * sums the invoice's payments rather than trusting a cached column.
- */
-function withBalance(
-  invoice: InvoiceRow,
-  items: InvoiceItemRow[],
-  paidAmount: bigint,
-  todayOrg: string,
-): InvoiceRow & { items: InvoiceItemRow[]; paidAmount: bigint; remainingAmount: bigint; status: string } {
-  return {
-    ...invoice,
-    items,
-    paidAmount,
-    remainingAmount: invoiceRemainingAmount(invoice.total, paidAmount),
-    status: invoiceEffectiveStatus({ total: invoice.total, paidAmount, dueDate: invoice.dueDate }, todayOrg),
-  };
-}
 
 async function itemsOf(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db,
@@ -196,7 +176,7 @@ export async function createInvoice(params: { headers: Headers; input: unknown }
         organizationId: actor.organizationId,
         invoiceId: previous.id,
       });
-      return withBalance(previous, await itemsOf(tx, previous.id), paidAmount, clock.today);
+      return toInvoiceDto(previous, await itemsOf(tx, previous.id), paidAmount, clock.today);
     }
 
     const [deal] = await tx
@@ -348,7 +328,7 @@ export async function createInvoice(params: { headers: Headers; input: unknown }
 
     // A brand-new invoice cannot have payments yet, so this is 0 by
     // construction rather than by query.
-    return withBalance(created, items, 0n, clock.today);
+    return toInvoiceDto(created, items, 0n, clock.today);
   });
 }
 
@@ -369,7 +349,7 @@ export async function getInvoice(params: { headers: Headers; invoiceId: string }
     organizationId: actor.organizationId,
     invoiceId: invoice.id,
   });
-  return withBalance(invoice, await itemsOf(db, invoice.id), paidAmount, clock.today);
+  return toInvoiceDto(invoice, await itemsOf(db, invoice.id), paidAmount, clock.today);
 }
 
 export async function listInvoices(params: { headers: Headers; dealId?: string; customerId?: string }) {
@@ -392,7 +372,7 @@ export async function listInvoices(params: { headers: Headers; dealId?: string; 
 
   return Promise.all(
     rows.map(async (row) =>
-      withBalance(row, await itemsOf(db, row.id), paidAmounts.get(row.id) ?? 0n, clock.today),
+      toInvoiceDto(row, await itemsOf(db, row.id), paidAmounts.get(row.id) ?? 0n, clock.today),
     ),
   );
 }

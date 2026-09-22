@@ -139,29 +139,29 @@ describe("payments", () => {
 
   it("walks Rp30jt through a Rp10jt then Rp20jt payment to PAID (AT-14, §10.3 worked example)", async () => {
     const { ownerCookie, invoice } = await setupInvoice();
-    expect(invoice.total).toBe(30_000_000n);
+    expect(invoice.total).toBe("30000000");
     expect(invoice.status).toBe("UNPAID");
 
     const first = await recordPayment({
       headers: new Headers({ cookie: ownerCookie }),
       input: paymentInput(invoice.id, { amount: "10000000" }),
     });
-    expect(first.paidAmount).toBe(10_000_000n);
-    expect(first.remainingAmount).toBe(20_000_000n);
+    expect(first.paidAmount).toBe("10000000");
+    expect(first.remainingAmount).toBe("20000000");
     expect(first.status).toBe("PARTIALLY_PAID");
 
     const second = await recordPayment({
       headers: new Headers({ cookie: ownerCookie }),
       input: paymentInput(invoice.id, { amount: "20000000" }),
     });
-    expect(second.paidAmount).toBe(30_000_000n);
-    expect(second.remainingAmount).toBe(0n);
+    expect(second.paidAmount).toBe("30000000");
+    expect(second.remainingAmount).toBe("0");
     expect(second.status).toBe("PAID");
 
     // The invoice read path must agree with what recordPayment returned.
     const read = await getInvoice({ headers: new Headers({ cookie: ownerCookie }), invoiceId: invoice.id });
-    expect(read.paidAmount).toBe(30_000_000n);
-    expect(read.remainingAmount).toBe(0n);
+    expect(read.paidAmount).toBe("30000000");
+    expect(read.remainingAmount).toBe("0");
     expect(read.status).toBe("PAID");
   });
 
@@ -218,7 +218,9 @@ describe("payments", () => {
     expect(backdated.payment.paymentDate).toBe(daysFromTodayJakarta(-2));
     // PAY-02: created_at stays the real recording time even when the
     // business date is backdated.
-    expect(backdated.payment.createdAt.getTime()).toBeGreaterThan(new Date(`${daysFromTodayJakarta(-2)}T00:00:00Z`).getTime());
+    expect(new Date(backdated.payment.createdAt).getTime()).toBeGreaterThan(
+      new Date(`${daysFromTodayJakarta(-2)}T00:00:00Z`).getTime(),
+    );
 
     await expect(
       recordPayment({
@@ -266,7 +268,7 @@ describe("payments", () => {
 
     expect(retry.payment.id).toBe(first.payment.id);
     // The retry must not have moved the balance a second time.
-    expect(retry.paidAmount).toBe(10_000_000n);
+    expect(retry.paidAmount).toBe("10000000");
     expect(await listPayments({ headers: new Headers({ cookie: ownerCookie }), invoiceId: invoice.id })).toHaveLength(
       1,
     );
@@ -346,7 +348,7 @@ describe("payments", () => {
       headers: new Headers({ cookie: ownerCookie }),
       input: paymentInput(invoice.id, { amount: "5000000", idempotencyKey: key }),
     });
-    expect(retried.paidAmount).toBe(5_000_000n);
+    expect(retried.paidAmount).toBe("5000000");
   });
 
   it("returns not-found for an invoice in another organization (TENANT-04)", async () => {
@@ -378,7 +380,7 @@ describe("payments", () => {
     });
     // INV-06: "Invoice overdue yang baru dibayar sebagian tetap OVERDUE".
     expect(partial.status).toBe("OVERDUE");
-    expect(partial.remainingAmount).toBe(20_000_000n);
+    expect(partial.remainingAmount).toBe("20000000");
 
     const settled = await recordPayment({
       headers: new Headers({ cookie: ownerCookie }),
@@ -400,6 +402,6 @@ describe("payments", () => {
     });
 
     const history = await listPayments({ headers: new Headers({ cookie: ownerCookie }), invoiceId: invoice.id });
-    expect(history.map((p) => p.amount)).toEqual([7_000_000n, 5_000_000n]);
+    expect(history.map((p) => p.amount)).toEqual(["7000000", "5000000"]);
   });
 });

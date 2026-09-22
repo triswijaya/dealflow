@@ -341,7 +341,7 @@ describe("concurrency", () => {
     const stored = await db.query.payments.findMany({ where: (p, { eq }) => eq(p.invoiceId, invoice.id) });
     const paid = stored.reduce((sum, row) => sum + row.amount, 0n);
     expect(paid).toBe(20_000_000n);
-    expect(paid).toBeLessThanOrEqual(invoice.total);
+    expect(paid).toBeLessThanOrEqual(BigInt(invoice.total));
   });
 
   it("FUP-02: two concurrent completions of the same follow-up log exactly one 'completed' activity (AUD-03)", async () => {

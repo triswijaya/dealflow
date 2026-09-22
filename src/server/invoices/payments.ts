@@ -7,7 +7,8 @@ import { activities, idempotencyRecords, invoices, payments } from "@/server/db/
 import { moneyAmountSchema } from "@/server/money/amount";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { paidAmountFor } from "./balance";
-import { invoiceEffectiveStatus, invoiceRemainingAmount } from "./effective-status";
+import { toPaymentDto, toPaymentResultDto } from "./dto";
+import { invoiceRemainingAmount } from "./effective-status";
 
 // API-05/PAY-04: this operation type scopes the idempotency key namespace,
 // sharing the same table as quotation revisions and invoice creation.
@@ -38,28 +39,6 @@ const recordPaymentInputSchema = z.object({
     .transform((value) => value || null),
   idempotencyKey: z.string().min(1).max(200),
 });
-
-type PaymentRow = typeof payments.$inferSelect;
-
-function paymentResult(
-  payment: PaymentRow,
-  invoice: typeof invoices.$inferSelect,
-  paidAmount: bigint,
-  todayOrg: string,
-) {
-  // API-01's contract for this operation: "Payment + latest invoice
-  // balance", so the caller never has to re-read the invoice to show what
-  // PAY-05 wants on the confirmation screen.
-  return {
-    payment,
-    invoiceId: invoice.id,
-    invoiceNumber: invoice.invoiceNumber,
-    total: invoice.total,
-    paidAmount,
-    remainingAmount: invoiceRemainingAmount(invoice.total, paidAmount),
-    status: invoiceEffectiveStatus({ total: invoice.total, paidAmount, dueDate: invoice.dueDate }, todayOrg),
-  };
-}
 
 /**
  * PAY-01 through PAY-05, in the exact transaction order PAY-03 spells out:
@@ -142,7 +121,7 @@ export async function recordPayment(params: { headers: Headers; input: unknown }
         organizationId: actor.organizationId,
         invoiceId: invoice.id,
       });
-      return paymentResult(previous, invoice, paidAmount, clock.today);
+      return toPaymentResultDto(previous, invoice, paidAmount, clock.today);
     }
 
     const paidBefore = await paidAmountFor(tx, {
@@ -205,7 +184,7 @@ export async function recordPayment(params: { headers: Headers; input: unknown }
       permissionCategory: "finance",
     });
 
-    return paymentResult(created, invoice, paidBefore + parsed.amount, clock.today);
+    return toPaymentResultDto(created, invoice, paidBefore + parsed.amount, clock.today);
   });
 }
 
@@ -220,8 +199,9 @@ export async function listPayments(params: { headers: Headers; invoiceId: string
     throw new APIError("NOT_FOUND", { message: "Invoice not found" });
   }
 
-  return db.query.payments.findMany({
+  const rows = await db.query.payments.findMany({
     where: and(eq(payments.invoiceId, invoice.id), eq(payments.organizationId, actor.organizationId)),
     orderBy: (payment, { asc }) => [asc(payment.paymentDate), asc(payment.createdAt)],
   });
+  return rows.map(toPaymentDto);
 }

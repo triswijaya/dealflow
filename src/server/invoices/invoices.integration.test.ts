@@ -118,13 +118,13 @@ describe("invoices", () => {
     expect(created.invoiceNumber).toMatch(/^INV-\d{4}-00001$/);
     expect(created.customerId).toBe(customerId);
     expect(created.quotationId).toBeNull();
-    expect(created.subtotal).toBe(6_000_000n);
-    expect(created.total).toBe(6_000_000n);
+    expect(created.subtotal).toBe("6000000");
+    expect(created.total).toBe("6000000");
     expect(created.currency).toBe("IDR");
     expect(created.items).toHaveLength(1);
     // §10.2: derived, never stored.
-    expect(created.paidAmount).toBe(0n);
-    expect(created.remainingAmount).toBe(6_000_000n);
+    expect(created.paidAmount).toBe("0");
+    expect(created.remainingAmount).toBe("6000000");
     expect(created.status).toBe("UNPAID");
     // Snapshot built from current master data when there is no source.
     expect((created.customerSnapshot as { companyName: string }).companyName).toBe("PT Maju Jaya");
@@ -424,8 +424,8 @@ describe("invoices", () => {
       headers: new Headers({ cookie: ownerCookie }),
       input: invoiceInput(dealId, { total: "999999999", subtotal: "1" }),
     });
-    expect(created.total).toBe(6_000_000n);
-    expect(created.subtotal).toBe(6_000_000n);
+    expect(created.total).toBe("6000000");
+    expect(created.subtotal).toBe("6000000");
   });
 
   it("rejects a dueDate before the issueDate (§10.1)", async () => {
