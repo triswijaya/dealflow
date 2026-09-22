@@ -5,6 +5,7 @@ import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { activities, customers, deals, member } from "@/server/db/schema";
 import { moneyAmountSchema } from "@/server/money/amount";
+import { toDealDto } from "./dto";
 
 // DEAL-03: the only transitions the server accepts. WON/LOST are terminal,
 // no outgoing edges.
@@ -162,7 +163,7 @@ export async function createDeal(params: { headers: Headers; input: unknown }) {
       permissionCategory: "sales",
     });
 
-    return created;
+    return toDealDto(created);
   });
 }
 
@@ -279,7 +280,7 @@ export async function updateDeal(params: {
       permissionCategory: "sales",
     });
 
-    return updated;
+    return toDealDto(updated);
   });
 }
 
@@ -309,7 +310,7 @@ export async function transitionDeal(params: {
   }
 
   if (existing.status === parsed.toStatus) {
-    return existing;
+    return toDealDto(existing);
   }
 
   const allowedNext = VALID_TRANSITIONS[existing.status] ?? [];
@@ -380,7 +381,7 @@ export async function transitionDeal(params: {
       permissionCategory: "sales",
     });
 
-    return updated;
+    return toDealDto(updated);
   });
 }
 
@@ -398,7 +399,7 @@ export async function getDeal(params: { headers: Headers; dealId: string }) {
   if (!deal || (actor.role === "FINANCE" && deal.status !== "WON")) {
     throw new APIError("NOT_FOUND", { message: "Deal not found" });
   }
-  return deal;
+  return toDealDto(deal);
 }
 
 export async function listDeals(params: { headers: Headers }) {
@@ -408,8 +409,9 @@ export async function listDeals(params: { headers: Headers }) {
       ? and(eq(deals.organizationId, actor.organizationId), eq(deals.status, "WON"))
       : eq(deals.organizationId, actor.organizationId);
 
-  return db.query.deals.findMany({
+  const rows = await db.query.deals.findMany({
     where: scope,
     orderBy: (deal, { desc }) => desc(deal.createdAt),
   });
+  return rows.map(toDealDto);
 }

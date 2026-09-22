@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { customers } from "@/server/db/schema";
+import { toCustomerDto } from "./dto";
 import { normalizePhone } from "./phone";
 
 // CUS-01 field contract. Input is untrusted (API-01: client can't set
@@ -67,7 +68,7 @@ export async function createCustomer(params: { headers: Headers; input: unknown 
       createdById: actor.userId,
     })
     .returning();
-  return created;
+  return toCustomerDto(created);
 }
 
 /**
@@ -124,7 +125,7 @@ export async function updateCustomer(params: {
     // here means the version check failed, not a missing/cross-tenant row.
     throw new APIError("CONFLICT", { message: "Customer was modified by someone else, reload and try again" });
   }
-  return updated;
+  return toCustomerDto(updated);
 }
 
 export async function getCustomer(params: { headers: Headers; customerId: string }) {
@@ -135,13 +136,14 @@ export async function getCustomer(params: { headers: Headers; customerId: string
   if (!customer) {
     throw new APIError("NOT_FOUND", { message: "Customer not found" });
   }
-  return customer;
+  return toCustomerDto(customer);
 }
 
 export async function listCustomers(params: { headers: Headers }) {
   const actor = await requirePermission({ headers: params.headers, permission: { customer: ["read"] } });
-  return db.query.customers.findMany({
+  const rows = await db.query.customers.findMany({
     where: eq(customers.organizationId, actor.organizationId),
     orderBy: (customer, { desc }) => desc(customer.createdAt),
   });
+  return rows.map(toCustomerDto);
 }

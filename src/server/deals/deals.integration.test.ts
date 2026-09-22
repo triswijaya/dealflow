@@ -104,7 +104,7 @@ describe("deals", () => {
 
     expect(created.status).toBe("NEW");
     expect(created.version).toBe(1);
-    expect(created.estimatedValue).toBe(30000000n);
+    expect(created.estimatedValue).toBe("30000000");
     expect(created.description).toBe("");
   });
 
@@ -412,7 +412,7 @@ describe("deals", () => {
     }
 
     expect(deal.wonAt).not.toBeNull();
-    expect(deal.wonValue).toBe(30000000n);
+    expect(deal.wonValue).toBe("30000000");
 
     // created + 4 transitions = 5 activity rows.
     const log = await db.query.activities.findMany({ where: eq(activities.dealId, deal.id) });
