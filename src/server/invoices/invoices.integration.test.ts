@@ -283,7 +283,7 @@ describe("invoices", () => {
         where: (q, { eq: eqOp }) => eqOp(q.id, owner.quotation.id),
       });
       // Already frozen, so the freeze timestamp must be untouched.
-      expect(sourceAfter!.frozenAt!.getTime()).toBe(owner.quotation.frozenAt!.getTime());
+      expect(sourceAfter!.frozenAt!.toISOString()).toBe(owner.quotation.frozenAt);
     });
 
     /**

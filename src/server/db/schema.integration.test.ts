@@ -75,7 +75,9 @@ describe("database CHECK constraints (MONEY-06)", () => {
       },
     });
     const item = await db.query.quotationItems.findFirst({ where: (i, { eq: eqOp }) => eqOp(i.quotationId, quotation.id) });
-    return { dealId: deal.id, quotationId: quotation.id, itemId: item!.id, subtotal: quotation.subtotal };
+    // quotation.subtotal is a DTO string (MONEY-01); this helper's callers
+    // do raw bigint arithmetic against the database column directly.
+    return { dealId: deal.id, quotationId: quotation.id, itemId: item!.id, subtotal: BigInt(quotation.subtotal) };
   }
 
   it("rejects a negative deals.estimated_value at the database layer", async () => {

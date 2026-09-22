@@ -15,7 +15,7 @@ import {
 import { organizationYear } from "@/server/shared/organization-date";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { claimNextSequence, formatQuotationNumber, formatRevisionNumber } from "./document-number";
-import { effectiveQuotationStatus } from "./effective-status";
+import { toQuotationDto, toQuotationSummaryDto } from "./dto";
 
 function calculationErrorMessage(code: CalculationErrorCode): string {
   switch (code) {
@@ -206,7 +206,7 @@ export async function createQuotation(params: { headers: Headers; input: unknown
       permissionCategory: "sales",
     });
 
-    return { ...created, items };
+    return toQuotationDto(created, items, clock.today);
   });
 }
 
@@ -241,6 +241,7 @@ export async function updateQuotation(params: {
     throw new APIError("BAD_REQUEST", { message: "This quotation can no longer be edited" });
   }
 
+  const clock = await organizationClock(actor.organizationId);
   const issueDate = parsed.issueDate ?? existing.issueDate;
   if (parsed.validUntil < issueDate) {
     throw new APIError("BAD_REQUEST", { message: "validUntil cannot be before issueDate" });
@@ -299,7 +300,7 @@ export async function updateQuotation(params: {
       )
       .returning();
 
-    return { ...updated, items };
+    return toQuotationDto(updated, items, clock.today);
   });
 }
 
@@ -331,7 +332,7 @@ export async function getQuotation(params: { headers: Headers; quotationId: stri
     orderBy: (item, { asc }) => asc(item.sortOrder),
   });
   const clock = await organizationClock(actor.organizationId);
-  return { ...quotation, status: effectiveQuotationStatus(quotation, clock.today), items };
+  return toQuotationDto(quotation, items, clock.today);
 }
 
 /**
@@ -358,7 +359,7 @@ export async function listQuotations(params: { headers: Headers; dealId?: string
     orderBy: (quotation, { asc }) => asc(quotation.revisionNumber),
   });
   const clock = await organizationClock(actor.organizationId);
-  return rows.map((row) => ({ ...row, status: effectiveQuotationStatus(row, clock.today) }));
+  return rows.map((row) => toQuotationSummaryDto(row, clock.today));
 }
 
 // API-05: this operation type scopes the idempotency key namespace.
@@ -411,6 +412,7 @@ export async function reviseQuotation(params: { headers: Headers; input: unknown
   // a dependency for no real benefit at this size.
   const payloadFingerprint = `${parsed.sourceQuotationId}|${parsed.expectedLatestQuotationId}`;
   const newQuotationId = crypto.randomUUID();
+  const clock = await organizationClock(actor.organizationId);
 
   return db.transaction(async (tx) => {
     const [claimed] = await tx
@@ -452,7 +454,7 @@ export async function reviseQuotation(params: { headers: Headers; input: unknown
         where: eq(quotationItems.quotationId, previous.id),
         orderBy: (item, { asc }) => asc(item.sortOrder),
       });
-      return { ...previous, items: previousItems };
+      return toQuotationDto(previous, previousItems, clock.today);
     }
 
     const sourceLookup = await tx.query.quotations.findFirst({
@@ -603,7 +605,7 @@ export async function reviseQuotation(params: { headers: Headers; input: unknown
       permissionCategory: "sales",
     });
 
-    return { ...created, items };
+    return toQuotationDto(created, items, clock.today);
   });
 }
 
@@ -649,8 +651,9 @@ export async function transitionQuotationStatus(params: {
   if (!existing) {
     throw new APIError("NOT_FOUND", { message: "Quotation not found" });
   }
+  const clock = await organizationClock(actor.organizationId);
   if (existing.status === parsed.toStatus) {
-    return existing;
+    return toQuotationSummaryDto(existing, clock.today);
   }
 
   const allowedNext = VALID_QUOTATION_STATUS_TRANSITIONS[existing.status] ?? [];
@@ -665,7 +668,6 @@ export async function transitionQuotationStatus(params: {
     throw new APIError("BAD_REQUEST", { message: "Only the latest version of a quotation can change status" });
   }
 
-  const clock = await organizationClock(actor.organizationId);
   if (parsed.toStatus !== "REJECTED" && clock.today > existing.validUntil) {
     throw new APIError("CONFLICT", {
       message: "This quotation has expired and can no longer be sent or accepted",
@@ -798,7 +800,7 @@ export async function transitionQuotationStatus(params: {
       permissionCategory: "sales",
     });
 
-    return updated;
+    return toQuotationSummaryDto(updated, clock.today);
   });
 }
 

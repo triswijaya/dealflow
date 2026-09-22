@@ -117,17 +117,16 @@ describe("quotations", () => {
 
     expect(created.status).toBe("DRAFT");
     expect(created.customerId).toBe(customerId);
-    expect(created.subtotal).toBe(6_000_000n);
-    expect(created.total).toBe(6_000_000n);
-    expect(created.discount).toBe(0n);
-    expect(created.tax).toBe(0n);
-    expect(created.calculationVersion).toBe(1);
+    expect(created.subtotal).toBe("6000000");
+    expect(created.total).toBe("6000000");
+    expect(created.discount).toBe("0");
+    expect(created.tax).toBe("0");
     expect(created.editVersion).toBe(1);
     expect(created.revisionNumber).toBe(1);
     expect(created.isLatest).toBe(true);
     expect(created.familyId).toBe(created.id);
     expect(created.items).toHaveLength(1);
-    expect(created.items[0].subtotal).toBe(6_000_000n);
+    expect(created.items[0].subtotal).toBe("6000000");
   });
 
   it("round-trips a fractional quantity through the real numeric(12,3) column exactly (MONEY-02/MONEY-03)", async () => {
@@ -142,12 +141,12 @@ describe("quotations", () => {
       headers: new Headers({ cookie: ownerCookie }),
       input: quotationInput(dealId, { items: oneItem({ quantity: "0.333", unitPrice: "1001" }) }),
     });
-    expect(created.items[0].subtotal).toBe(333n);
+    expect(created.items[0].subtotal).toBe("333");
 
     const reread = await getQuotation({ headers: new Headers({ cookie: ownerCookie }), quotationId: created.id });
     expect(reread.items[0].quantity).toBe("0.333");
-    expect(reread.items[0].subtotal).toBe(333n);
-    expect(reread.subtotal).toBe(333n);
+    expect(reread.items[0].subtotal).toBe("333");
+    expect(reread.subtotal).toBe("333");
   });
 
   it("derives customerId from the deal rather than accepting it as input (DATA-02)", async () => {
@@ -392,9 +391,9 @@ describe("quotations", () => {
       });
 
       expect(updated.editVersion).toBe(2);
-      expect(updated.total).toBe(15_000_000n);
+      expect(updated.total).toBe("15000000");
       expect(updated.items).toHaveLength(1);
-      expect(updated.items[0].subtotal).toBe(15_000_000n);
+      expect(updated.items[0].subtotal).toBe("15000000");
     });
 
     it("actually clears notes when the update omits them, not silently keeping the old value", async () => {
