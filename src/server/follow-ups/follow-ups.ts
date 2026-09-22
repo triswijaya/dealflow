@@ -5,6 +5,7 @@ import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { activities, deals, followUps } from "@/server/db/schema";
 import { organizationClock } from "@/server/shared/organization-clock";
+import { toActiveFollowUpDto, toFollowUpDto } from "./dto";
 import { followUpBucket } from "./follow-up-bucket";
 
 const FOLLOW_UP_TYPES = ["CALL", "WHATSAPP", "EMAIL", "MEETING", "OTHER"] as const;
@@ -104,7 +105,7 @@ export async function createFollowUp(params: { headers: Headers; input: unknown 
       permissionCategory: "sales",
     });
 
-    return created;
+    return toFollowUpDto(created);
   });
 }
 
@@ -183,7 +184,7 @@ export async function updateFollowUp(params: {
       });
     }
 
-    return updated;
+    return toFollowUpDto(updated);
   });
 }
 
@@ -216,7 +217,7 @@ export async function completeFollowUp(params: {
     throw new APIError("NOT_FOUND", { message: "Follow-up not found" });
   }
   if (existing.completedAt !== null) {
-    return existing;
+    return toFollowUpDto(existing);
   }
 
   const completedAt = parsed.completedAt ?? new Date();
@@ -267,7 +268,7 @@ export async function completeFollowUp(params: {
       })
       .where(eq(deals.id, existing.dealId));
 
-    return updated;
+    return toFollowUpDto(updated);
   });
 }
 
@@ -279,7 +280,7 @@ export async function getFollowUp(params: { headers: Headers; followUpId: string
   if (!followUp) {
     throw new APIError("NOT_FOUND", { message: "Follow-up not found" });
   }
-  return followUp;
+  return toFollowUpDto(followUp);
 }
 
 /**
@@ -289,13 +290,14 @@ export async function getFollowUp(params: { headers: Headers; followUpId: string
  */
 export async function listFollowUps(params: { headers: Headers; dealId?: string }) {
   const actor = await requirePermission({ headers: params.headers, permission: { followUp: ["read"] } });
-  return db.query.followUps.findMany({
+  const rows = await db.query.followUps.findMany({
     where: and(
       eq(followUps.organizationId, actor.organizationId),
       params.dealId ? eq(followUps.dealId, params.dealId) : undefined,
     ),
     orderBy: (row, { asc: ascOp }) => ascOp(row.followUpAt),
   });
+  return rows.map(toFollowUpDto);
 }
 
 /**
@@ -326,8 +328,8 @@ export async function listActiveFollowUps(params: { headers: Headers; dealId?: s
     )
     .orderBy(asc(followUps.followUpAt));
 
-  return rows.map(({ followUp }) => ({
-    ...followUp,
-    bucket: followUpBucket(followUp.followUpAt, clock.timezone, clock.today),
-  }));
+  return rows.map(({ followUp }) => {
+    const bucket = followUpBucket(followUp.followUpAt, clock.timezone, clock.today);
+    return toActiveFollowUpDto(followUp, bucket);
+  });
 }

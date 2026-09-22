@@ -195,7 +195,7 @@ describe("follow-ups", () => {
       headers: new Headers({ cookie: ownerCookie }),
       input: followUpInput(dealId, { note: "Panggil sebelum jam 10" }),
     });
-    const originalFollowUpAt = created.followUpAt.toISOString();
+    const originalFollowUpAt = created.followUpAt;
 
     const noteOnly = await updateFollowUp({
       headers: new Headers({ cookie: ownerCookie }),
@@ -217,7 +217,7 @@ describe("follow-ups", () => {
       expectedVersion: noteOnly.version,
       input: { followUpAt: newFollowUpAt, note: "Panggil setelah jam 10" },
     });
-    expect(rescheduled.followUpAt.toISOString()).toBe(new Date(newFollowUpAt).toISOString());
+    expect(rescheduled.followUpAt).toBe(new Date(newFollowUpAt).toISOString());
 
     log = await db.query.activities.findMany({
       where: and(eq(activities.dealId, dealId), eq(activities.eventType, "rescheduled")),
@@ -277,7 +277,7 @@ describe("follow-ups", () => {
       expectedVersion: 999, // deliberately wrong -- must not matter on the no-op path
       input: {},
     });
-    expect(second.completedAt!.getTime()).toBe(first.completedAt!.getTime());
+    expect(second.completedAt).toBe(first.completedAt);
     expect(second.version).toBe(first.version);
 
     const log = await db.query.activities.findMany({
