@@ -224,12 +224,48 @@ describe("customers", () => {
     });
 
     const listA = await listCustomers({ headers: new Headers({ cookie: orgA.ownerCookie }) });
-    expect(listA).toHaveLength(1);
-    expect(listA[0]?.companyName).toBe("PT Maju Jaya");
+    expect(listA.items).toHaveLength(1);
+    expect(listA.items[0]?.companyName).toBe("PT Maju Jaya");
 
     const dbCountA = await db.query.customers.findMany({
       where: and(eq(customers.organizationId, orgA.organizationId), eq(customers.companyName, "PT Lain")),
     });
     expect(dbCountA).toHaveLength(0);
+  });
+
+  it("paginates listCustomers: correct slice, totalItems, and totalPages across pages (SEARCH-02)", async () => {
+    const owner = await setupOwner();
+    for (const companyName of ["PT Satu", "PT Dua", "PT Tiga", "PT Empat", "PT Lima"]) {
+      await createCustomer({ headers: new Headers({ cookie: owner.ownerCookie }), input: { ...validInput, companyName } });
+      // createdAt has millisecond resolution; a tiny gap keeps the default
+      // desc(createdAt) order deterministic across the 5 inserts instead
+      // of relying only on the id tie-breaker to separate same-instant rows.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+
+    const pageOne = await listCustomers({ headers: new Headers({ cookie: owner.ownerCookie }), page: 1, pageSize: 2 });
+    expect(pageOne.items).toHaveLength(2);
+    expect(pageOne.page).toBe(1);
+    expect(pageOne.pageSize).toBe(2);
+    expect(pageOne.totalItems).toBe(5);
+    expect(pageOne.totalPages).toBe(3);
+    // Most recently created first (desc createdAt).
+    expect(pageOne.items.map((c) => c.companyName)).toEqual(["PT Lima", "PT Empat"]);
+
+    const pageTwo = await listCustomers({ headers: new Headers({ cookie: owner.ownerCookie }), page: 2, pageSize: 2 });
+    expect(pageTwo.items.map((c) => c.companyName)).toEqual(["PT Tiga", "PT Dua"]);
+
+    const pageThree = await listCustomers({ headers: new Headers({ cookie: owner.ownerCookie }), page: 3, pageSize: 2 });
+    expect(pageThree.items.map((c) => c.companyName)).toEqual(["PT Satu"]);
+
+    // Past the last page: empty, not an error.
+    const pageFour = await listCustomers({ headers: new Headers({ cookie: owner.ownerCookie }), page: 4, pageSize: 2 });
+    expect(pageFour.items).toHaveLength(0);
+    expect(pageFour.totalItems).toBe(5);
+  });
+
+  it("rejects a pageSize over the MAX_PAGE_SIZE ceiling (API-04)", async () => {
+    const owner = await setupOwner();
+    await expect(listCustomers({ headers: new Headers({ cookie: owner.ownerCookie }), pageSize: 101 })).rejects.toThrow();
   });
 });

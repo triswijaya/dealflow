@@ -5,6 +5,7 @@ import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { activities, customers, deals, member } from "@/server/db/schema";
 import { moneyAmountSchema } from "@/server/money/amount";
+import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
 import { toDealDto } from "./dto";
 
 // DEAL-03: the only transitions the server accepts. WON/LOST are terminal,
@@ -402,16 +403,24 @@ export async function getDeal(params: { headers: Headers; dealId: string }) {
   return toDealDto(deal);
 }
 
-export async function listDeals(params: { headers: Headers }) {
+export async function listDeals(params: { headers: Headers; page?: number; pageSize?: number }) {
   const actor = await requirePermission({ headers: params.headers, permission: { deal: ["read"] } });
   const scope =
     actor.role === "FINANCE"
       ? and(eq(deals.organizationId, actor.organizationId), eq(deals.status, "WON"))
       : eq(deals.organizationId, actor.organizationId);
+  const { page, pageSize, limit, offset } = resolvePagination(params);
 
-  const rows = await db.query.deals.findMany({
-    where: scope,
-    orderBy: (deal, { desc }) => desc(deal.createdAt),
-  });
-  return rows.map(toDealDto);
+  const [rows, [{ count }]] = await Promise.all([
+    db.query.deals.findMany({
+      where: scope,
+      // SEARCH-02: stable sort -- id as a tie-breaker.
+      orderBy: (deal, { desc }) => [desc(deal.createdAt), desc(deal.id)],
+      limit,
+      offset,
+    }),
+    db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(deals).where(scope),
+  ]);
+
+  return buildPaginatedDto(rows.map(toDealDto), page, pageSize, count);
 }

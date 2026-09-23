@@ -359,7 +359,7 @@ describe("deals", () => {
     ).rejects.toThrow(/not found/i);
 
     const listBeforeWon = await listDeals({ headers: new Headers({ cookie: financeCookie }) });
-    expect(listBeforeWon).toHaveLength(0);
+    expect(listBeforeWon.items).toHaveLength(0);
 
     // Directly flip status to simulate a WON deal: the transition function
     // itself is a separate, later commit, this test only exercises the
@@ -370,7 +370,7 @@ describe("deals", () => {
     expect(readByFinance.id).toBe(created.id);
 
     const listAfterWon = await listDeals({ headers: new Headers({ cookie: financeCookie }) });
-    expect(listAfterWon).toHaveLength(1);
+    expect(listAfterWon.items).toHaveLength(1);
   });
 
   it("scopes listDeals to the caller's own organization only", async () => {
@@ -386,12 +386,69 @@ describe("deals", () => {
     });
 
     const listA = await listDeals({ headers: new Headers({ cookie: orgA.ownerCookie }) });
-    expect(listA).toHaveLength(1);
+    expect(listA.items).toHaveLength(1);
 
     const crossCheck = await db.query.deals.findMany({
       where: and(eq(deals.organizationId, orgA.organizationId), eq(deals.title, "Other org deal")),
     });
     expect(crossCheck).toHaveLength(0);
+  });
+
+  it("paginates listDeals: correct slice, totalItems, and totalPages across pages (SEARCH-02)", async () => {
+    const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
+    for (const title of ["Deal Satu", "Deal Dua", "Deal Tiga", "Deal Empat", "Deal Lima"]) {
+      await createDeal({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: dealInput(customerId, { assignedToId: ownerUserId, title }),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+
+    const pageOne = await listDeals({ headers: new Headers({ cookie: ownerCookie }), page: 1, pageSize: 2 });
+    expect(pageOne.items).toHaveLength(2);
+    expect(pageOne.totalItems).toBe(5);
+    expect(pageOne.totalPages).toBe(3);
+    expect(pageOne.items.map((d) => d.title)).toEqual(["Deal Lima", "Deal Empat"]);
+
+    const pageTwo = await listDeals({ headers: new Headers({ cookie: ownerCookie }), page: 2, pageSize: 2 });
+    expect(pageTwo.items.map((d) => d.title)).toEqual(["Deal Tiga", "Deal Dua"]);
+
+    const pageThree = await listDeals({ headers: new Headers({ cookie: ownerCookie }), page: 3, pageSize: 2 });
+    expect(pageThree.items.map((d) => d.title)).toEqual(["Deal Satu"]);
+  });
+
+  it("counts only WON deals for a paginated Finance listDeals (§3 Finance visibility)", async () => {
+    const owner = await setupOwnerWithCustomer();
+    const wonDeal = await createDeal({
+      headers: new Headers({ cookie: owner.ownerCookie }),
+      input: dealInput(owner.customerId, { assignedToId: owner.ownerUserId, title: "Deal WON" }),
+    });
+    await createDeal({
+      headers: new Headers({ cookie: owner.ownerCookie }),
+      input: dealInput(owner.customerId, { assignedToId: owner.ownerUserId, title: "Deal masih NEW" }),
+    });
+    await db.update(deals).set({ status: "WON" }).where(eq(deals.id, wonDeal.id));
+
+    const financeCookie = await (async () => {
+      const email = `finance-${Date.now()}-${Math.random()}@example.test`;
+      const password = "correct-horse-battery-staple";
+      const invite = await inviteMember({
+        email,
+        role: "FINANCE",
+        organizationId: owner.organizationId,
+        headers: new Headers({ cookie: owner.ownerCookie }),
+      });
+      await auth.api.signUpEmail({ body: { email, password, name: "Finance" } });
+      const cookie = await sessionCookieFor(email, password);
+      const user = await db.query.user.findFirst({ where: (u, { eq: eqOp }) => eqOp(u.email, email) });
+      await acceptInvitation({ invitationId: invite.id, userId: user!.id, headers: new Headers({ cookie }) });
+      return cookie;
+    })();
+
+    const financeList = await listDeals({ headers: new Headers({ cookie: financeCookie }), page: 1, pageSize: 25 });
+    expect(financeList.items).toHaveLength(1);
+    expect(financeList.totalItems).toBe(1);
+    expect(financeList.items[0]?.id).toBe(wonDeal.id);
   });
 
   it("walks the full pipeline NEW -> CONTACTED -> QUOTATION -> NEGOTIATION -> WON, logging an activity per step", async () => {

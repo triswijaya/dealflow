@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { customers } from "@/server/db/schema";
+import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
 import { toCustomerDto } from "./dto";
 import { normalizePhone } from "./phone";
 
@@ -139,11 +140,22 @@ export async function getCustomer(params: { headers: Headers; customerId: string
   return toCustomerDto(customer);
 }
 
-export async function listCustomers(params: { headers: Headers }) {
+export async function listCustomers(params: { headers: Headers; page?: number; pageSize?: number }) {
   const actor = await requirePermission({ headers: params.headers, permission: { customer: ["read"] } });
-  const rows = await db.query.customers.findMany({
-    where: eq(customers.organizationId, actor.organizationId),
-    orderBy: (customer, { desc }) => desc(customer.createdAt),
-  });
-  return rows.map(toCustomerDto);
+  const { page, pageSize, limit, offset } = resolvePagination(params);
+  const where = eq(customers.organizationId, actor.organizationId);
+
+  const [rows, [{ count }]] = await Promise.all([
+    db.query.customers.findMany({
+      where,
+      // SEARCH-02: stable sort -- id as a tie-breaker so createdAt ties
+      // never reorder between pages.
+      orderBy: (customer, { desc }) => [desc(customer.createdAt), desc(customer.id)],
+      limit,
+      offset,
+    }),
+    db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(customers).where(where),
+  ]);
+
+  return buildPaginatedDto(rows.map(toCustomerDto), page, pageSize, count);
 }
