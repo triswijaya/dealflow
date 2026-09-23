@@ -10,7 +10,7 @@ import { createCustomer } from "@/server/customers/customers";
 import { createDeal, transitionDeal } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
 import { activities, deals } from "@/server/db/schema";
-import { completeFollowUp, createFollowUp, getFollowUp, listActiveFollowUps, updateFollowUp } from "./follow-ups";
+import { completeFollowUp, createFollowUp, getFollowUp, listActiveFollowUps, listFollowUps, updateFollowUp } from "./follow-ups";
 
 async function sessionCookieFor(email: string, password: string): Promise<string> {
   // signIn.token (the JSON body) is not the same value the cookie needs; see
@@ -374,15 +374,48 @@ describe("follow-ups", () => {
     await advanceDealToLost(lostDeal.ownerCookie, lostDeal.dealId);
 
     const activeRows = await listActiveFollowUps({ headers: new Headers({ cookie: ownerCookie }), dealId });
-    const activeIds = activeRows.map((row) => row.id);
+    const activeIds = activeRows.items.map((row) => row.id);
     expect(activeIds).toContain(active.id);
     expect(activeIds).not.toContain(completed.id);
-    expect(activeRows.find((row) => row.id === active.id)!.bucket).toBe("UPCOMING");
+    expect(activeRows.items.find((row) => row.id === active.id)!.bucket).toBe("UPCOMING");
 
     const lostOrgRows = await listActiveFollowUps({
       headers: new Headers({ cookie: lostDeal.ownerCookie }),
       dealId: lostDeal.dealId,
     });
-    expect(lostOrgRows.map((row) => row.id)).not.toContain(onLostDeal.id);
+    expect(lostOrgRows.items.map((row) => row.id)).not.toContain(onLostDeal.id);
+  });
+
+  it("paginates listFollowUps and listActiveFollowUps: correct slice and totalItems (SEARCH-02)", async () => {
+    const { ownerCookie, dealId } = await setupOwnerWithDeal();
+    const createdFollowUps = [];
+    for (let i = 0; i < 5; i++) {
+      createdFollowUps.push(
+        await createFollowUp({
+          headers: new Headers({ cookie: ownerCookie }),
+          input: followUpInput(dealId, { followUpAt: daysFromNowIso(i + 1) }),
+        }),
+      );
+    }
+
+    const pageOne = await listFollowUps({ headers: new Headers({ cookie: ownerCookie }), dealId, page: 1, pageSize: 2 });
+    expect(pageOne.items).toHaveLength(2);
+    expect(pageOne.totalItems).toBe(5);
+    expect(pageOne.totalPages).toBe(3);
+    // Ascending followUpAt: soonest first. Compared against the actual
+    // stored followUpAt from creation, not a freshly recomputed
+    // daysFromNowIso -- that helper reads the real clock each call, so
+    // recomputing it here would drift by however many milliseconds passed.
+    expect(pageOne.items.map((f) => f.followUpAt)).toEqual([createdFollowUps[0].followUpAt, createdFollowUps[1].followUpAt]);
+
+    const activePageOne = await listActiveFollowUps({
+      headers: new Headers({ cookie: ownerCookie }),
+      dealId,
+      page: 1,
+      pageSize: 2,
+    });
+    expect(activePageOne.items).toHaveLength(2);
+    expect(activePageOne.totalItems).toBe(5);
+    expect(activePageOne.totalPages).toBe(3);
   });
 });

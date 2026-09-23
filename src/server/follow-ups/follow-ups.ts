@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { activities, deals, followUps } from "@/server/db/schema";
+import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { toActiveFollowUpDto, toFollowUpDto } from "./dto";
 import { followUpBucket } from "./follow-up-bucket";
@@ -288,16 +289,25 @@ export async function getFollowUp(params: { headers: Headers; followUpId: string
  * schedule first, no bucket annotation -- for a deal-detail-style view
  * that shows history including completed ones.
  */
-export async function listFollowUps(params: { headers: Headers; dealId?: string }) {
+export async function listFollowUps(params: { headers: Headers; dealId?: string; page?: number; pageSize?: number }) {
   const actor = await requirePermission({ headers: params.headers, permission: { followUp: ["read"] } });
-  const rows = await db.query.followUps.findMany({
-    where: and(
-      eq(followUps.organizationId, actor.organizationId),
-      params.dealId ? eq(followUps.dealId, params.dealId) : undefined,
-    ),
-    orderBy: (row, { asc: ascOp }) => ascOp(row.followUpAt),
-  });
-  return rows.map(toFollowUpDto);
+  const where = and(
+    eq(followUps.organizationId, actor.organizationId),
+    params.dealId ? eq(followUps.dealId, params.dealId) : undefined,
+  );
+  const { page, pageSize, limit, offset } = resolvePagination(params);
+
+  const [rows, [{ count }]] = await Promise.all([
+    db.query.followUps.findMany({
+      where,
+      // SEARCH-02: stable sort -- id as a tie-breaker.
+      orderBy: (row, { asc: ascOp }) => [ascOp(row.followUpAt), ascOp(row.id)],
+      limit,
+      offset,
+    }),
+    db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(followUps).where(where),
+  ]);
+  return buildPaginatedDto(rows.map(toFollowUpDto), page, pageSize, count);
 }
 
 /**
@@ -309,27 +319,41 @@ export async function listFollowUps(params: { headers: Headers; dealId?: string 
  * zeros under `with:` (not applicable to any column here, but the explicit
  * join keeps every read in this module on the same, already-verified path).
  */
-export async function listActiveFollowUps(params: { headers: Headers; dealId?: string }) {
+export async function listActiveFollowUps(params: { headers: Headers; dealId?: string; page?: number; pageSize?: number }) {
   const actor = await requirePermission({ headers: params.headers, permission: { followUp: ["read"] } });
   const clock = await organizationClock(actor.organizationId);
+  const { page, pageSize, limit, offset } = resolvePagination(params);
 
-  const rows = await db
-    .select({ followUp: followUps })
-    .from(followUps)
-    .innerJoin(deals, and(eq(followUps.organizationId, deals.organizationId), eq(followUps.dealId, deals.id)))
-    .where(
-      and(
-        eq(followUps.organizationId, actor.organizationId),
-        isNull(followUps.completedAt),
-        ne(deals.status, "WON"),
-        ne(deals.status, "LOST"),
-        params.dealId ? eq(followUps.dealId, params.dealId) : undefined,
-      ),
-    )
-    .orderBy(asc(followUps.followUpAt));
+  const where = and(
+    eq(followUps.organizationId, actor.organizationId),
+    isNull(followUps.completedAt),
+    ne(deals.status, "WON"),
+    ne(deals.status, "LOST"),
+    params.dealId ? eq(followUps.dealId, params.dealId) : undefined,
+  );
+  const joinCondition = and(eq(followUps.organizationId, deals.organizationId), eq(followUps.dealId, deals.id));
 
-  return rows.map(({ followUp }) => {
-    const bucket = followUpBucket(followUp.followUpAt, clock.timezone, clock.today);
-    return toActiveFollowUpDto(followUp, bucket);
-  });
+  const [rows, [{ count }]] = await Promise.all([
+    db
+      .select({ followUp: followUps })
+      .from(followUps)
+      .innerJoin(deals, joinCondition)
+      .where(where)
+      // SEARCH-02: stable sort -- id as a tie-breaker.
+      .orderBy(asc(followUps.followUpAt), asc(followUps.id))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
+      .from(followUps)
+      .innerJoin(deals, joinCondition)
+      .where(where),
+  ]);
+
+  return buildPaginatedDto(
+    rows.map(({ followUp }) => toActiveFollowUpDto(followUp, followUpBucket(followUp.followUpAt, clock.timezone, clock.today))),
+    page,
+    pageSize,
+    count,
+  );
 }
