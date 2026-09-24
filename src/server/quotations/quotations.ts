@@ -14,6 +14,7 @@ import {
 } from "@/server/shared/document-snapshots";
 import { organizationYear } from "@/server/shared/organization-date";
 import { organizationClock } from "@/server/shared/organization-clock";
+import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
 import { claimNextSequence, formatQuotationNumber, formatRevisionNumber } from "./document-number";
 import { toQuotationDto, toQuotationSummaryDto } from "./dto";
 
@@ -344,7 +345,13 @@ export async function getQuotation(params: { headers: Headers; quotationId: stri
  *
  * QUO-10: same effective-status overlay as getQuotation, applied per row.
  */
-export async function listQuotations(params: { headers: Headers; dealId?: string; familyId?: string }) {
+export async function listQuotations(params: {
+  headers: Headers;
+  dealId?: string;
+  familyId?: string;
+  page?: number;
+  pageSize?: number;
+}) {
   const actor = await requirePermission({ headers: params.headers, permission: { quotation: ["read"] } });
   const conditions = [eq(quotations.organizationId, actor.organizationId)];
   if (params.dealId) {
@@ -353,13 +360,22 @@ export async function listQuotations(params: { headers: Headers; dealId?: string
   if (params.familyId) {
     conditions.push(eq(quotations.familyId, params.familyId));
   }
+  const where = and(...conditions);
+  const { page, pageSize, limit, offset } = resolvePagination(params);
 
-  const rows = await db.query.quotations.findMany({
-    where: and(...conditions),
-    orderBy: (quotation, { asc }) => asc(quotation.revisionNumber),
-  });
+  const [rows, [{ count }]] = await Promise.all([
+    db.query.quotations.findMany({
+      where,
+      // SEARCH-02: stable sort -- id as a tie-breaker (revisionNumber
+      // alone repeats across different families).
+      orderBy: (quotation, { asc }) => [asc(quotation.revisionNumber), asc(quotation.id)],
+      limit,
+      offset,
+    }),
+    db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(quotations).where(where),
+  ]);
   const clock = await organizationClock(actor.organizationId);
-  return rows.map((row) => toQuotationSummaryDto(row, clock.today));
+  return buildPaginatedDto(rows.map((row) => toQuotationSummaryDto(row, clock.today)), page, pageSize, count);
 }
 
 // API-05: this operation type scopes the idempotency key namespace.

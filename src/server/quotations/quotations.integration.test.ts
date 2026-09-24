@@ -519,8 +519,8 @@ describe("quotations", () => {
       await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(deal2.id) });
 
       const list = await listQuotations({ headers: new Headers({ cookie: ownerCookie }), dealId });
-      expect(list).toHaveLength(1);
-      expect(list[0].dealId).toBe(dealId);
+      expect(list.items).toHaveLength(1);
+      expect(list.items[0].dealId).toBe(dealId);
     });
 
     it("does not leak another organization's quotations into an unscoped list (TENANT-04)", async () => {
@@ -530,7 +530,7 @@ describe("quotations", () => {
       await createQuotation({ headers: new Headers({ cookie: orgB.ownerCookie }), input: quotationInput(orgB.dealId) });
 
       const listA = await listQuotations({ headers: new Headers({ cookie: orgA.ownerCookie }) });
-      expect(listA).toHaveLength(1);
+      expect(listA.items).toHaveLength(1);
     });
 
     it("scopes listQuotations to a revision family, ordered by revisionNumber", async () => {
@@ -542,7 +542,22 @@ describe("quotations", () => {
       });
 
       const family = await listQuotations({ headers: new Headers({ cookie: ownerCookie }), familyId: r1.familyId });
-      expect(family.map((q) => q.revisionNumber)).toEqual([1, 2]);
+      expect(family.items.map((q) => q.revisionNumber)).toEqual([1, 2]);
+    });
+
+    it("paginates listQuotations scoped to a deal: correct slice and totalItems (SEARCH-02)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      for (let i = 0; i < 5; i++) {
+        await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+      }
+
+      const pageOne = await listQuotations({ headers: new Headers({ cookie: ownerCookie }), dealId, page: 1, pageSize: 2 });
+      expect(pageOne.items).toHaveLength(2);
+      expect(pageOne.totalItems).toBe(5);
+      expect(pageOne.totalPages).toBe(3);
+
+      const pageThree = await listQuotations({ headers: new Headers({ cookie: ownerCookie }), dealId, page: 3, pageSize: 2 });
+      expect(pageThree.items).toHaveLength(1);
     });
   });
 
@@ -655,7 +670,7 @@ describe("quotations", () => {
 
       expect(second.id).toBe(first.id);
       const family = await listQuotations({ headers: new Headers({ cookie: ownerCookie }), familyId: original.familyId });
-      expect(family).toHaveLength(2); // original + exactly one revision, not two
+      expect(family.items).toHaveLength(2); // original + exactly one revision, not two
     });
 
     it("rejects reusing an idempotency key with a different payload (API-05)", async () => {
@@ -1188,7 +1203,7 @@ describe("quotations", () => {
         expect(fetched.status).toBe("EXPIRED");
 
         const list = await listQuotations({ headers: new Headers({ cookie: ownerCookie }), dealId });
-        expect(list.find((q) => q.id === sent.id)!.status).toBe("EXPIRED");
+        expect(list.items.find((q) => q.id === sent.id)!.status).toBe("EXPIRED");
 
         // The stored column itself is untouched -- a raw read confirms it.
         const raw = await db.query.quotations.findFirst({ where: (q, { eq: eqOp }) => eqOp(q.id, sent.id) });
