@@ -192,7 +192,7 @@ describe("invoices", () => {
     expect(retry.invoiceNumber).toBe(first.invoiceNumber);
 
     const all = await listInvoices({ headers: new Headers({ cookie: ownerCookie }), dealId });
-    expect(all).toHaveLength(1);
+    expect(all.items).toHaveLength(1);
 
     await expect(
       createInvoice({
@@ -470,7 +470,48 @@ describe("invoices", () => {
     ).rejects.toThrow(/not found/i);
 
     const listedByB = await listInvoices({ headers: new Headers({ cookie: orgB.ownerCookie }) });
-    expect(listedByB.map((row) => row.id)).not.toContain(created.id);
+    expect(listedByB.items.map((row) => row.id)).not.toContain(created.id);
+  });
+
+  it("paginates listInvoices: correct slice and totalItems (SEARCH-02)", async () => {
+    // setupWonDeal spins up a brand-new organization each call (and INV-04
+    // allows only one invoice per deal), so five invoices in the SAME
+    // tenant means five separate WON deals under one shared owner here,
+    // not five setupWonDeal calls.
+    const owner = await setupOwner();
+    const customer = await createCustomer({
+      headers: new Headers({ cookie: owner.ownerCookie }),
+      input: { companyName: "PT Maju Jaya", contactPerson: "Budi Santoso", phone: "08123456789" },
+    });
+    for (let i = 0; i < 5; i++) {
+      const deal = await createDeal({
+        headers: new Headers({ cookie: owner.ownerCookie }),
+        input: {
+          customerId: customer.id,
+          title: `CCTV Installation ${i}`,
+          estimatedValue: "30000000",
+          assignedToId: owner.ownerUserId,
+        },
+      });
+      for (const toStatus of ["CONTACTED", "QUOTATION", "NEGOTIATION", "WON"]) {
+        const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, deal.id) });
+        await transitionDeal({
+          headers: new Headers({ cookie: owner.ownerCookie }),
+          dealId: deal.id,
+          expectedVersion: current!.version,
+          input: { toStatus },
+        });
+      }
+      await createInvoice({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput(deal.id) });
+    }
+
+    const pageOne = await listInvoices({ headers: new Headers({ cookie: owner.ownerCookie }), page: 1, pageSize: 2 });
+    expect(pageOne.items).toHaveLength(2);
+    expect(pageOne.totalItems).toBe(5);
+    expect(pageOne.totalPages).toBe(3);
+
+    const pageThree = await listInvoices({ headers: new Headers({ cookie: owner.ownerCookie }), page: 3, pageSize: 2 });
+    expect(pageThree.items).toHaveLength(1);
   });
 
   it("numbers invoices sequentially per organization and keeps counters separate across tenants (INV-04/AT-07)", async () => {

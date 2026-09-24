@@ -269,9 +269,9 @@ describe("payments", () => {
     expect(retry.payment.id).toBe(first.payment.id);
     // The retry must not have moved the balance a second time.
     expect(retry.paidAmount).toBe("10000000");
-    expect(await listPayments({ headers: new Headers({ cookie: ownerCookie }), invoiceId: invoice.id })).toHaveLength(
-      1,
-    );
+    expect(
+      (await listPayments({ headers: new Headers({ cookie: ownerCookie }), invoiceId: invoice.id })).items,
+    ).toHaveLength(1);
 
     await expect(
       recordPayment({
@@ -299,9 +299,9 @@ describe("payments", () => {
     });
     expect(retry.payment.id).toBe(settled.payment.id);
     expect(retry.status).toBe("PAID");
-    expect(await listPayments({ headers: new Headers({ cookie: ownerCookie }), invoiceId: invoice.id })).toHaveLength(
-      1,
-    );
+    expect(
+      (await listPayments({ headers: new Headers({ cookie: ownerCookie }), invoiceId: invoice.id })).items,
+    ).toHaveLength(1);
   });
 
   it("logs a payment.recorded activity without leaking the amount (AUD-01/AUD-04)", async () => {
@@ -402,6 +402,29 @@ describe("payments", () => {
     });
 
     const history = await listPayments({ headers: new Headers({ cookie: ownerCookie }), invoiceId: invoice.id });
-    expect(history.map((p) => p.amount)).toEqual(["7000000", "5000000"]);
+    expect(history.items.map((p) => p.amount)).toEqual(["7000000", "5000000"]);
+  });
+
+  it("paginates listPayments: correct slice and totalItems (SEARCH-02)", async () => {
+    const { ownerCookie, invoice } = await setupInvoice({ issueDate: daysFromTodayJakarta(-30) });
+    for (let i = 0; i < 5; i++) {
+      await recordPayment({
+        headers: new Headers({ cookie: ownerCookie }),
+        input: paymentInput(invoice.id, { amount: "1000000", paymentDate: daysFromTodayJakarta(-(20 - i)) }),
+      });
+    }
+
+    const pageOne = await listPayments({ headers: new Headers({ cookie: ownerCookie }), invoiceId: invoice.id, page: 1, pageSize: 2 });
+    expect(pageOne.items).toHaveLength(2);
+    expect(pageOne.totalItems).toBe(5);
+    expect(pageOne.totalPages).toBe(3);
+
+    const pageThree = await listPayments({
+      headers: new Headers({ cookie: ownerCookie }),
+      invoiceId: invoice.id,
+      page: 3,
+      pageSize: 2,
+    });
+    expect(pageThree.items).toHaveLength(1);
   });
 });

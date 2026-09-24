@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
@@ -6,6 +6,7 @@ import { db } from "@/server/db/client";
 import { activities, idempotencyRecords, invoices, payments } from "@/server/db/schema";
 import { moneyAmountSchema } from "@/server/money/amount";
 import { organizationClock } from "@/server/shared/organization-clock";
+import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
 import { paidAmountFor } from "./balance";
 import { toPaymentDto, toPaymentResultDto } from "./dto";
 import { invoiceRemainingAmount } from "./effective-status";
@@ -189,7 +190,7 @@ export async function recordPayment(params: { headers: Headers; input: unknown }
 }
 
 /** TENANT-04: identical NOT_FOUND for a missing and a cross-tenant invoice. */
-export async function listPayments(params: { headers: Headers; invoiceId: string }) {
+export async function listPayments(params: { headers: Headers; invoiceId: string; page?: number; pageSize?: number }) {
   const actor = await requirePermission({ headers: params.headers, permission: { payment: ["read"] } });
   const invoice = await db.query.invoices.findFirst({
     where: and(eq(invoices.id, params.invoiceId), eq(invoices.organizationId, actor.organizationId)),
@@ -198,10 +199,18 @@ export async function listPayments(params: { headers: Headers; invoiceId: string
   if (!invoice) {
     throw new APIError("NOT_FOUND", { message: "Invoice not found" });
   }
+  const where = and(eq(payments.invoiceId, invoice.id), eq(payments.organizationId, actor.organizationId));
+  const { page, pageSize, limit, offset } = resolvePagination(params);
 
-  const rows = await db.query.payments.findMany({
-    where: and(eq(payments.invoiceId, invoice.id), eq(payments.organizationId, actor.organizationId)),
-    orderBy: (payment, { asc }) => [asc(payment.paymentDate), asc(payment.createdAt)],
-  });
-  return rows.map(toPaymentDto);
+  const [rows, [{ count }]] = await Promise.all([
+    db.query.payments.findMany({
+      where,
+      // SEARCH-02: stable sort -- id as a final tie-breaker.
+      orderBy: (payment, { asc }) => [asc(payment.paymentDate), asc(payment.createdAt), asc(payment.id)],
+      limit,
+      offset,
+    }),
+    db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(payments).where(where),
+  ]);
+  return buildPaginatedDto(rows.map(toPaymentDto), page, pageSize, count);
 }

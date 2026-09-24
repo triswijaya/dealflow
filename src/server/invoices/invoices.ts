@@ -15,6 +15,7 @@ import {
 } from "@/server/shared/document-snapshots";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { organizationYear } from "@/server/shared/organization-date";
+import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
 import { paidAmountFor, paidAmountsFor } from "./balance";
 import { toInvoiceDto } from "./dto";
 
@@ -352,16 +353,31 @@ export async function getInvoice(params: { headers: Headers; invoiceId: string }
   return toInvoiceDto(invoice, await itemsOf(db, invoice.id), paidAmount, clock.today);
 }
 
-export async function listInvoices(params: { headers: Headers; dealId?: string; customerId?: string }) {
+export async function listInvoices(params: {
+  headers: Headers;
+  dealId?: string;
+  customerId?: string;
+  page?: number;
+  pageSize?: number;
+}) {
   const actor = await requirePermission({ headers: params.headers, permission: { invoice: ["read"] } });
-  const rows = await db.query.invoices.findMany({
-    where: and(
-      eq(invoices.organizationId, actor.organizationId),
-      params.dealId ? eq(invoices.dealId, params.dealId) : undefined,
-      params.customerId ? eq(invoices.customerId, params.customerId) : undefined,
-    ),
-    orderBy: (invoice, { desc }) => desc(invoice.createdAt),
-  });
+  const where = and(
+    eq(invoices.organizationId, actor.organizationId),
+    params.dealId ? eq(invoices.dealId, params.dealId) : undefined,
+    params.customerId ? eq(invoices.customerId, params.customerId) : undefined,
+  );
+  const { page, pageSize, limit, offset } = resolvePagination(params);
+
+  const [rows, [{ count }]] = await Promise.all([
+    db.query.invoices.findMany({
+      where,
+      // SEARCH-02: stable sort -- id as a tie-breaker.
+      orderBy: (invoice, { desc }) => [desc(invoice.createdAt), desc(invoice.id)],
+      limit,
+      offset,
+    }),
+    db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(invoices).where(where),
+  ]);
   const clock = await organizationClock(actor.organizationId);
   // One grouped query for every invoice in the page, rather than a sum per
   // row on top of the per-row item fetch.
@@ -370,9 +386,10 @@ export async function listInvoices(params: { headers: Headers; dealId?: string; 
     invoiceIds: rows.map((row) => row.id),
   });
 
-  return Promise.all(
+  const items = await Promise.all(
     rows.map(async (row) =>
       toInvoiceDto(row, await itemsOf(db, row.id), paidAmounts.get(row.id) ?? 0n, clock.today),
     ),
   );
+  return buildPaginatedDto(items, page, pageSize, count);
 }
