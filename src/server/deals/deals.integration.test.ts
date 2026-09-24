@@ -387,6 +387,9 @@ describe("deals", () => {
 
     const listA = await listDeals({ headers: new Headers({ cookie: orgA.ownerCookie }) });
     expect(listA.items).toHaveLength(1);
+    // TENANT-04: the paginated count itself must not leak org B's row into
+    // org A's total, not just the returned items array.
+    expect(listA.totalItems).toBe(1);
 
     const crossCheck = await db.query.deals.findMany({
       where: and(eq(deals.organizationId, orgA.organizationId), eq(deals.title, "Other org deal")),

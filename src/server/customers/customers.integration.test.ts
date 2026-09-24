@@ -226,6 +226,9 @@ describe("customers", () => {
     const listA = await listCustomers({ headers: new Headers({ cookie: orgA.ownerCookie }) });
     expect(listA.items).toHaveLength(1);
     expect(listA.items[0]?.companyName).toBe("PT Maju Jaya");
+    // TENANT-04: the paginated count itself must not leak org B's row into
+    // org A's total, not just the returned items array.
+    expect(listA.totalItems).toBe(1);
 
     const dbCountA = await db.query.customers.findMany({
       where: and(eq(customers.organizationId, orgA.organizationId), eq(customers.companyName, "PT Lain")),

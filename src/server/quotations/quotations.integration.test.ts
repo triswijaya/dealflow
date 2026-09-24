@@ -531,6 +531,9 @@ describe("quotations", () => {
 
       const listA = await listQuotations({ headers: new Headers({ cookie: orgA.ownerCookie }) });
       expect(listA.items).toHaveLength(1);
+      // TENANT-04: the paginated count itself must not leak org B's row
+      // into org A's total, not just the returned items array.
+      expect(listA.totalItems).toBe(1);
     });
 
     it("scopes listQuotations to a revision family, ordered by revisionNumber", async () => {

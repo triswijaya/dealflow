@@ -464,6 +464,13 @@ describe("invoices", () => {
       headers: new Headers({ cookie: orgA.ownerCookie }),
       input: invoiceInput(orgA.dealId),
     });
+    // Org B gets its own invoice too, so the totalItems check below is a
+    // real isolation proof (org A's count showing up in org B's total)
+    // rather than a trivial 0 either way.
+    await createInvoice({
+      headers: new Headers({ cookie: orgB.ownerCookie }),
+      input: invoiceInput(orgB.dealId),
+    });
 
     await expect(
       getInvoice({ headers: new Headers({ cookie: orgB.ownerCookie }), invoiceId: created.id }),
@@ -471,6 +478,9 @@ describe("invoices", () => {
 
     const listedByB = await listInvoices({ headers: new Headers({ cookie: orgB.ownerCookie }) });
     expect(listedByB.items.map((row) => row.id)).not.toContain(created.id);
+    // TENANT-04: the paginated count itself must not leak org A's row into
+    // org B's total.
+    expect(listedByB.totalItems).toBe(1);
   });
 
   it("paginates listInvoices: correct slice and totalItems (SEARCH-02)", async () => {

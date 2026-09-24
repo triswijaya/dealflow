@@ -418,4 +418,22 @@ describe("follow-ups", () => {
     expect(activePageOne.totalItems).toBe(5);
     expect(activePageOne.totalPages).toBe(3);
   });
+
+  it("does not leak another organization's follow-ups into listFollowUps/listActiveFollowUps totals (TENANT-04)", async () => {
+    const orgA = await setupOwnerWithDeal();
+    const orgB = await setupOwnerWithDeal();
+    await createFollowUp({ headers: new Headers({ cookie: orgA.ownerCookie }), input: followUpInput(orgA.dealId) });
+    await createFollowUp({ headers: new Headers({ cookie: orgB.ownerCookie }), input: followUpInput(orgB.dealId) });
+    await createFollowUp({ headers: new Headers({ cookie: orgB.ownerCookie }), input: followUpInput(orgB.dealId) });
+
+    const listA = await listFollowUps({ headers: new Headers({ cookie: orgA.ownerCookie }) });
+    expect(listA.items).toHaveLength(1);
+    // TENANT-04: the paginated count itself must not leak org B's rows
+    // into org A's total, not just the returned items array.
+    expect(listA.totalItems).toBe(1);
+
+    const activeA = await listActiveFollowUps({ headers: new Headers({ cookie: orgA.ownerCookie }) });
+    expect(activeA.items).toHaveLength(1);
+    expect(activeA.totalItems).toBe(1);
+  });
 });
