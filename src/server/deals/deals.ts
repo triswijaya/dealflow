@@ -12,7 +12,8 @@ import { toDealDto } from "./dto";
 // no outgoing edges.
 const VALID_TRANSITIONS: Record<string, readonly string[]> = {
   NEW: ["CONTACTED", "LOST"],
-  CONTACTED: ["QUOTATION", "LOST"],
+  CONTACTED: ["QUALIFIED", "LOST"],
+  QUALIFIED: ["QUOTATION", "LOST"],
   QUOTATION: ["NEGOTIATION", "LOST"],
   NEGOTIATION: ["WON", "LOST"],
   WON: [],
@@ -31,6 +32,7 @@ const LOST_REASONS = [
 
 const transitionInputSchema = z.discriminatedUnion("toStatus", [
   z.object({ toStatus: z.literal("CONTACTED") }),
+  z.object({ toStatus: z.literal("QUALIFIED") }),
   z.object({ toStatus: z.literal("QUOTATION") }),
   z.object({ toStatus: z.literal("NEGOTIATION") }),
   z.object({ toStatus: z.literal("WON") }),

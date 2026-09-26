@@ -88,14 +88,16 @@ describe("whatsapp", () => {
     return { ...owner, customerId: customer.id, dealId: deal.id };
   }
 
-  async function advanceDealToContacted(ownerCookie: string, dealId: string) {
-    const deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
-    await transitionDeal({
-      headers: new Headers({ cookie: ownerCookie }),
-      dealId,
-      expectedVersion: deal!.version,
-      input: { toStatus: "CONTACTED" },
-    });
+  async function advanceDealToQualified(ownerCookie: string, dealId: string) {
+    for (const toStatus of ["CONTACTED", "QUALIFIED"] as const) {
+      const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      await transitionDeal({
+        headers: new Headers({ cookie: ownerCookie }),
+        dealId,
+        expectedVersion: current!.version,
+        input: { toStatus },
+      });
+    }
   }
 
   const quotationInput = (dealId: string, overrides: Record<string, unknown> = {}) => ({
@@ -145,7 +147,7 @@ describe("whatsapp", () => {
 
   it("defaults to the most recently SENT quotation on the deal (WA-02)", async () => {
     const { ownerCookie, dealId } = await setupOwnerWithDeal();
-    await advanceDealToContacted(ownerCookie, dealId);
+    await advanceDealToQualified(ownerCookie, dealId);
     const draft = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
     const sent = await transitionQuotationStatus({
       headers: new Headers({ cookie: ownerCookie }),

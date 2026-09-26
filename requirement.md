@@ -1,6 +1,6 @@
 # DealFlow: Final Product & Engineering Requirements
 
-Versi: 1.1 · Tanggal: 20 September 2026 (revisi terakhir dari 1.0, 14 September 2026; lihat §23 untuk ringkasan perubahan) · Bahasa produk MVP: Bahasa Indonesia
+Versi: 1.2 · Tanggal: 26 September 2026 (revisi terakhir dari 1.1, 20 September 2026; lihat §23 untuk ringkasan perubahan) · Bahasa produk MVP: Bahasa Indonesia
 
 Status: baseline requirement untuk implementasi dan release MVP. Dokumen ini menetapkan apa yang harus dibangun; dokumen ini bukan laporan bahwa aplikasi sudah dibangun atau diuji.
 
@@ -269,26 +269,29 @@ Tambahkan `won_at`, `won_value`, `lost_at`, `lost_note`, `last_activity_at`, dan
 
 ### 7.3 Status dan transisi
 
-Status persis: `NEW`, `CONTACTED`, `QUOTATION`, `NEGOTIATION`, `WON`, `LOST`.
+Status persis: `NEW`, `CONTACTED`, `QUALIFIED`, `QUOTATION`, `NEGOTIATION`, `WON`, `LOST` (tujuh status: lima aktif, dua terminal).
+
+`DEAL-08`: QUALIFIED berarti kebutuhan customer sudah jelas dan peluang dinilai layak masuk ke tahap penawaran. Untuk MVP, sales menandai Qualified secara manual berdasarkan judgment sendiri; tidak ada field tambahan, checklist wajib, scoring, atau approval manager untuk mencapai tahap ini.
 
 | Dari | Ke yang diizinkan | Syarat |
 |---|---|---|
 | NEW | CONTACTED | Customer dan assigned sales valid |
-| CONTACTED | QUOTATION | Tahap penawaran dimulai; dokumen quotation boleh belum ada |
+| CONTACTED | QUALIFIED | User menandai kebutuhan customer sudah jelas dan layak ditawari; keputusan manual sales, tanpa syarat tambahan (DEAL-08) |
+| QUALIFIED | QUOTATION | Tahap penawaran dimulai; dokumen quotation boleh belum ada |
 | QUOTATION | NEGOTIATION | User mencatat perpindahan tahap |
 | NEGOTIATION | WON | Customer ada, value > 0; quotation tidak wajib |
-| NEW / CONTACTED / QUOTATION / NEGOTIATION | LOST | Lost reason wajib |
+| NEW / CONTACTED / QUALIFIED / QUOTATION / NEGOTIATION | LOST | Lost reason wajib |
 | WON / LOST | Tidak ada transisi keluar pada MVP | Reopen/deal reversal ditunda |
 
 `DEAL-03`: Server menolak transisi mundur/lompatan yang tidak ada di tabel. Request mengulang status yang sama tidak menghasilkan event baru. UI menyediakan tombol/select tahap yang dapat digunakan tanpa drag-and-drop.
 
-`DEAL-04`: WON menyimpan `won_at` dan `won_value` sekali dalam transaksi yang sama dengan status dan activity. Deal tanpa quotation tetap bisa melalui tahap QUOTATION dan NEGOTIATION lalu WON. Jangan menambahkan syarat quotation ACCEPTED, PDF, atau payment untuk memenangkan deal.
+`DEAL-04`: WON menyimpan `won_at` dan `won_value` sekali dalam transaksi yang sama dengan status dan activity. Deal tanpa quotation tetap bisa melalui tahap QUALIFIED, QUOTATION, dan NEGOTIATION lalu WON. Jangan menambahkan syarat quotation ACCEPTED, PDF, atau payment untuk memenangkan deal.
 
 `DEAL-05`: LOST harus memiliki salah satu alasan: `PRICE_TOO_HIGH`, `LOST_TO_COMPETITOR`, `NO_RESPONSE`, `PROJECT_CANCELLED`, `BUDGET_UNAVAILABLE`, `OTHER`. Label ditampilkan dalam Bahasa Indonesia. Catatan tambahan opsional, termasuk untuk OTHER. Simpan `lost_at` dan event alasan.
 
 `DEAL-06`: Setelah terminal, value/customer/assignment historis tidak boleh berubah melalui edit umum; note lanjutan dapat ditambahkan sebagai activity. Pengubahan data historis merupakan koreksi eksplisit yang diaudit, bukan reopen tersembunyi.
 
-`DEAL-07`: Pipeline menampilkan active deals dikelompokkan pada NEW, CONTACTED, QUOTATION, NEGOTIATION, beserta customer, judul, nilai, dan assigned sales. WON/LOST tetap dapat dilihat pada daftar/filter historis. Empty state, loading, pagination, dan error tersedia.
+`DEAL-07`: Pipeline menampilkan active deals dikelompokkan pada 5 kolom aktif -- NEW, CONTACTED, QUALIFIED, QUOTATION, NEGOTIATION -- beserta customer, judul, nilai, dan assigned sales. WON/LOST tetap dapat dilihat melalui daftar/filter historis, bukan sebagai kolom pipeline aktif. Empty state, loading, pagination, dan error tersedia.
 
 ## 8. Quotation, snapshot, revisi, dan PDF
 
@@ -332,14 +335,14 @@ Status persis: `DRAFT`, `SENT`, `ACCEPTED`, `REJECTED`, `EXPIRED`.
 
 | Dari | Ke | Aturan |
 |---|---|---|
-| DRAFT | SENT | Versi terbaru, belum kedaluwarsa, field lengkap, deal bukan NEW/LOST |
+| DRAFT | SENT | Versi terbaru, belum kedaluwarsa, field lengkap, deal minimal QUALIFIED (bukan NEW/CONTACTED/LOST) |
 | SENT | ACCEPTED | Versi terbaru, belum kedaluwarsa; dicatat manual oleh user berwenang |
 | SENT | REJECTED | Versi terbaru, dicatat manual |
 | SENT | EXPIRED | Tanggal organisasi hari ini > valid_until dan belum ACCEPTED/REJECTED |
 | REJECTED / EXPIRED | DRAFT baru | Melalui revisi/new quotation, bukan edit status record lama |
 | ACCEPTED | Tidak ada perubahan | Konten dan hasil keputusan final pada MVP |
 
-`QUO-08`: SENT menyimpan `sent_at`; snapshot company/customer/items/terms dan `frozen_at` diisi hanya jika belum frozen. Draft yang sudah dibekukan sebagai source invoice mempertahankan snapshot semula saat SENT. Jika deal masih CONTACTED, aksi SENT juga memindahkan deal ke QUOTATION dalam transaksi yang sama. Pada QUOTATION/NEGOTIATION/WON tahap tidak berubah. Deal NEW harus lebih dahulu dipindahkan ke CONTACTED. Download PDF sendiri tidak mengubah status.
+`QUO-08`: SENT dilarang pada deal NEW, CONTACTED, dan LOST -- deal harus sudah QUALIFIED sebelum quotation dapat dikirim. Draft quotation sendiri tetap boleh disiapkan pada deal NEW atau CONTACTED mengikuti aturan pembuatan draft di QUO-01; hanya pengiriman (SENT) yang menunggu QUALIFIED. SENT menyimpan `sent_at`; snapshot company/customer/items/terms dan `frozen_at` diisi hanya jika belum frozen. Draft yang sudah dibekukan sebagai source invoice mempertahankan snapshot semula saat SENT. Jika deal masih QUALIFIED, aksi SENT juga memindahkan deal ke QUOTATION dalam transaksi yang sama. Pada QUOTATION/NEGOTIATION/WON tahap tidak berubah. Download PDF sendiri tidak mengubah status.
 
 `QUO-09`: ACCEPTED dan REJECTED menyimpan timestamp/actor. ACCEPTED tidak otomatis membuat deal WON; REJECTED/EXPIRED tidak otomatis membuat deal LOST. User tetap mengambil keputusan deal sesuai §7.
 
@@ -454,7 +457,7 @@ Contoh acceptance: invoice Rp30.000.000 → payment Rp10.000.000 → paid Rp10.0
 
 | Metrik | Definisi yang wajib dipakai |
 |---|---|
-| Sales Pipeline Value | Sum `estimated_value` dari NEW, CONTACTED, QUOTATION, NEGOTIATION |
+| Sales Pipeline Value | Sum `estimated_value` dari NEW, CONTACTED, QUALIFIED, QUOTATION, NEGOTIATION |
 | Won Revenue / Won This Month | Sum `won_value` untuk deal dengan `won_at` pada bulan kalender berjalan di timezone organisasi |
 | Outstanding Invoice | Sum `remaining_amount` semua invoice belum lunas, termasuk overdue dan partial |
 | Follow-up Today | Jumlah customer unik yang memiliki follow-up belum selesai hari ini pada deal aktif; tampilkan jumlah task juga jika berbeda |
@@ -752,13 +755,13 @@ Jangan menggunakan satu database atau auth secret bersama untuk production dan P
 |---|---|---|
 | AT-01 | Register owner, onboarding, verify, login, logout, recovery; akun tanpa membership tidak dapat membuka data bisnis | AUTH-01-06 |
 | AT-02 | Create customer dengan field wajib; invalid phone/email dan missing required field ditolak; one customer punya beberapa deal | CUS-01-03, DEAL-01 |
-| AT-03 | NEW→CONTACTED→QUOTATION→NEGOTIATION→WON; setiap transisi ilegal ditolak tanpa mutasi | DEAL-03-04 |
-| AT-04 | LOST dari masing-masing empat tahap aktif memerlukan alasan; WON/LOST tidak bisa reopen; value nol tidak dapat WON | DEAL-03-06 |
+| AT-03 | NEW→CONTACTED→QUALIFIED→QUOTATION→NEGOTIATION→WON; setiap transisi ilegal ditolak tanpa mutasi, termasuk CONTACTED→QUOTATION langsung | DEAL-03-04, DEAL-08 |
+| AT-04 | LOST dari masing-masing lima tahap aktif memerlukan alasan; WON/LOST tidak bisa reopen; value nol tidak dapat WON | DEAL-03-06 |
 | AT-05 | WON tanpa quotation lalu invoice item manual sampai PAID tetap berhasil | DEAL-04, INV-01, PAY-01-05 |
 | AT-06 | Kalkulasi banyak item, quantity pecahan, HALF_UP, free line, nominal discount/tax, batas maksimum; total client palsu diabaikan/ditolak | QUO-02-03, MONEY-01-07 |
 | AT-07 | Nomor original/revision/invoice unik pada create concurrent, retry, tenant berbeda, pergantian tahun, dan overflow lima digit | QUO-04-06, INV-04, DATA-02 |
 | AT-08 | Revisi SENT/ACCEPTED/invoice-linked menghasilkan record baru; merevisi R0 saat R1 draft terbaru membekukan R1 sebelum membuat R2; perubahan master atau later SENT tidak mengubah snapshot/PDF/invoice frozen | QUO-05-08, PDF-02, INV-03 |
-| AT-09 | Download PDF tidak menandai SENT; SENT dari CONTACTED memindahkan tahap atomik; ACCEPTED tidak otomatis WON; expired tidak dapat diterima | QUO-08-10 |
+| AT-09 | Download PDF tidak menandai SENT; SENT dari NEW/CONTACTED/LOST ditolak; SENT dari QUALIFIED memindahkan tahap ke QUOTATION secara atomik; ACCEPTED tidak otomatis WON; expired tidak dapat diterima | QUO-08-10 |
 | AT-10 | PDF 1/20/200 item dan deskripsi panjang tidak terpotong; versi/total cocok; tenant lain tidak dapat download | PDF-01-04 |
 | AT-11 | WhatsApp nomor ternormalisasi, message editable/encoded, template tanpa quotation, invalid phone; membuka link tidak mencatat delivery/completion | WA-01-03 |
 | AT-12 | Reminder Today/Overdue/Upcoming tepat pada midnight; completed/terminal deal tidak muncul aktif; last contact tidak berubah oleh page view | FUP-01-05 |
@@ -783,9 +786,10 @@ Login
 → Create Customer
 → Create Deal
 → Move to CONTACTED
+→ Move to QUALIFIED
 → Create Quotation + Add Items
 → Generate / Download PDF
-→ Mark Quotation SENT (deal menjadi QUOTATION jika masih CONTACTED)
+→ Mark Quotation SENT (deal menjadi QUOTATION jika masih QUALIFIED)
 → Create Follow-up
 → Move Deal to NEGOTIATION
 → Mark Deal WON
@@ -809,7 +813,7 @@ Login
 Seed minimum:
 
 - 20+ customer dengan company/contact/alamat yang masuk akal dan seluruhnya fiktif.
-- 10+ active deal tersebar pada NEW/CONTACTED/QUOTATION/NEGOTIATION; tambahkan beberapa WON dan LOST beserta alasan.
+- 10+ active deal tersebar pada NEW/CONTACTED/QUALIFIED/QUOTATION/NEGOTIATION; tambahkan beberapa WON dan LOST beserta alasan.
 - Beberapa quotation: multi-item, SENT, ACCEPTED, REJECTED, EXPIRED, dan keluarga revisi R1/R2.
 - Beberapa invoice: UNPAID, PARTIALLY_PAID, PAID, OVERDUE termasuk partial-overdue.
 - Payment beberapa method, partial/final, tanpa melewati saldo.
@@ -970,4 +974,5 @@ Saat ada perubahan, update versi/tanggal dokumen, requirement terkait, ADR bila 
 
 **Riwayat revisi**
 
+- **1.2 (26 September 2026)**: menambahkan tahap `QUALIFIED` pada sales pipeline, di antara `CONTACTED` dan `QUOTATION`. Alasan: memberi sales titik keputusan eksplisit sebelum quotation dikirim -- memisahkan "sudah dikontak" dari "kebutuhan jelas dan layak ditawari" -- tanpa menambah field, checklist, scoring, atau approval manager pada MVP (DEAL-08 baru di §7.3). Dampak requirement: §7.3 (status/transisi deal), §8.3/QUO-08 (SENT ditolak pada NEW/CONTACTED/LOST, hanya dapat dimulai dari QUALIFIED), §11.1 (Sales Pipeline Value memasukkan QUALIFIED), §19.1 (AT-03/AT-04/AT-09), §19.2 (happy path menambah langkah Move to QUALIFIED), §20.1 (seed demo). Dampak data: tidak ada migration schema -- `deals.status` sudah berupa `text` tanpa CHECK constraint nilai, sehingga nilai baru diterima tanpa DDL; deal yang sudah berada di QUOTATION, NEGOTIATION, WON, atau LOST sebelum revisi ini tidak dimundurkan dan tidak diberi histori QUALIFIED buatan. Test terkait: integration test deals/quotations/concurrency/invoices/payments/whatsapp diperbarui untuk urutan tahap baru.
 - **1.1 (20 September 2026)**: tiga koreksi dokumentasi ditemukan lewat audit implementasi M1-M3, tidak ada perubahan aturan bisnis atau data. (1) §5.1: struktur folder ilustratif diperbarui dari `src/modules/` terpisah menjadi modul bisnis langsung di bawah `src/server/`, mengikuti konvensi yang sudah konsisten dipakai sejak M1 -- ARCH-02 sendiri tidak berubah. (2) §10.1: field table invoice menambahkan `notes`/`terms`, yang sebelumnya tidak tercantum padahal INV-02 mengharuskan keduanya disalin dari quotation source -- kontradiksi internal dokumen, bukan implementasi yang menyimpang. (3) §10.1: `paid_amount`/`remaining_amount` diperjelas sebagai nilai turunan yang dihitung ulang saat read, bukan kolom tersimpan, konsisten dengan §14.1 yang sejak awal menandai cache sebagai opsional. Tidak ada ADR terpisah dibuat untuk revisi ini karena ketiganya adalah koreksi framing dokumen terhadap keputusan yang sudah berjalan, bukan keputusan arsitektur baru.

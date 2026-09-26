@@ -220,11 +220,17 @@ describe("concurrency", () => {
   it("QUO-08: two concurrent SENT transitions on the same quotation yield exactly one winner and one clean CONFLICT", async () => {
     const { ownerCookie, dealId } = await setupOwnerWithDeal();
     const deal = await db.query.deals.findFirst({ where: (d, { eq }) => eq(d.id, dealId) });
-    await transitionDeal({
+    const contacted = await transitionDeal({
       headers: new Headers({ cookie: ownerCookie }),
       dealId,
       expectedVersion: deal!.version,
       input: { toStatus: "CONTACTED" },
+    });
+    await transitionDeal({
+      headers: new Headers({ cookie: ownerCookie }),
+      dealId,
+      expectedVersion: contacted.version,
+      input: { toStatus: "QUALIFIED" },
     });
     const created = await createQuotation({
       headers: new Headers({ cookie: ownerCookie }),
@@ -255,7 +261,7 @@ describe("concurrency", () => {
 
   it("INV-04: two concurrent createInvoice calls on the same deal produce exactly one invoice", async () => {
     const owner = await setupOwnerWithDeal();
-    for (const toStatus of ["CONTACTED", "QUOTATION", "NEGOTIATION", "WON"]) {
+    for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"]) {
       const current = await db.query.deals.findFirst({ where: (d, { eq }) => eq(d.id, owner.dealId) });
       await transitionDeal({
         headers: new Headers({ cookie: owner.ownerCookie }),
@@ -294,7 +300,7 @@ describe("concurrency", () => {
 
   it("AT-15/PAY-03: two concurrent payments cannot together exceed the outstanding balance", async () => {
     const owner = await setupOwnerWithDeal();
-    for (const toStatus of ["CONTACTED", "QUOTATION", "NEGOTIATION", "WON"]) {
+    for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"]) {
       const current = await db.query.deals.findFirst({ where: (d, { eq }) => eq(d.id, owner.dealId) });
       await transitionDeal({
         headers: new Headers({ cookie: owner.ownerCookie }),

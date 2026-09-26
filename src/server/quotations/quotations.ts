@@ -691,17 +691,17 @@ export async function transitionQuotationStatus(params: {
   }
 
   if (parsed.toStatus === "SENT") {
-    // QUO-08: "deal bukan NEW/LOST". A plain read, not a lock -- the same
-    // pattern deals.ts uses for assertActiveAssignee/
+    // QUO-08: "dilarang pada deal NEW, CONTACTED, dan LOST". A plain read,
+    // not a lock -- the same pattern deals.ts uses for assertActiveAssignee/
     // assertCustomerInOrganization, validating a related row without
     // needing to hold it: the actual side effect below is itself guarded
     // by a conditional UPDATE, not by trusting this read.
     const deal = await db.query.deals.findFirst({
       where: and(eq(deals.id, existing.dealId), eq(deals.organizationId, actor.organizationId)),
     });
-    if (!deal || deal.status === "NEW" || deal.status === "LOST") {
+    if (!deal || deal.status === "NEW" || deal.status === "CONTACTED" || deal.status === "LOST") {
       throw new APIError("BAD_REQUEST", {
-        message: "The deal must be at least CONTACTED and not LOST before a quotation can be sent",
+        message: "The deal must be at least QUALIFIED and not LOST before a quotation can be sent",
       });
     }
   }
@@ -762,9 +762,9 @@ export async function transitionQuotationStatus(params: {
       throw new APIError("CONFLICT", { message: "Quotation was modified by someone else, reload and try again" });
     }
 
-    // QUO-08: CONTACTED -> QUOTATION happens only on SENT, only if the
-    // deal is still CONTACTED, in the same transaction. The UPDATE's own
-    // WHERE status='CONTACTED' is the race guard: two concurrent SENT
+    // QUO-08: QUALIFIED -> QUOTATION happens only on SENT, only if the
+    // deal is still QUALIFIED, in the same transaction. The UPDATE's own
+    // WHERE status='QUALIFIED' is the race guard: two concurrent SENT
     // actions on different quotations of the same deal both attempt this,
     // and only whichever commits first actually changes anything -- the
     // second affects 0 rows and is simply skipped, not an error.
@@ -777,7 +777,7 @@ export async function transitionQuotationStatus(params: {
       const [advancedDeal] = await tx
         .update(deals)
         .set({ status: "QUOTATION", lastActivityAt: now, version: sql`${deals.version} + 1` })
-        .where(and(eq(deals.id, existing.dealId), eq(deals.status, "CONTACTED")))
+        .where(and(eq(deals.id, existing.dealId), eq(deals.status, "QUALIFIED")))
         .returning();
       if (advancedDeal) {
         // AUD-01: "deal updated/stage changed" is a required minimum event.
@@ -787,7 +787,7 @@ export async function transitionQuotationStatus(params: {
           entityType: "deal",
           eventType: "stage_changed",
           actorId: actor.userId,
-          metadata: { fromStatus: "CONTACTED", toStatus: "QUOTATION", reason: "quotation_sent" },
+          metadata: { fromStatus: "QUALIFIED", toStatus: "QUOTATION", reason: "quotation_sent" },
           permissionCategory: "sales",
         });
       } else {

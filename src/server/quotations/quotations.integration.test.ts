@@ -206,6 +206,13 @@ describe("quotations", () => {
       headers: new Headers({ cookie: ownerCookie }),
       dealId,
       expectedVersion: afterContacted!.version,
+      input: { toStatus: "QUALIFIED" },
+    });
+    const afterQualified = await db.query.deals.findFirst({ where: eq(deals.id, dealId) });
+    await transitionDeal({
+      headers: new Headers({ cookie: ownerCookie }),
+      dealId,
+      expectedVersion: afterQualified!.version,
       input: { toStatus: "QUOTATION" },
     });
     const afterQuotation = await db.query.deals.findFirst({ where: eq(deals.id, dealId) });
@@ -745,7 +752,7 @@ describe("quotations", () => {
       const original = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
 
       let deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
-      for (const toStatus of ["CONTACTED", "QUOTATION", "NEGOTIATION", "WON"] as const) {
+      for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"] as const) {
         await transitionDeal({
           headers: new Headers({ cookie: ownerCookie }),
           dealId,
@@ -852,9 +859,20 @@ describe("quotations", () => {
       });
     }
 
-    it("sends a DRAFT, freezes it, and advances a CONTACTED deal to QUOTATION (QUO-08)", async () => {
-      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+    async function advanceDealToQualified(ownerCookie: string, dealId: string) {
       await advanceDealToContacted(ownerCookie, dealId);
+      const deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      await transitionDeal({
+        headers: new Headers({ cookie: ownerCookie }),
+        dealId,
+        expectedVersion: deal!.version,
+        input: { toStatus: "QUALIFIED" },
+      });
+    }
+
+    it("sends a DRAFT, freezes it, and advances a QUALIFIED deal to QUOTATION (QUO-08)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      await advanceDealToQualified(ownerCookie, dealId);
       const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
       expect(created.frozenAt).toBeNull();
 
@@ -879,6 +897,16 @@ describe("quotations", () => {
       const eventTypes = log.map((a) => a.eventType).sort();
       expect(eventTypes).toContain("sent");
       expect(eventTypes).toContain("stage_changed");
+      // advanceDealToQualified already logs its own NEW->CONTACTED and
+      // CONTACTED->QUALIFIED stage_changed events, so the one this test
+      // cares about (SENT's own QUALIFIED->QUOTATION advance) has to be
+      // matched by its metadata, not just by event type.
+      const stageChangeEvent = log.find(
+        (a) => a.eventType === "stage_changed" && (a.metadata as { toStatus: string }).toStatus === "QUOTATION",
+      );
+      const stageMetadata = stageChangeEvent?.metadata as { fromStatus: string; toStatus: string };
+      expect(stageMetadata.fromStatus).toBe("QUALIFIED");
+      expect(stageMetadata.toStatus).toBe("QUOTATION");
     });
 
     it("rejects SENT while the deal is still NEW (QUO-08)", async () => {
@@ -892,7 +920,25 @@ describe("quotations", () => {
           expectedEditVersion: created.editVersion,
           toStatus: "SENT",
         }),
-      ).rejects.toThrow(/CONTACTED/);
+      ).rejects.toThrow(/QUALIFIED/);
+    });
+
+    it("rejects SENT while the deal is CONTACTED but not yet QUALIFIED (QUO-08)", async () => {
+      const { ownerCookie, dealId } = await setupOwnerWithDeal();
+      await advanceDealToContacted(ownerCookie, dealId);
+      const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
+
+      await expect(
+        transitionQuotationStatus({
+          headers: new Headers({ cookie: ownerCookie }),
+          quotationId: created.id,
+          expectedEditVersion: created.editVersion,
+          toStatus: "SENT",
+        }),
+      ).rejects.toThrow(/QUALIFIED/);
+
+      const dealAfter = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      expect(dealAfter!.status).toBe("CONTACTED");
     });
 
     it("rejects SENT once the deal is LOST (QUO-08)", async () => {
@@ -935,7 +981,7 @@ describe("quotations", () => {
 
     it("does not change the deal stage again once it is already past QUOTATION", async () => {
       const { ownerCookie, dealId } = await setupOwnerWithDeal();
-      await advanceDealToContacted(ownerCookie, dealId);
+      await advanceDealToQualified(ownerCookie, dealId);
       const deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
       await transitionDeal({
         headers: new Headers({ cookie: ownerCookie }),
@@ -965,7 +1011,7 @@ describe("quotations", () => {
 
     it("bumps deals.lastActivityAt on quotation created, revised, and SENT (RISK-01/11.2)", async () => {
       const { ownerCookie, dealId } = await setupOwnerWithDeal();
-      await advanceDealToContacted(ownerCookie, dealId);
+      await advanceDealToQualified(ownerCookie, dealId);
       const beforeCreate = (await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) }))!
         .lastActivityAt;
 
@@ -1003,7 +1049,7 @@ describe("quotations", () => {
       const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
 
       let deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
-      for (const toStatus of ["CONTACTED", "QUOTATION", "NEGOTIATION", "WON"] as const) {
+      for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"] as const) {
         await transitionDeal({
           headers: new Headers({ cookie: ownerCookie }),
           dealId,
@@ -1046,7 +1092,7 @@ describe("quotations", () => {
     });
 
     async function sendQuotation(ownerCookie: string, dealId: string, overrides: Record<string, unknown> = {}) {
-      await advanceDealToContacted(ownerCookie, dealId);
+      await advanceDealToQualified(ownerCookie, dealId);
       const created = await createQuotation({
         headers: new Headers({ cookie: ownerCookie }),
         input: quotationInput(dealId, { validUntil: FUTURE_VALID_UNTIL, ...overrides }),
@@ -1152,7 +1198,7 @@ describe("quotations", () => {
 
     it("rejects a stale editVersion (DATA-07)", async () => {
       const { ownerCookie, dealId } = await setupOwnerWithDeal();
-      await advanceDealToContacted(ownerCookie, dealId);
+      await advanceDealToQualified(ownerCookie, dealId);
       const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
 
       await expect(
@@ -1246,11 +1292,17 @@ describe("quotations", () => {
     it("resolves seller/customer from the frozen snapshot once SENT, immune to a later master-data change (PDF-02)", async () => {
       const { ownerCookie, dealId, organizationId } = await setupOwnerWithDeal();
       const dealBefore = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
-      await transitionDeal({
+      const contacted = await transitionDeal({
         headers: new Headers({ cookie: ownerCookie }),
         dealId,
         expectedVersion: dealBefore!.version,
         input: { toStatus: "CONTACTED" },
+      });
+      await transitionDeal({
+        headers: new Headers({ cookie: ownerCookie }),
+        dealId,
+        expectedVersion: contacted.version,
+        input: { toStatus: "QUALIFIED" },
       });
       const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
       const sent = await transitionQuotationStatus({
