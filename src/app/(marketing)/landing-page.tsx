@@ -28,7 +28,7 @@ const PREVIEW_TABS: Record<PreviewTab, { label: string; title: string; subtitle:
   },
 };
 
-export function LandingPage({ fontClassName }: { fontClassName: string }) {
+export function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<PreviewTab>("pipeline");
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -61,7 +61,7 @@ export function LandingPage({ fontClassName }: { fontClassName: string }) {
   }
 
   return (
-    <div className={`lp-root ${fontClassName}`}>
+    <div className="lp-root">
         <a className="lp-skip" href="#konten">Lewati ke konten</a>
         <header className="lp-topnav">
           <div className="lp-container lp-navinner">

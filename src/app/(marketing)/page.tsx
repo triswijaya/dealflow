@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";
 import { LandingPage } from "./landing-page";
 import "./landing.css";
-
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-inter" });
 
 const title = "DealFlow · Dari peluang menjadi pembayaran";
 const description =
@@ -29,5 +26,5 @@ export default async function Home() {
   if (session) {
     redirect("/dashboard");
   }
-  return <LandingPage fontClassName={inter.variable} />;
+  return <LandingPage />;
 }
