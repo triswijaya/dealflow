@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
@@ -132,5 +133,10 @@ export const auth = betterAuth({
         },
       },
     }),
+    // Must stay last: lets Server Actions that call auth.api.* directly
+    // (registerOwner, sign-in) set the session cookie on the actual Next.js
+    // response via next/headers, instead of only returning it in a Response
+    // object nothing forwards.
+    nextCookies(),
   ],
 });
