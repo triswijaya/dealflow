@@ -4,7 +4,21 @@ DealFlow is a sales-to-cash tool for small and medium B2B businesses that curren
 
 ## Status
 
-Early development. Foundation scaffold only (Next.js app boots, local PostgreSQL available via Docker). No business features exist yet.
+In active development. The backend for the core sales-to-cash flow is in place and covered by tests; the web interface is being built module by module.
+
+| Area | State |
+|---|---|
+| Auth, organizations, roles (Owner, Admin, Sales, Finance), invitations | Backend done; login and register pages done |
+| Customers | Backend and UI done (list, search, detail, add/edit) |
+| Deals and pipeline (NEW, CONTACTED, QUALIFIED, QUOTATION, NEGOTIATION, WON/LOST) | Backend done; UI next |
+| Quotations (revisions, status, PDF) | Backend done; UI planned |
+| Follow-ups and WhatsApp links | Backend done; UI planned |
+| Invoices and manual payments | Backend done; UI planned |
+| Dashboard, settings, members, remaining auth flows | Planned |
+
+## Stack
+
+Next.js (App Router), React, TypeScript, PostgreSQL with Drizzle ORM, Better Auth (organization plugin), Zod, Tailwind CSS, Vitest.
 
 ## Requirement
 
@@ -44,7 +58,7 @@ pnpm db:migrate
 pnpm db:check
 ```
 
-`test:integration` and the `db:*` commands need `docker compose up -d db` running first. The schema currently only has Better Auth's own tables (`user`/`session`/`account`/`verification`); no business tables yet. Seeding is not implemented yet.
+`test:integration` and the `db:*` commands need `docker compose up -d db` running first. The schema covers Better Auth's tables plus the business tables (customers, deals, activities, follow-ups, quotations, invoices, payments). Seeding is not implemented yet.
 
 ### Troubleshooting
 
