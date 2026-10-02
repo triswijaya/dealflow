@@ -1,0 +1,22 @@
+/* Shared design tokens for the app (.df) and the marketing page (.lp-root).
+   One source for color so the two surfaces cannot drift apart. */
+:root {
+  --df-primary: #163B2E;
+  --df-primary-hover: #224E3D;
+  --df-lime: #C6F135;
+  --df-lime-soft: #E3F5C4;
+  --df-bg: #F6F5F0;
+  --df-ink: #16231C;
+  /* Secondary text: 5.9:1 on --df-bg, 7:1 on white. The previous #6B7268
+     sat at about 4.5:1 and failed on tinted surfaces. */
+  --df-muted: #596056;
+  --df-border: #E3E1D9;
+  --df-danger: #C2410C;
+  --df-danger-ink: #A1320B;
+  /* Info stays inside the brand family instead of a stray blue. */
+  --df-info-bg: #E8F0EA;
+  --df-info-ink: #163B2E;
+  --df-info-border: #CFDCCF;
+  --df-warn-bg: #FDF3D1;
+  --df-warn-ink: #6B5200;
+}

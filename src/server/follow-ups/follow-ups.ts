@@ -57,6 +57,17 @@ const completeFollowUpInputSchema = z.object({
     .transform((value) => (value === undefined ? undefined : value || null)),
 });
 
+// FUP-02: completedAt logs an interaction that already happened, so it may
+// be in the past but never in the future. A minute of slack absorbs clock
+// skew between the browser that picked the time and this server.
+const COMPLETED_AT_SLACK_MS = 60_000;
+
+function assertNotFuture(completedAt: Date) {
+  if (completedAt.getTime() > Date.now() + COMPLETED_AT_SLACK_MS) {
+    throw new APIError("BAD_REQUEST", { message: "Completed time cannot be in the future" });
+  }
+}
+
 /**
  * FUP-01/FUP-04. dealId is validated against the same organization scope
  * every other create function uses; a deal that is already WON/LOST
@@ -70,6 +81,7 @@ const completeFollowUpInputSchema = z.object({
 export async function createFollowUp(params: { headers: Headers; input: unknown }) {
   const actor = await requirePermission({ headers: params.headers, permission: { followUp: ["write"] } });
   const parsed = createFollowUpInputSchema.parse(params.input);
+  if (parsed.completedAt) assertNotFuture(parsed.completedAt);
 
   const deal = await db.query.deals.findFirst({
     where: and(eq(deals.id, parsed.dealId), eq(deals.organizationId, actor.organizationId)),
@@ -222,6 +234,7 @@ export async function completeFollowUp(params: {
   }
 
   const completedAt = parsed.completedAt ?? new Date();
+  assertNotFuture(completedAt);
 
   return db.transaction(async (tx) => {
     const [updated] = await tx

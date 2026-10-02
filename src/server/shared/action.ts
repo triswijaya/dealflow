@@ -33,6 +33,7 @@ const KNOWN_MESSAGES: [RegExp, string, string?][] = [
   [/amount is outside the allowed range/i, "Nominal di luar batas yang diizinkan."],
   [/Idempotency key was already used/i, "Permintaan ini bentrok dengan permintaan sebelumnya. Muat ulang lalu coba lagi."],
   [/follow-up on a WON or LOST deal/i, "Deal sudah final. Follow-up baru tidak dapat dibuat."],
+  [/Completed time cannot be in the future/i, "Waktu selesai tidak boleh masa depan.", "completedAt"],
   [/follow-up that is already completed/i, "Follow-up yang sudah selesai tidak dapat diubah."],
   [/invoice can only be created for a WON deal/i, "Invoice hanya dapat dibuat untuk deal yang sudah menang."],
   [/already has invoice/i, "Deal ini sudah memiliki invoice."],
@@ -49,7 +50,10 @@ const KNOWN_MESSAGES: [RegExp, string, string?][] = [
   [/directly as OWNER/i, "Undangan tidak dapat memberi role Owner.", "role"],
   [/already has an active organization membership/i, "Akun ini sudah tergabung di organisasi lain. Satu akun hanya bisa aktif di satu organisasi."],
   [/already a member/i, "Email ini sudah menjadi anggota organisasi.", "email"],
-  [/already invited/i, "Email ini sudah diundang.", "email"],
+  [/already invited/i, "Email ini sudah memiliki undangan tertunda.", "email"],
+  [/cannot change your own role/i, "Anda tidak dapat mengubah role Anda sendiri."],
+  [/not allowed to change an owner/i, "Role Owner tidak dapat diubah."],
+  [/Reactivate the member before/i, "Aktifkan kembali anggota ini sebelum mengubah role."],
   [/membership has been deactivated/i, "Akses Anda ke organisasi ini sudah dinonaktifkan. Hubungi admin organisasi."],
 ];
 

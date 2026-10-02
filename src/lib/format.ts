@@ -70,7 +70,8 @@ function zonedParts(instant: Date, timezone: string): ZonedParts {
   return { year: Number(get("year")), month: Number(get("month")), day: Number(get("day")), hour: get("hour"), minute: get("minute") };
 }
 
-function zoneLabel(timezone: string): string {
+/** "WIB" for Asia/Jakarta and friends, otherwise the zone name. */
+export function zoneLabel(timezone: string): string {
   if (timezone === "Asia/Jakarta") return "WIB";
   if (timezone === "Asia/Makassar") return "WITA";
   if (timezone === "Asia/Jayapura") return "WIT";
@@ -99,6 +100,35 @@ export function formatTime(value: string, timezone: string = DEFAULT_TIMEZONE): 
 /** "26 Sep 2026, 14.00 WIB" */
 export function formatDateTime(value: string, timezone: string = DEFAULT_TIMEZONE): string {
   return `${formatDate(value, timezone)}, ${formatTime(value, timezone)} ${zoneLabel(timezone)}`;
+}
+
+// Minutes-resolution offset of `timezone` from UTC at the given instant.
+function zoneOffsetMs(ms: number, timezone: string): number {
+  const parts = zonedParts(new Date(ms), timezone);
+  const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, Number(parts.hour), Number(parts.minute));
+  return asUtc - Math.floor(ms / 60_000) * 60_000;
+}
+
+/**
+ * The instant a wall-clock "YYYY-MM-DDTHH:mm" denotes in `timezone` (what a
+ * datetime-local field means when the form says "Jadwal (WIB)"), regardless
+ * of the browser's own timezone (DATA-04).
+ */
+export function zonedLocalToInstant(local: string, timezone: string = DEFAULT_TIMEZONE): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
+  if (!match) return new Date(Number.NaN);
+  const [year, month, day, hour, minute] = match.slice(1).map(Number);
+  const naive = Date.UTC(year, month - 1, day, hour, minute);
+  // One correction pass settles zones whose offset changes near the guess (DST).
+  const first = naive - zoneOffsetMs(naive, timezone);
+  return new Date(naive - zoneOffsetMs(first, timezone));
+}
+
+/** An instant as the "YYYY-MM-DDTHH:mm" a datetime-local field shows for `timezone`. */
+export function instantToZonedLocal(value: string | Date, timezone: string = DEFAULT_TIMEZONE): string {
+  const parts = zonedParts(typeof value === "string" ? new Date(value) : value, timezone);
+  const pad = (n: number | string) => String(n).padStart(2, "0");
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${parts.hour}:${parts.minute}`;
 }
 
 /** YYYY-MM-DD of an instant in the given timezone. */

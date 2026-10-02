@@ -65,7 +65,7 @@ export function LandingPage() {
         <a className="lp-skip" href="#konten">Lewati ke konten</a>
         <header className="lp-topnav">
           <div className="lp-container lp-navinner">
-            <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><span><Icon name="brand" /></span>dealflow<span className="lp-brand-dot">.</span></a>
+            <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><span><Icon name="brand" /></span>dealflow</a>
             <nav className="lp-navlinks" aria-label="Navigasi utama">
               <a href="#produk">Produk</a>
               <a href="#cara-kerja">Cara kerja</a>
@@ -73,7 +73,7 @@ export function LandingPage() {
               <a href="#faq">FAQ</a>
             </nav>
             <div className="lp-navactions">
-              <Link href="/login">Masuk</Link>
+              <Link className="lp-btn lp-secondary" href="/login">Masuk</Link>
               <a className="lp-btn lp-primary" href="#cara-kerja">Lihat cara kerjanya<Icon name="arrowRight" /></a>
             </div>
             <button ref={menuButtonRef} type="button" className="lp-menu-toggle" aria-label={menuOpen ? "Tutup navigasi" : "Buka navigasi"} aria-expanded={menuOpen} aria-controls="mobile-menu" onClick={() => setMenuOpen((open) => !open)}>
@@ -117,7 +117,7 @@ export function LandingPage() {
                 </div>
                 <div className="lp-product-shell">
                   <aside className="lp-mini-sidebar" aria-label="Ilustrasi navigasi produk">
-                    <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><span><Icon name="brand" /></span>dealflow<span className="lp-brand-dot">.</span></a>
+                    <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><span><Icon name="brand" /></span>dealflow</a>
                     <div className="lp-mini-org">
                       <b>NusaTech Solutions</b>
                       <small>Ruang kerja perusahaan</small>
@@ -132,7 +132,7 @@ export function LandingPage() {
                   <div className="lp-product-main">
                     <div className="lp-product-heading">
                       <div>
-                        <h3>{PREVIEW_TABS[activeTab].title}</h3>
+                        <div className="lp-mh">{PREVIEW_TABS[activeTab].title}</div>
                         <p>{PREVIEW_TABS[activeTab].subtitle}</p>
                       </div>
                       <span className="lp-mini-avatar" title="Aditya Pratama">AP</span>
@@ -145,31 +145,31 @@ export function LandingPage() {
                     <div id="panel-pipeline" className="lp-preview-panel" role="tabpanel" aria-labelledby="tab-pipeline" hidden={activeTab !== "pipeline"}>
                       <div className="lp-mini-board">
                         <div className="lp-mini-column">
-                          <h4>Terkualifikasi<span className="lp-mini-tag">1</span></h4>
+                          <div className="lp-mh">Terkualifikasi<span className="lp-mini-tag">1</span></div>
                           <p>Rp18.000.000</p>
                           <article className="lp-mini-deal">
                             <small>PT Sentra Niaga</small>
-                            <h4>Maintenance tahunan CCTV</h4>
+                            <div className="lp-mh">Maintenance tahunan CCTV</div>
                             <strong>Rp18.000.000</strong>
                             <div className="lp-row"><span className="lp-mini-avatar">AS</span>Aktivitas kemarin</div>
                           </article>
                         </div>
                         <div className="lp-mini-column">
-                          <h4>Penawaran<span className="lp-mini-tag">1</span></h4>
+                          <div className="lp-mh">Penawaran<span className="lp-mini-tag">1</span></div>
                           <p>Rp48.500.000</p>
                           <article className="lp-mini-deal">
                             <small>PT Bumi Karya</small>
-                            <h4>Upgrade jaringan kantor</h4>
+                            <div className="lp-mh">Upgrade jaringan kantor</div>
                             <strong>Rp48.500.000</strong>
                             <div className="lp-row"><span className="lp-mini-avatar">RP</span>Aktivitas kemarin</div>
                           </article>
                         </div>
                         <div className="lp-mini-column">
-                          <h4>Negosiasi<span className="lp-mini-tag">1</span></h4>
+                          <div className="lp-mh">Negosiasi<span className="lp-mini-tag">1</span></div>
                           <p>Rp30.000.000</p>
                           <article className="lp-mini-deal">
                             <small>PT Maju Jaya</small>
-                            <h4>CCTV Installation - Bekasi</h4>
+                            <div className="lp-mh">CCTV Installation - Bekasi</div>
                             <strong>Rp30.000.000</strong>
                             <div className="lp-row"><span className="lp-mini-avatar">AS</span>Aktivitas kemarin</div>
                           </article>
@@ -180,7 +180,7 @@ export function LandingPage() {
                       <div className="lp-quote-grid">
                         <div className="lp-mini-invoice">
                           <div className="lp-mini-invoice-head">
-                            <h4>QT-2026-00042-R1</h4>
+                            <div className="lp-mh">QT-2026-00042-R1</div>
                             <span className="lp-mini-status">Terkirim</span>
                           </div>
                           <p>PT Maju Jaya · CCTV Installation - Bekasi</p>
@@ -201,10 +201,10 @@ export function LandingPage() {
                           <div className="lp-quote-total">Rp13.500.000</div>
                         </div>
                         <div className="lp-version-note">
-                          <h4>Versi terbaru, konteks tetap utuh.</h4>
+                          <div className="lp-mh">Versi terbaru, konteks tetap utuh.</div>
                           <p>Revisi R1 · 26 Sep 2026<br />Berlaku sampai 10 Okt 2026</p>
                           <div style={{ height: "1px", background: "#D5DFCA", margin: "18px 0" }} />
-                          <h4>QT-2026-00042</h4>
+                          <div className="lp-mh">QT-2026-00042</div>
                           <p>Versi lama · hanya baca<br />Riwayat penawaran tetap tersimpan.</p>
                         </div>
                       </div>
@@ -212,7 +212,7 @@ export function LandingPage() {
                     <div id="panel-invoice" className="lp-preview-panel" role="tabpanel" aria-labelledby="tab-invoice" hidden={activeTab !== "invoice"}>
                       <div className="lp-mini-invoice">
                         <div className="lp-mini-invoice-head">
-                          <h4>INV-2026-00001</h4>
+                          <div className="lp-mh">INV-2026-00001</div>
                           <span className="lp-mini-status">Dibayar sebagian</span>
                         </div>
                         <p>Klinik Sehat Sentosa · Paket CCTV klinik</p>
@@ -515,7 +515,7 @@ export function LandingPage() {
                   </ul>
                 </article>
               </div>
-              <p className="lp-pricing-footer">Semua nominal adalah simulasi bulanan. Pajak, ketentuan penagihan, dan batas penggunaan akan ditetapkan pada harga resmi. Pendaftaran belum dibuka.</p>
+              <p className="lp-pricing-footer">Nominal adalah simulasi bulanan. Pajak, ketentuan penagihan, dan batas penggunaan akan ditetapkan pada harga resmi.</p>
             </div>
           </section>
           <section className="lp-section lp-container" id="faq">
@@ -586,7 +586,7 @@ export function LandingPage() {
           <div className="lp-container">
             <div className="lp-footer-top">
               <div className="lp-footer-brand">
-                <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><span><Icon name="brand" /></span>dealflow<span className="lp-brand-dot">.</span></a>
+                <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><span><Icon name="brand" /></span>dealflow</a>
                 <p>Dari calon customer sampai pembayaran, dalam satu alur.</p>
               </div>
               <div className="lp-footer-links">

@@ -1,12 +1,14 @@
 "use client";
 
 import { CircleCheck, CircleX, Info } from "lucide-react";
+import Link from "next/link";
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 
 type Tone = "success" | "info" | "error";
-type Toast = { id: number; message: string; tone: Tone };
+type ToastAction = { label: string; href: string };
+type Toast = { id: number; message: string; tone: Tone; action?: ToastAction };
 
-const ToastContext = createContext<(message: string, tone?: Tone) => void>(() => {});
+const ToastContext = createContext<(message: string, tone?: Tone, action?: ToastAction) => void>(() => {});
 
 const ICON = { success: CircleCheck, info: Info, error: CircleX };
 
@@ -14,10 +16,11 @@ const ICON = { success: CircleCheck, info: Info, error: CircleX };
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const push = useCallback((message: string, tone: Tone = "success") => {
+  const push = useCallback((message: string, tone: Tone = "success", action?: ToastAction) => {
     const id = Date.now() + Math.random();
-    setToasts((current) => [...current, { id, message, tone }]);
-    setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 4000);
+    setToasts((current) => [...current, { id, message, tone, action }]);
+    // A toast that offers a next step stays a little longer.
+    setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), action ? 8000 : 4000);
   }, []);
 
   return (
@@ -30,6 +33,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div key={toast.id} className={`toast toast-${toast.tone}`} role="status">
               <Icon aria-hidden="true" />
               <div>{toast.message}</div>
+              {toast.action ? (
+                <Link className="btn tertiary" href={toast.action.href}>
+                  {toast.action.label}
+                </Link>
+              ) : null}
             </div>
           );
         })}

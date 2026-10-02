@@ -1,6 +1,8 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { AccessRevoked } from "@/components/system-pages";
+import { getFollowUpBadgeCount } from "@/server/follow-ups/follow-up-views";
 import { loadWorkspaceState } from "./workspace";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
@@ -22,6 +24,13 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   }
 
   const { workspace } = state;
+  // The sidebar badge counts today's and overdue follow-ups. Finance has no
+  // follow-up access, and a failed count must never take the page down.
+  const followUpBadge =
+    workspace.role === "FINANCE"
+      ? undefined
+      : await getFollowUpBadgeCount({ headers: await headers() }).catch(() => undefined);
+
   return (
     <div className="df" style={{ minHeight: "100svh" }}>
       <AppShell
@@ -32,6 +41,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           organizationName: workspace.organization.name,
           role: workspace.role,
         }}
+        followUpBadge={followUpBadge}
         demoMode={process.env.APP_ENV === "demo"}
       >
         {children}

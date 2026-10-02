@@ -13,7 +13,8 @@ import { authClient } from "@/lib/auth-client";
 import { initials } from "@/lib/format";
 import { ROLE_LABEL, type Role } from "@/lib/labels";
 import { cn } from "@/lib/utils";
-import { bottomNavItems, sectionFor, sidebarItems, type NavItem } from "./nav";
+import { GlobalSearchBox } from "./global-search";
+import { SEARCH_READY, bottomNavItems, sectionFor, sidebarItems, type NavItem } from "./nav";
 
 export type ShellWorkspace = {
   userName: string;
@@ -50,7 +51,7 @@ async function signOut(router: ReturnType<typeof useRouter>) {
 function NavLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: number }) {
   const Icon = item.icon;
   return (
-    <Link className={cn("navitem", active && "active")} href={item.href} aria-current={active ? "page" : undefined}>
+    <Link className={cn("navitem", active && "active")} href={item.href} title={item.label} aria-current={active ? "page" : undefined}>
       <Icon aria-hidden="true" />
       <span className="navtext">{item.label}</span>
       {badge ? (
@@ -74,7 +75,7 @@ function VerifyEmailBanner({ email }: { email: string }) {
         disabled={sending}
         onClick={async () => {
           setSending(true);
-          const { error } = await authClient.sendVerificationEmail({ email, callbackURL: "/verify-email" });
+          const { error } = await authClient.sendVerificationEmail({ email, callbackURL: "/verify-email?verified=1" });
           setSending(false);
           toast(error ? "Gagal mengirim email. Coba lagi dalam beberapa menit." : "Email verifikasi dikirim.", error ? "error" : "success");
         }}
@@ -137,6 +138,7 @@ export function AppShell({
               type="button"
               className="row"
               style={{ border: 0, background: "none", padding: 0, width: "100%", textAlign: "left", flexWrap: "nowrap" }}
+              aria-label={`Menu akun ${workspace.userName}`}
               aria-haspopup="menu"
               aria-expanded={userMenuOpen}
               onClick={() => setUserMenuOpen((open) => !open)}
@@ -168,19 +170,7 @@ export function AppShell({
                 </span>
               ))}
             </nav>
-            <form className="global-search" action="/search" role="search">
-              <Search aria-hidden="true" />
-              <label className="sr-only" htmlFor="global-search">
-                Cari customer, deal, nomor quotation atau invoice
-              </label>
-              <input
-                id="global-search"
-                name="q"
-                type="search"
-                maxLength={200}
-                placeholder="Cari customer, deal, nomor quotation atau invoice"
-              />
-            </form>
+            {SEARCH_READY ? <GlobalSearchBox /> : <span />}
             <span className="row" style={{ gap: 8 }}>
               <small>{workspace.organizationName}</small>
             </span>
@@ -189,9 +179,11 @@ export function AppShell({
           <div className="mobile-top">
             <Brand href="/dashboard" />
             <div className="row">
-              <Link className="iconbtn" href="/search" aria-label="Pencarian global" title="Pencarian global">
-                <Search aria-hidden="true" />
-              </Link>
+              {SEARCH_READY ? (
+                <Link className="iconbtn" href="/search" aria-label="Pencarian global" title="Pencarian global">
+                  <Search aria-hidden="true" />
+                </Link>
+              ) : null}
               <Avatar name={workspace.userName} />
             </div>
           </div>

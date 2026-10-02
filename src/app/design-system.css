@@ -11,7 +11,7 @@
 .df dl{margin-block:1em}
 .df,.df *{box-sizing:border-box}
 html:has(.df){scroll-behavior:smooth}
-.df{margin:0;background:#F6F5F0;color:#16231C;font:14px/1.55 var(--font-inter),-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.df{margin:0;background:var(--df-bg);color:var(--df-ink);font:14px/1.55 var(--font-inter),-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .df h1,.df h2,.df h3,.df p{margin:0}
 .df h1{font-size:26px;font-weight:600;letter-spacing:-.8px;line-height:1.25}
 .df h2{font-size:19px;font-weight:600;letter-spacing:-.4px}
@@ -21,13 +21,13 @@ html:has(.df){scroll-behavior:smooth}
 .df a:hover{text-decoration:underline}
 .df button,.df input,.df select,.df textarea{font:inherit}
 .df button,.df a,.df input,.df select,.df textarea,.df summary{outline-offset:3px}
-.df :focus-visible{outline:2px solid #163B2E;box-shadow:0 0 0 4px #C6F135}
+.df :focus-visible{outline:2px solid var(--df-primary);box-shadow:0 0 0 4px var(--df-lime)}
 .df button{cursor:pointer}
 .df button:disabled{cursor:not-allowed;opacity:.5}
 .df svg{width:19px;height:19px;flex-shrink:0;vertical-align:middle;stroke:currentColor;stroke-width:1.75;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.df .muted,.df small{color:#6B7268}
-.df small{font-size:12px}
-.df .eyebrow{font-size:11px;font-weight:650;letter-spacing:1.6px;text-transform:uppercase;color:#6B7268}
+.df .muted,.df small{color:var(--df-muted)}
+.df small{font-size:13px}
+.df .eyebrow{font-size:12px;font-weight:650;letter-spacing:1.6px;text-transform:uppercase;color:var(--df-muted)}
 .df .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .df .between{justify-content:space-between}
 .df .stack{display:flex;flex-direction:column;gap:18px}
@@ -35,104 +35,104 @@ html:has(.df){scroll-behavior:smooth}
 .df .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .df .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .df .split{grid-template-columns:minmax(0,1.8fr) minmax(260px,1fr)}
-.df .card{background:white;border:1px solid #E3E1D9;border-radius:18px;padding:24px;min-width:0}
+.df .card{background:white;border:1px solid var(--df-border);border-radius:18px;padding:24px;min-width:0}
 .df .card>h2,.df .card>h3{margin-bottom:16px}
-.df .line{height:1px;background:#E3E1D9;margin:18px 0}
-.df .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 17px;border:1px solid transparent;border-radius:11px;background:transparent;white-space:normal;font-size:13px;font-weight:600;line-height:1.35;text-align:center}
+.df .line{height:1px;background:var(--df-border);margin:18px 0}
+.df .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 17px;border:1px solid transparent;border-radius:11px;background:transparent;white-space:normal;font-size:14px;font-weight:600;line-height:1.35;text-align:center}
 .df .btn:hover{text-decoration:none;filter:brightness(.96)}
-.df .primary{background:#163B2E;color:white}
-.df .secondary{border-color:#E3E1D9;background:white;color:#16231C}
-.df .tertiary{color:#163B2E;padding-left:9px;padding-right:9px}
-.df .danger{color:#C2410C;border-color:#EAC5B6;background:white}
-.df .destructive{background:#C2410C;color:white}
-.df .iconbtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #E3E1D9;border-radius:50%;background:white;color:#163B2E;flex-shrink:0}
+.df .primary{background:var(--df-primary);color:white}
+.df .secondary{border-color:var(--df-border);background:white;color:var(--df-ink)}
+.df .tertiary{color:var(--df-primary);padding-left:9px;padding-right:9px}
+.df .danger{color:var(--df-danger);border-color:#EAC5B6;background:white}
+.df .destructive{background:var(--df-danger);color:white}
+.df .iconbtn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--df-border);border-radius:50%;background:white;color:var(--df-primary);flex-shrink:0}
 .df .footer{display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:wrap;margin-top:24px}
 .df .wfull{width:100%}
-.df .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:100px;font-size:11px;line-height:1.4;font-weight:600;background:#F0F0EC;color:#4F574F;white-space:nowrap}
+.df .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:100px;font-size:12px;line-height:1.4;font-weight:600;background:#F0F0EC;color:#4F574F;white-space:nowrap}
 .df .b-blue{background:#E4EEF6;color:#235D8B}
 .df .b-teal{background:#E0F0EC;color:#245A50}
-.df .b-green{background:#E3F5C4;color:#31532D}
-.df .b-primary{background:#DCE8DE;color:#163B2E}
-.df .b-lime{background:#C6F135;color:#163B2E}
-.df .b-red{background:#FCE9E1;color:#A1320B}
+.df .b-green{background:var(--df-lime-soft);color:#31532D}
+.df .b-primary{background:#DCE8DE;color:var(--df-primary)}
+.df .b-lime{background:var(--df-lime);color:var(--df-primary)}
+.df .b-red{background:#FCE9E1;color:var(--df-danger-ink)}
 .df .b-yellow{background:#FDF3D1;color:#775900}
 .df .b-outline{background:white;border:1px solid #D4D4CB}
-.df .alert{display:flex;align-items:flex-start;gap:10px;border:1px solid transparent;border-radius:12px;padding:15px 17px;background:#E4EEF6;color:#235D8B;line-height:1.6}
-.df .alert.warning{background:#FDF3D1;color:#775900}
-.df .alert.error{background:#FCE9E1;color:#A1320B}
-.df .alert.success{background:#E3F5C4;color:#31532D}
+.df .alert{display:flex;align-items:flex-start;gap:10px;border:1px solid transparent;border-radius:12px;padding:15px 17px;background:var(--df-info-bg);color:var(--df-info-ink);border-color:var(--df-info-border);line-height:1.6}
+.df .alert.warning{background:var(--df-warn-bg);color:var(--df-warn-ink)}
+.df .alert.error{background:#FCE9E1;color:var(--df-danger-ink)}
+.df .alert.success{background:var(--df-lime-soft);color:#31532D}
 .df .alert svg{margin-top:2px}
 .df .field{display:block;min-width:0}
-.df .field>span:first-child{display:block;font-size:12px;font-weight:600;margin-bottom:7px}
-.df .field input,.df .field select,.df .field textarea{display:block;width:100%;background:white;border:1px solid #D6D8CD;border-radius:10px;padding:11px 12px;min-height:44px;color:#16231C}
-.df .field input[readonly],.df .field textarea[readonly]{background:#F6F5F0;color:#5A6257}
+.df .field>span:first-child{display:block;font-size:13px;font-weight:600;margin-bottom:7px}
+.df .field input,.df .field select,.df .field textarea{display:block;width:100%;background:white;border:1px solid #D6D8CD;border-radius:10px;padding:11px 12px;min-height:44px;color:var(--df-ink)}
+.df .field input[readonly],.df .field textarea[readonly]{background:var(--df-bg);color:#5A6257}
 .df .field textarea{resize:vertical;min-height:105px}
 .df .field small{display:block;margin-top:5px}
-.df .field.invalid input,.df .field.invalid textarea{border-color:#C2410C}
-.df .field.invalid small{color:#A1320B}
+.df .field.invalid input,.df .field.invalid textarea{border-color:var(--df-danger)}
+.df .field.invalid small{color:var(--df-danger-ink)}
 .df .password{position:relative}
 .df .password input{padding-right:50px}
 .df .password button{position:absolute;right:4px;top:1px;border:0;background:transparent}
 .df .chips{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-.df .chip{border:1px solid #E3E1D9;border-radius:100px;padding:8px 13px;background:white;color:#56604F;font-size:12px;min-height:38px;display:inline-flex;align-items:center;gap:6px}
-.df .chip.active{background:#E3F5C4;border-color:#CAE3A6;color:#163B2E;font-weight:600}
-.df .avatar{display:inline-flex;justify-content:center;align-items:center;border-radius:50%;width:34px;height:34px;background:#E3F5C4;color:#163B2E;font-size:11px;font-weight:700;flex-shrink:0}
+.df .chip{border:1px solid var(--df-border);border-radius:100px;padding:8px 13px;background:white;color:#56604F;font-size:13px;min-height:38px;display:inline-flex;align-items:center;gap:6px}
+.df .chip.active{background:var(--df-lime-soft);border-color:#CAE3A6;color:var(--df-primary);font-weight:600}
+.df .avatar{display:inline-flex;justify-content:center;align-items:center;border-radius:50%;width:34px;height:34px;background:var(--df-lime-soft);color:var(--df-primary);font-size:11px;font-weight:700;flex-shrink:0}
 .df .avatar.lg{width:60px;height:60px;font-size:19px}
 .df .avatar-stack{display:flex}
 .df .avatar-stack .avatar+.avatar{margin-left:-9px;border:2px solid white}
 .df .brand{display:flex;gap:10px;align-items:center;font-size:25px;font-weight:650;letter-spacing:-1px}
-.df .brand-mark{width:34px;height:34px;background:#163B2E;border-radius:11px;color:#C6F135;display:flex;align-items:center;justify-content:center}
-.df .sidebar{width:244px;position:fixed;inset:0 auto 0 0;background:white;border-right:1px solid #E3E1D9;padding:28px 20px;display:flex;flex-direction:column;gap:25px;z-index:10}
+.df .brand-mark{width:34px;height:34px;background:var(--df-primary);border-radius:11px;color:var(--df-lime);display:flex;align-items:center;justify-content:center}
+.df .sidebar{width:244px;position:fixed;inset:0 auto 0 0;background:white;border-right:1px solid var(--df-border);padding:28px 20px;display:flex;flex-direction:column;gap:25px;z-index:10}
 .df .org{display:flex;gap:10px;background:#F8F8F3;padding:14px 10px;border-radius:13px}
-.df .org strong{font-size:12px}
+.df .org strong{font-size:13px}
 .df .sidebar nav{display:flex;flex-direction:column;gap:6px}
-.df .navitem{display:flex;align-items:center;gap:12px;padding:12px 16px;min-height:45px;border-radius:50px;color:#626A5F;font-size:13px}
-.df .navitem:hover{background:#E3F5C4;text-decoration:none}
-.df .navitem.active{background:#163B2E;color:white}
+.df .navitem{display:flex;align-items:center;gap:12px;padding:12px 16px;min-height:45px;border-radius:50px;color:#626A5F;font-size:14px}
+.df .navitem:hover{background:var(--df-lime-soft);text-decoration:none}
+.df .navitem.active{background:var(--df-primary);color:white}
 .df .navitem .badge{margin-left:auto}
-.df .user{margin-top:auto;border-top:1px solid #E3E1D9;padding-top:18px}
+.df .user{margin-top:auto;border-top:1px solid var(--df-border);padding-top:18px}
 .df .workspace{margin-left:244px;min-width:0}
-.df .topbar{height:76px;border-bottom:1px solid #E3E1D9;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 32px;background:#F6F5F0}
-.df .breadcrumb{font-size:12px;color:#6B7268}
-.df .global-search{display:flex;gap:9px;border:1px solid #E3E1D9;border-radius:12px;background:white;color:#6B7268;padding:10px 12px;max-width:470px;font-size:11px}
+.df .topbar{height:76px;border-bottom:1px solid var(--df-border);display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 32px;background:var(--df-bg)}
+.df .breadcrumb{font-size:13px;color:var(--df-muted)}
+.df .global-search{display:flex;gap:9px;border:1px solid var(--df-border);border-radius:12px;background:white;color:var(--df-muted);padding:10px 12px;max-width:470px;font-size:12px}
 .df .global-search kbd{margin-left:20px}
 .df .main{padding:28px 32px 90px;max-width:1750px;margin:auto}
 .df .pagehead{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:26px}
 .df .pagehead h1{margin:5px 0 8px}
-.df .pagehead p{color:#6B7268}
+.df .pagehead p{color:var(--df-muted)}
 .df .display{font-size:34px}
-.df .table-wrap{border:1px solid #E3E1D9;border-radius:16px;background:white;overflow:hidden}
-.df table{width:100%;border-collapse:collapse;font-size:12px}
-.df th{color:#6B7268;background:#FAFAF7;font-weight:500;text-align:left;font-size:11px;white-space:normal}
+.df .table-wrap{border:1px solid var(--df-border);border-radius:16px;background:white;overflow:hidden}
+.df table{width:100%;border-collapse:collapse;font-size:13px}
+.df th{color:var(--df-muted);background:#FAFAF7;font-weight:500;text-align:left;font-size:12px;white-space:normal}
 .df td,.df th{padding:14px 12px;border-bottom:1px solid #EEEDE6;vertical-align:middle}
 .df tbody tr:last-child td{border-bottom:0}
 .df tbody tr:hover{background:#FAFBF6}
 .df td.num,.df th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .df td small{display:block;margin-top:3px}
-.df .pagination{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;gap:12px;flex-wrap:wrap;font-size:12px;color:#6B7268}
+.df .pagination{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--df-muted)}
 .df .money{font-variant-numeric:tabular-nums;white-space:nowrap}
 .df .toolbar{display:flex;gap:12px;align-items:end;margin:0 0 20px;flex-wrap:wrap}
 .df .toolbar .field{flex:1;min-width:140px}
 .df .toolbar .field:first-child{flex:1.5}
 .df .kpis{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:14px}
-.df .kpi{padding:20px;border:1px solid #E3E1D9;background:white;border-radius:18px;position:relative;overflow:hidden;min-height:157px}
+.df .kpi{padding:20px;border:1px solid var(--df-border);background:white;border-radius:18px;position:relative;overflow:hidden;min-height:157px}
 .df .kpi strong{font-size:35px;line-height:1.1;letter-spacing:-1.2px;font-weight:600;display:block;margin:21px 0 10px}
-.df .kpi label{font-size:11px;display:flex;align-items:center;justify-content:space-between;gap:5px}
-.df .kpi small{font-size:11px}
-.df .kpi.is-dark{background:#163B2E;color:white;border-color:#163B2E}
+.df .kpi label{font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:5px}
+.df .kpi small{font-size:12px}
+.df .kpi.is-dark{background:var(--df-primary);color:white;border-color:var(--df-primary)}
 .df .kpi.is-dark small{color:#D3E3D5}
-.df .kpi.lime{background:#C6F135;border-color:#C6F135}
+.df .kpi.lime{background:var(--df-lime);border-color:var(--df-lime)}
 .df .kpi.lime small{color:#355023}
-.df .kpi.red strong{color:#C2410C}
+.df .kpi.red strong{color:var(--df-danger)}
 .df .progress{height:6px;background:#ECEEE7;border-radius:20px;overflow:hidden;margin:8px 0}
-.df .progress span{display:block;height:100%;background:#163B2E;border-radius:20px}
-.df .tabs{display:flex;gap:6px;border-bottom:1px solid #E3E1D9;margin-bottom:20px;overflow:auto}
-.df .tabs a,.df .tabs button{padding:12px 14px;white-space:nowrap;background:none;border:0;border-bottom:2px solid transparent;font-size:12px;color:#6B7268}
-.df .tabs .active{color:#163B2E;border-color:#163B2E;font-weight:600}
-.df .empty{text-align:center;padding:48px 20px;background:white;border:1px solid #E3E1D9;border-radius:18px}
+.df .progress span{display:block;height:100%;background:var(--df-primary);border-radius:20px}
+.df .tabs{display:flex;gap:6px;border-bottom:1px solid var(--df-border);margin-bottom:20px;overflow:auto}
+.df .tabs a,.df .tabs button{padding:12px 14px;white-space:nowrap;background:none;border:0;border-bottom:2px solid transparent;font-size:13px;color:var(--df-muted)}
+.df .tabs .active{color:var(--df-primary);border-color:var(--df-primary);font-weight:600}
+.df .empty{text-align:center;padding:48px 20px;background:white;border:1px solid var(--df-border);border-radius:18px}
 .df .empty .empty-icon{width:64px;height:64px;display:grid;place-items:center;background:#F1F5E8;border-radius:20px;margin:0 auto 18px;color:#59774C}
 .df .empty svg{width:28px;height:28px}
-.df .empty p{margin:8px auto 20px;max-width:430px;color:#6B7268}
+.df .empty p{margin:8px auto 20px;max-width:430px;color:var(--df-muted)}
 .df .skel{height:15px;border-radius:7px;background:linear-gradient(90deg,#ECEDE5,#F7F8F2,#ECEDE5);background-size:200% 100%;animation:shimmer 2s infinite}
 .df .skeleton{display:grid;gap:16px}
 .df .skeleton .skel:nth-child(even){width:65%}
@@ -145,7 +145,7 @@ html:has(.df){scroll-behavior:smooth}
 .df .toast{display:flex;align-items:center;gap:12px;background:white;border:1px solid #D9E5CA;box-shadow:0 6px 20px #163b2e0a;border-radius:13px;padding:15px 18px;width:fit-content;margin-left:auto;max-width:100%}
 .df .toast svg{color:#446D37}
 .df .timeline{display:flex;flex-direction:column}
-.df .event{display:grid;grid-template-columns:32px 1fr;gap:12px;padding:0 0 22px;position:relative;font-size:12px}
+.df .event{display:grid;grid-template-columns:32px 1fr;gap:12px;padding:0 0 22px;position:relative;font-size:13px}
 .df .event:before{content:'';position:absolute;left:15px;top:32px;bottom:0;border-left:1px solid #DFE3D8}
 .df .event:last-child:before{display:none}
 .df .event .dot{background:#F0F5E9;border-radius:50%;width:32px;height:32px;display:grid;place-items:center}
@@ -154,109 +154,109 @@ html:has(.df){scroll-behavior:smooth}
 .df .event .avatar{width:24px;height:24px;font-size:8px;margin-right:5px}
 .df .follow{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:17px 0;border-bottom:1px solid #EEEDE6}
 .df .follow:last-child{border-bottom:0}
-.df .follow h3{font-size:13px}
-.df .follow p{font-size:12px;color:#6B7268;margin-top:4px}
+.df .follow h3{font-size:14px}
+.df .follow p{font-size:13px;color:var(--df-muted);margin-top:4px}
 .df .follow-actions{display:flex;align-items:center;gap:6px}
 .df .round-check{width:26px;height:26px;border:1.5px solid #CAD2BD;border-radius:50%;display:inline-block}
 .df .board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
 .df .column{background:#EEEEE7;border-radius:15px;padding:12px;min-width:0}
 .df .column-head{margin-bottom:15px}
-.df .column-head strong{font-size:12px}
-.df .column-head small{display:block;margin-top:7px;font-size:11px}
+.df .column-head strong{font-size:13px}
+.df .column-head small{display:block;margin-top:7px;font-size:12px}
 .df .deal-card{background:white;border:1px solid #DDDED4;border-radius:13px;padding:15px;margin-bottom:12px;box-shadow:0 2px 3px #163B2E04}
-.df .deal-card h3{font-size:13px;margin:8px 0 16px;line-height:1.5}
-.df .deal-card>small{font-size:11px}
-.df .deal-card .money{font-size:13px;font-weight:600}
+.df .deal-card h3{font-size:14px;margin:8px 0 16px;line-height:1.5}
+.df .deal-card>small{font-size:12px}
+.df .deal-card .money{font-size:14px;font-weight:600}
 .df .deal-card .avatar{width:26px;height:26px;font-size:9px}
 .df .deal-card .iconbtn{width:32px;height:32px;border:0}
-.df .column .ghost-empty{padding:30px 8px;border:1px dashed #CBCFC0;border-radius:10px;font-size:12px;text-align:center;color:#6B7268}
+.df .column .ghost-empty{padding:30px 8px;border:1px dashed #CBCFC0;border-radius:10px;font-size:13px;text-align:center;color:var(--df-muted)}
 .df .stepper{display:flex;align-items:flex-start;gap:0;overflow:auto;padding:10px 0 22px}
-.df .step{flex:1;min-width:112px;position:relative;text-align:center;font-size:11px;color:#6B7268}
-.df .step:before{content:'';position:absolute;top:14px;left:0;right:0;height:2px;background:#E3E1D9}
+.df .step{flex:1;min-width:112px;position:relative;text-align:center;font-size:12px;color:var(--df-muted)}
+.df .step:before{content:'';position:absolute;top:14px;left:0;right:0;height:2px;background:var(--df-border)}
 .df .step:first-child:before{left:50%}
 .df .step:last-child:before{right:50%}
-.df .step b{display:grid;place-items:center;margin:0 auto 7px;position:relative;background:#EEEFE8;border:4px solid #F6F5F0;width:32px;height:32px;border-radius:50%;z-index:1}
-.df .step.done b{background:#E3F5C4;color:#163B2E}
-.df .step.current b{background:#163B2E;color:white}
-.df .step small{font-size:10px;display:block}
-.df .kv{display:grid;grid-template-columns:145px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid #EEEDE6;font-size:13px}
-.df .kv dt{color:#6B7268}
+.df .step b{display:grid;place-items:center;margin:0 auto 7px;position:relative;background:#EEEFE8;border:4px solid var(--df-bg);width:32px;height:32px;border-radius:50%;z-index:1}
+.df .step.done b{background:var(--df-lime-soft);color:var(--df-primary)}
+.df .step.current b{background:var(--df-primary);color:white}
+.df .step small{font-size:12px;display:block}
+.df .kv{display:grid;grid-template-columns:145px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid #EEEDE6;font-size:14px}
+.df .kv dt{color:var(--df-muted)}
 .df .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
-.df .choice{display:flex;gap:12px;align-items:flex-start;border:1px solid #E3E1D9;border-radius:12px;padding:15px;min-height:48px}
-.df .choice input{accent-color:#163B2E;margin-top:4px}
+.df .choice{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--df-border);border-radius:12px;padding:15px;min-height:48px}
+.df .choice input{accent-color:var(--df-primary);margin-top:4px}
 .df .choice:has(input:checked){border-color:#7C9A69;background:#F5FAED}
 .df .choice small{display:block}
-.df .toggle{display:flex;gap:10px;align-items:center;font-size:12px;min-height:44px}
+.df .toggle{display:flex;gap:10px;align-items:center;font-size:13px;min-height:44px}
 .df .toggle input{appearance:none;width:36px;height:21px;border-radius:20px;background:#CBCFC4;position:relative;flex-shrink:0}
-.df .toggle input:checked{background:#163B2E}
+.df .toggle input:checked{background:var(--df-primary)}
 .df .toggle input:before{content:'';position:absolute;top:3px;left:3px;width:15px;height:15px;background:white;border-radius:50%}
 .df .toggle input:checked:before{left:18px}
 .df .summary-panel{position:sticky;top:20px;align-self:start}
-.df .sumrow{display:flex;justify-content:space-between;gap:15px;margin:12px 0;font-size:13px}
+.df .sumrow{display:flex;justify-content:space-between;gap:15px;margin:12px 0;font-size:14px}
 .df .sumtotal{font-size:25px;font-weight:650;letter-spacing:-.7px}
-.df .document{background:white;border:1px solid #E3E1D9;border-radius:16px;padding:32px;position:relative;overflow:hidden}
-.df .document .dochead{display:flex;justify-content:space-between;gap:30px;padding-bottom:25px;border-bottom:2px solid #163B2E}
-.df .document .dochead p{font-size:11px;color:#6B7268}
+.df .document{background:white;border:1px solid var(--df-border);border-radius:16px;padding:32px;position:relative;overflow:hidden}
+.df .document .dochead{display:flex;justify-content:space-between;gap:30px;padding-bottom:25px;border-bottom:2px solid var(--df-primary)}
+.df .document .dochead p{font-size:11px;color:var(--df-muted)}
 .df .document .dochead strong{font-size:18px}
 .df .document .sum{max-width:320px;margin:22px 0 25px auto}
 .df .document .watermark{position:absolute;top:42%;left:20%;font-size:100px;font-weight:700;opacity:.045;transform:rotate(-30deg);pointer-events:none}
-.df .docfooter{border-top:1px solid #E3E1D9;display:flex;justify-content:space-between;margin-top:28px;padding-top:15px;font-size:10px;color:#6B7268}
+.df .docfooter{border-top:1px solid var(--df-border);display:flex;justify-content:space-between;margin-top:28px;padding-top:15px;font-size:10px;color:var(--df-muted)}
 .df .paper{width:210mm;min-height:297mm;margin:0 auto 24px;border-radius:0;padding:16mm;box-shadow:0 4px 24px #00000009;display:flex;flex-direction:column}
 .df .paper .docfooter{margin-top:auto;padding-top:15px}
 .df .paper td{padding:12px 8px}
 .df .paper .table-wrap{border-radius:0}
 .df .paper table{font-size:11px}
 .df .paper .dochead{margin-bottom:20px}
-.df .auth-page{max-width:1240px;margin:auto;padding:24px}
-.df .auth-stage{display:grid;grid-template-columns:1fr 1fr;border:1px solid #E3E1D9;border-radius:22px;overflow:hidden;background:white;min-height:650px}
-.df .brand-panel{background:#163B2E;color:white;padding:48px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;position:relative}
-.df .brand-panel .brand-mark{background:#C6F135;color:#163B2E}
-.df .brand-panel h2{font-size:37px;line-height:1.25;letter-spacing:-1.5px;max-width:330px;position:relative;z-index:1}
-.df .brand-panel p{color:#DAE9D5;font-size:12px}
+.df .auth-page{max-width:1240px;margin:auto;padding:24px;min-height:100svh;display:flex;align-items:center}
+.df .auth-stage{flex:1;min-width:0;display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--df-border);border-radius:22px;overflow:hidden;background:white;min-height:650px}
+.df .brand-panel{background:var(--df-primary);color:white;padding:48px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;position:relative}
+.df .brand-panel .brand-mark{background:var(--df-lime);color:var(--df-primary)}
+.df .brand-panel .brand-title{color:white;font-size:37px;font-weight:600;line-height:1.25;letter-spacing:-1.5px;max-width:330px;position:relative;z-index:1}
+.df .brand-panel p{color:#DAE9D5;font-size:13px}
 .df .brand-art{display:flex;gap:15px;align-items:flex-end;height:160px;margin:32px 0}
-.df .brand-art i{width:22%;border-radius:50px 50px 15px 15px;background:#C6F135}
+.df .brand-art i{width:22%;border-radius:50px 50px 15px 15px;background:var(--df-lime)}
 .df .brand-art i:nth-child(1){height:45%;opacity:.45}
 .df .brand-art i:nth-child(2){height:65%;opacity:.65}
 .df .brand-art i:nth-child(3){height:82%;opacity:.85}
 .df .brand-art i:nth-child(4){height:100%}
-.df .auth-form{max-width:420px;width:100%;margin:auto;padding:35px}
+.df .auth-form{max-width:460px;width:100%;margin:auto;padding:40px 35px}
 .df .auth-form h1{margin-bottom:10px}
 .df .auth-form>p{margin-bottom:25px}
 .df .auth-form>.stack{gap:17px}
 .df .auth-form .brand{display:none;margin-bottom:30px}
 .df .auth-state{max-width:480px;margin:auto}
 .df .chart{height:220px;display:flex;align-items:end;gap:18px;padding-top:20px}
-.df .bar{flex:1;text-align:center;font-size:10px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
-.df .bar i{width:100%;max-width:65px;background:#D8E8CB;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;margin:10px 0;color:#163B2E}
-.df .bar:last-child i{background:#163B2E;color:white}
-.df .bar b{font-size:11px;font-weight:500}
+.df .bar{flex:1;text-align:center;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.df .bar i{width:100%;max-width:65px;background:#D8E8CB;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;margin:10px 0;color:var(--df-primary)}
+.df .bar:last-child i{background:var(--df-primary);color:white}
+.df .bar b{font-size:12px;font-weight:500}
 .df .mobilebar,.df .bottomnav,.df .mobile-top,.df .mobile-stage-tabs{display:none}
 .df .menu{position:relative;display:inline-block}
 .df .menu summary{list-style:none;cursor:pointer}
 .df .menu summary::-webkit-details-marker{display:none}
-.df .menu-content{position:absolute;right:0;top:45px;z-index:20;background:white;border:1px solid #E3E1D9;border-radius:12px;padding:6px;min-width:205px;box-shadow:0 15px 35px #163B2E19}
-.df .menu-content a,.df .menu-content button{display:flex;align-items:center;gap:8px;padding:10px 12px;min-height:44px;width:100%;background:none;border:0;text-align:left;font-size:12px;border-radius:8px}
+.df .menu-content{position:absolute;right:0;top:45px;z-index:20;background:white;border:1px solid var(--df-border);border-radius:12px;padding:6px;min-width:205px;box-shadow:0 15px 35px #163B2E19}
+.df .menu-content a,.df .menu-content button{display:flex;align-items:center;gap:8px;padding:10px 12px;min-height:44px;width:100%;background:none;border:0;text-align:left;font-size:13px;border-radius:8px}
 .df .menu-content a:hover{background:#F0F5E9;text-decoration:none}
-.df .menu-content .red{color:#C2410C}
-.df .red{color:#C2410C}
-.df .disabled-note{display:block;font-size:11px;color:#6B7268;margin-top:6px}
-.df .email{max-width:560px;margin:auto;background:white;border:1px solid #E3E1D9;padding:40px;border-radius:16px}
+.df .menu-content .red{color:var(--df-danger)}
+.df .red{color:var(--df-danger)}
+.df .disabled-note{display:block;font-size:12px;color:var(--df-muted);margin-top:6px}
+.df .email{max-width:560px;margin:auto;background:white;border:1px solid var(--df-border);padding:40px;border-radius:16px}
 .df .email h1{margin:35px 0 18px}
 .df .email .btn{margin:25px 0}
-.df .email footer{margin-top:30px;padding-top:20px;border-top:1px solid #E3E1D9;font-size:11px;color:#6B7268}
+.df .email footer{margin-top:30px;padding-top:20px;border-top:1px solid var(--df-border);font-size:12px;color:var(--df-muted)}
 .df .dialog{border:0;border-radius:20px;padding:0;max-width:90vw;width:560px}
 .df .dialog::backdrop{background:#16231c55}
 .df .dialog .dialog-panel{max-width:none}
 .df .wrap{overflow-wrap:anywhere}
 .df .input-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
-.df .editor-table input,.df .editor-table textarea{width:100%;min-width:0;padding:9px;border:1px solid #D8DCCE;border-radius:8px;font-size:12px;background:white}
+.df .editor-table input,.df .editor-table textarea{width:100%;min-width:0;padding:9px;border:1px solid #D8DCCE;border-radius:8px;font-size:13px;background:white}
 .df .editor-table textarea{min-width:100px;min-height:66px}
 .df .editor-table th:nth-child(2){width:28%}
 .df .editor-table td{padding:10px 6px}
 .df .editor-table input{min-height:42px}
 .df .editor-table .iconbtn{width:30px;height:36px;border:0}
-.df .pagination select{min-height:44px;border:1px solid #E3E1D9;background:white;border-radius:8px;padding:6px}
-.df .readmore{font-size:12px;color:#163B2E}
+.df .pagination select{min-height:44px;border:1px solid var(--df-border);background:white;border-radius:8px;padding:6px}
+.df .readmore{font-size:13px;color:var(--df-primary)}
 .df .kbd{border:1px solid #D9DED0;background:#F7F8F1;padding:2px 6px;border-radius:4px;font:10px monospace}
 @media(min-width:768px) and (max-width:1279px){
 .df .sidebar{width:84px;padding:25px 14px}
@@ -273,22 +273,22 @@ html:has(.df){scroll-behavior:smooth}
 .df .paper{width:100%}
 }
 @media(max-width:767px){
-.df{font-size:13px}
+.df{font-size:14px}
 .df h1{font-size:24px}
 .df .sidebar,.df .topbar{display:none}
 .df .workspace{margin-left:0}
 .df .main{padding:20px 16px 155px}
-.df .mobile-top{display:flex;align-items:center;justify-content:space-between;background:white;border-bottom:1px solid #E3E1D9;padding:12px 16px;height:65px}
+.df .mobile-top{display:flex;align-items:center;justify-content:space-between;background:white;border-bottom:1px solid var(--df-border);padding:12px 16px;height:65px}
 .df .brand{font-size:23px}
-.df .bottomnav{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #E3E1D9;z-index:60;display:flex;padding:6px 4px max(8px,env(safe-area-inset-bottom))}
-.df .bottomnav>a,.df .bottomnav>button{flex:1;min-width:0;min-height:50px;text-align:center;font-size:9px;border:0;background:white;color:#5B6855;display:flex;gap:5px;flex-direction:column;align-items:center;justify-content:center}
-.df .bottomnav .active{color:#163B2E;background:#EFF7E4;border-radius:10px}
-.df .mobilebar{display:flex;position:fixed;bottom:70px;left:0;right:0;padding:10px 16px;background:#F6F5F0f5;border-top:1px solid #E3E1D9;gap:10px;z-index:55}
+.df .bottomnav{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--df-border);z-index:60;display:flex;padding:6px 4px max(8px,env(safe-area-inset-bottom))}
+.df .bottomnav>a,.df .bottomnav>button{flex:1;min-width:0;min-height:50px;text-align:center;font-size:12px;border:0;background:white;color:#5B6855;display:flex;gap:5px;flex-direction:column;align-items:center;justify-content:center}
+.df .bottomnav .active{color:var(--df-primary);background:#EFF7E4;border-radius:10px}
+.df .mobilebar{display:flex;position:fixed;bottom:70px;left:0;right:0;padding:10px 16px;background:#F6F5F0f5;border-top:1px solid var(--df-border);gap:10px;z-index:55}
 .df .mobilebar .primary{flex:1}
 .df .pagehead{display:block;margin-bottom:20px}
 .df .pagehead .actions{margin-top:17px}
 .df .display{font-size:29px}
-.df .pagehead p{font-size:12px}
+.df .pagehead p{font-size:13px}
 .df .g2,.df .g3,.df .split,.df .input-grid{grid-template-columns:1fr}
 .df .cols{gap:16px}
 .df .card{padding:19px;border-radius:16px}
@@ -300,17 +300,17 @@ html:has(.df){scroll-behavior:smooth}
 .df .bar{display:grid;grid-template-columns:75px 1fr 45px;text-align:left;align-items:center;gap:8px;width:100%}
 .df .bar small{grid-column:1;grid-row:1}
 .df .bar i{height:32px!important;width:var(--mobile,70%);max-width:none;margin:0;border-radius:6px;grid-column:2;grid-row:1;justify-content:end;padding-right:8px}
-.df .bar b{grid-column:3;grid-row:1;font-size:10px}
+.df .bar b{grid-column:3;grid-row:1;font-size:12px}
 .df .follow{grid-template-columns:36px 1fr;gap:9px;padding:18px 0}
 .df .follow-actions{grid-column:2;justify-content:space-between}
 .df .follow>.iconbtn{width:44px}
-.df .follow h3{font-size:13px}
+.df .follow h3{font-size:14px}
 .df .table-wrap{border:0;overflow:visible;background:transparent}
 .df .table-wrap table,.df .table-wrap tbody,.df .table-wrap tr,.df .table-wrap td{display:block;width:100%}
 .df .table-wrap thead{display:none}
-.df .table-wrap tr{background:white;border:1px solid #E3E1D9;border-radius:15px;padding:15px;margin-bottom:12px}
-.df .table-wrap td{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;border:0;padding:7px 0;text-align:right;font-size:12px;white-space:normal}
-.df .table-wrap td:before{content:attr(data-label);text-align:left;font-size:10px;color:#6B7268;max-width:35%;flex-shrink:0}
+.df .table-wrap tr{background:white;border:1px solid var(--df-border);border-radius:15px;padding:15px;margin-bottom:12px}
+.df .table-wrap td{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;border:0;padding:7px 0;text-align:right;font-size:13px;white-space:normal}
+.df .table-wrap td:before{content:attr(data-label);text-align:left;font-size:12px;color:var(--df-muted);max-width:35%;flex-shrink:0}
 .df .table-wrap td>div{min-width:0}
 .df .table-wrap .pagination{padding:12px 0}
 .df .pagination .pages{width:100%;justify-content:center}
@@ -330,22 +330,22 @@ html:has(.df){scroll-behavior:smooth}
 .df .column{display:none;padding:14px}
 .df .column.is-mobile-active{display:block}
 .df .mobile-stage-tabs{display:flex;gap:7px;overflow:auto;margin-bottom:14px}
-.df .mobile-stage-tabs button{white-space:nowrap;flex-shrink:0;min-height:44px;padding:9px 14px;border:1px solid #E3E1D9;border-radius:50px;background:white;font-size:12px}
-.df .mobile-stage-tabs button.active{background:#163B2E;color:white}
+.df .mobile-stage-tabs button{white-space:nowrap;flex-shrink:0;min-height:44px;padding:9px 14px;border:1px solid var(--df-border);border-radius:50px;background:white;font-size:13px}
+.df .mobile-stage-tabs button.active{background:var(--df-primary);color:white}
 .df .deal-card{padding:18px}
 .df .deal-card h3{font-size:15px}
 .df .deal-card .iconbtn{min-width:44px;min-height:44px}
-.df .kv{grid-template-columns:105px 1fr;font-size:12px}
+.df .kv{grid-template-columns:105px 1fr;font-size:13px}
 .df .summary-panel{position:static}
 .df .document{padding:20px 16px}
 .df .document .dochead{display:block}
 .df .document .dochead>div+div{margin-top:18px}
 .df .document .dochead strong{font-size:16px}
 .df .document .sum{max-width:none}
-.df .auth-page{padding:18px 16px 50px}
+.df .auth-page{padding:18px 16px 32px;align-items:flex-start}
 .df .auth-stage{display:block;min-height:0;background:transparent;border:0;border-radius:0}
 .df .brand-panel{display:none}
-.df .auth-form{background:white;border:1px solid #E3E1D9;border-radius:18px;padding:27px 22px}
+.df .auth-form{background:white;border:1px solid var(--df-border);border-radius:18px;padding:27px 22px;min-height:calc(100svh - 50px)}
 .df .auth-form .brand{display:flex}
 .df .auth-form h1{font-size:24px}
 .df .auth-state{max-width:none}
@@ -381,8 +381,8 @@ html:has(.df){scroll-behavior:smooth}
 .df .kpi strong{font-size:clamp(26px,2.4vw,39px)}
 .df .dealmeta dl{display:grid;grid-template-columns:1.25fr 1.15fr 1fr 1fr 1.3fr;gap:20px;margin:20px 0}
 .df .dealmeta .kv{display:block;border-bottom:0}
-.df .dealmeta dt{font-size:11px;margin-bottom:8px}
-.df .dealmeta dd{font-size:13px}
+.df .dealmeta dt{font-size:12px;margin-bottom:8px}
+.df .dealmeta dd{font-size:14px}
 .df .dealmeta dd strong{font-size:24px!important}
 .df .paper td,.df .paper th{padding:8px 6px}
 .df .paper .dochead{margin-bottom:0;padding-bottom:14px}
@@ -396,7 +396,7 @@ html:has(.df){scroll-behavior:smooth}
 .df .paper h2{font-size:21px}
 .df .paper .dochead p{line-height:1.5}
 .df .paper .dochead p+p{margin-top:5px}
-.df .editor-table th{font-size:10px}
+.df .editor-table th{font-size:12px}
 @media(max-width:767px){
 .df .g2,.df .g3,.df .split,.df .input-grid{grid-template-columns:minmax(0,1fr)}
 .df .kpi strong{font-size:34px}
@@ -413,19 +413,19 @@ html:has(.df){scroll-behavior:smooth}
 }
 .df .mobile-total{position:relative;flex:1;min-width:0}
 .df .mobile-total summary{list-style:none;cursor:pointer;min-height:44px;display:flex;flex-direction:column;justify-content:center}
-.df .mobile-total small{font-size:10px}
+.df .mobile-total small{font-size:12px}
 .df .mobile-total strong{font-size:14px}
-.df .mobile-total-panel{position:absolute;bottom:calc(100% + 12px);left:0;width:calc(100vw - 32px);background:white;padding:24px;border:1px solid #E3E1D9;border-radius:18px;box-shadow:0 -12px 28px #163b2e10}
+.df .mobile-total-panel{position:absolute;bottom:calc(100% + 12px);left:0;width:calc(100vw - 32px);background:white;padding:24px;border:1px solid var(--df-border);border-radius:18px;box-shadow:0 -12px 28px #163b2e10}
 .df .mobilebar .menu-content{top:auto;bottom:52px}
 .df .field+.field{margin-top:16px}
 .df .stack>.field+.field,.df .input-grid>.field+.field{margin-top:0}
 .df .auth-form .stack>.btn.primary{width:100%}
 .df .field>span>svg{margin-left:6px}
 .df .paper .dochead strong{font-size:17px}
-.df .toast-info{border-color:#C5DAE9}
-.df .toast-info svg{color:#2F6FA3}
+.df .toast-info{border-color:var(--df-info-border)}
+.df .toast-info svg{color:var(--df-primary)}
 .df .toast-error{border-color:#EBC9B9}
-.df .toast-error svg{color:#C2410C}
+.df .toast-error svg{color:var(--df-danger)}
 @media(max-width:767px){
 .df .iconbtn{min-width:44px;min-height:44px}
 .df .btn{min-height:44px!important}
@@ -447,12 +447,12 @@ html:has(.df){scroll-behavior:smooth}
 .df .dialog[open]{display:block}
 .df .toast-region{position:fixed;right:24px;bottom:24px;z-index:100;display:flex;flex-direction:column;gap:10px;max-width:min(420px,calc(100vw - 32px))}
 .df .toast-region .toast{margin:0}
-.df .skip-link{position:absolute;left:-999px;top:12px;z-index:200;background:white;border:1px solid #E3E1D9;border-radius:10px;padding:10px 14px}
+.df .skip-link{position:absolute;left:-999px;top:12px;z-index:200;background:white;border:1px solid var(--df-border);border-radius:10px;padding:10px 14px}
 .df .skip-link:focus{left:12px}
 .df .usermenu{position:relative}
 .df .usermenu .menu-content{top:auto;bottom:calc(100% + 8px);left:0;right:auto}
 .df .topbar .global-search{flex:1}
-.df .topbar .global-search input{border:0;outline:0;background:transparent;flex:1;min-width:0;font-size:12px;color:#16231C}
+.df .topbar .global-search input{border:0;outline:0;background:transparent;flex:1;min-width:0;font-size:13px;color:var(--df-ink)}
 .df .kpi{color:inherit}
 .df a.kpi:hover{text-decoration:none;filter:brightness(.98)}
 .df .table-wrap tbody tr.clickable{cursor:pointer}
@@ -460,4 +460,65 @@ html:has(.df){scroll-behavior:smooth}
 @media(max-width:767px){
 .df .toast-region{left:16px;right:16px;top:12px;bottom:auto;max-width:none}
 }
+}
+
+/* Design audit pass: iOS zooms any focused control under 16px, so form
+   controls are 16px on phones; small links get a 44px hit area. */
+@layer components {
+@media(max-width:767px){
+.df input:not([type=checkbox]):not([type=radio]),.df select,.df textarea{font-size:16px}
+}
+.df .auth-form .stack>p a{display:inline-block;padding:13px 6px;margin:-13px -2px}
+.df .navitem:focus-visible{outline-offset:2px}
+.df .usermenu>button{min-height:44px}
+.df a.brand{min-height:44px}
+.df .stepper.flow{overflow:visible}
+.df .stepper.flow .step{min-width:0}
+@media(max-width:767px){
+.df .stepper.flow{flex-direction:column;gap:12px;padding:0}
+.df .stepper.flow .step{display:flex;align-items:center;gap:12px;text-align:left;font-size:14px}
+.df .stepper.flow .step:before{display:none}
+.df .stepper.flow .step b{margin:0}
+}
+/* Tailwind's preflight zeroes the margin a native modal <dialog> uses to
+   center itself; phones keep the bottom-sheet placement from above. */
+@media(min-width:768px){
+.df .dialog{margin:auto}
+}
+/* The row menu (⋯) opens downward and must not be cut off by the table
+   frame on the last rows; the header corners are rounded explicitly instead. */
+@media(min-width:768px){
+.df .table-wrap{overflow:visible}
+.df .table-wrap thead th:first-child{border-top-left-radius:15px}
+.df .table-wrap thead th:last-child{border-top-right-radius:15px}
+}
+/* Search-as-you-type selector (customer picker). */
+.df .picker{position:relative}
+.df .picker input{padding-right:50px}
+.df .picker-clear{position:absolute;right:4px;top:0;border:0;background:transparent}
+.df .picker-list{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;margin:0;padding:6px;list-style:none;background:white;border:1px solid var(--df-border);border-radius:12px;box-shadow:0 15px 35px #163B2E19;max-height:288px;overflow:auto}
+.df .picker-list li{display:flex;flex-direction:column;justify-content:center;min-height:48px;padding:8px 12px;border-radius:8px;cursor:pointer}
+.df .picker-list li small{margin:0}
+.df .picker-list li[aria-selected=true]{background:#F0F5E9}
+.df .picker-list .picker-empty{cursor:default;color:var(--df-muted)}
+.df .field.invalid .picker input{border-color:var(--df-danger)}
+.df .field-legend{font-size:13px;font-weight:600;padding:0}
+/* Editable table cells carry their label in aria-label, not as visible text. */
+.df .cell-field>span:first-child{display:none}
+.df .cell-field small{margin-top:4px}
+.df .mt{margin-top:14px}
+.df .editor-table td.num{white-space:nowrap}
+/* Global search: the topbar dropdown and the result rows. */
+.df .search-dropdown{position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:40;padding:8px 14px 14px;max-height:70vh;overflow:auto;box-shadow:0 15px 35px #163B2E19}
+.df .search-group{padding:12px 0 4px}
+.df .search-row{display:flex;padding:12px 8px;border-bottom:1px solid #EEEDE6;min-height:56px;gap:12px}
+.df .search-row:hover{background:#F0F5E9;text-decoration:none}
+.df .global-search input[type=search]::-webkit-search-cancel-button{cursor:pointer}
+/* Settings: the save bar stays in reach while a long form scrolls. */
+.df .sticky-footer{position:sticky;bottom:0;background:white;padding:14px 0 2px;margin-top:20px;border-top:1px solid #EEEDE6}
+.df .member-name{display:flex;align-items:center;gap:10px}
+.df .member-name small{display:block}
+.df .member-name>div{min-width:0;overflow-wrap:anywhere;text-align:left}
+.df .auth-summary{display:grid;gap:4px}
+.df .auth-summary b{font-weight:700}
 }

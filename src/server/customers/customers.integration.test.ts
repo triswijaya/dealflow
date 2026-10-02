@@ -6,7 +6,15 @@ import postgres from "postgres";
 import { auth } from "@/server/auth/auth";
 import { inviteMember, acceptInvitation } from "@/server/auth/members";
 import { registerOwner } from "@/server/auth/register-owner";
-import { createCustomer, getCustomer, listCustomers, updateCustomer } from "./customers";
+import { createDeal, transitionDeal } from "@/server/deals/deals";
+import {
+  createCustomer,
+  findSimilarCustomers,
+  getCustomer,
+  listCustomerDeals,
+  listCustomers,
+  updateCustomer,
+} from "./customers";
 import { db } from "@/server/db/client";
 import { customers } from "@/server/db/schema";
 
@@ -270,5 +278,147 @@ describe("customers", () => {
   it("rejects a pageSize over the MAX_PAGE_SIZE ceiling (API-04)", async () => {
     const owner = await setupOwner();
     await expect(listCustomers({ headers: new Headers({ cookie: owner.ownerCookie }), pageSize: 101 })).rejects.toThrow();
+  });
+  describe("search, counts and duplicates", () => {
+    async function ownerUserIdOf(organizationId: string) {
+      const row = await db.query.member.findFirst({
+        where: (m, { and: andOp, eq: eqOp }) => andOp(eqOp(m.organizationId, organizationId), eqOp(m.role, "OWNER")),
+      });
+      return row!.userId;
+    }
+
+    const asHeaders = (cookie: string) => new Headers({ cookie });
+
+    it("searches name, contact, email and phone case-insensitively (SEARCH-01)", async () => {
+      const { ownerCookie } = await setupOwner();
+      const headers = asHeaders(ownerCookie);
+      await createCustomer({ headers, input: { ...validInput, companyName: "PT Maju Jaya", contactPerson: "Budi Santoso", phone: "0812 3456 789", email: "budi@majujaya.example" } });
+      await createCustomer({ headers, input: { ...validInput, companyName: "CV Cahaya Abadi", contactPerson: "Yoga Pranata", phone: "+62 815 6789 012", email: "yoga@cahayaabadi.example" } });
+
+      const names = async (query: string) => (await listCustomers({ headers, query })).items.map((c) => c.companyName);
+
+      expect(await names("maju")).toEqual(["PT Maju Jaya"]);
+      expect(await names("PRANATA")).toEqual(["CV Cahaya Abadi"]);
+      expect(await names("yoga@cahaya")).toEqual(["CV Cahaya Abadi"]);
+      // Local format, international format and partial digits all reach the same number.
+      expect(await names("0812 3456")).toEqual(["PT Maju Jaya"]);
+      expect(await names("+62812")).toEqual(["PT Maju Jaya"]);
+      expect(await names("815")).toEqual(["CV Cahaya Abadi"]);
+      expect(await names("")).toHaveLength(2);
+      expect(await names("tidak ada")).toEqual([]);
+    });
+
+    it("treats % and _ in the query literally, not as wildcards", async () => {
+      const { ownerCookie } = await setupOwner();
+      const headers = asHeaders(ownerCookie);
+      await createCustomer({ headers, input: { ...validInput, companyName: "PT Satu" } });
+      await createCustomer({ headers, input: { ...validInput, companyName: "PT 100% Aman" } });
+
+      expect((await listCustomers({ headers, query: "%" })).items.map((c) => c.companyName)).toEqual(["PT 100% Aman"]);
+      expect((await listCustomers({ headers, query: "_" })).items).toHaveLength(0);
+    });
+
+    it("rejects a query over 200 characters (SEARCH-02)", async () => {
+      const { ownerCookie } = await setupOwner();
+      await expect(listCustomers({ headers: asHeaders(ownerCookie), query: "a".repeat(201) })).rejects.toThrow();
+    });
+
+    it("sorts by name when asked and keeps totalItems tied to the search", async () => {
+      const { ownerCookie } = await setupOwner();
+      const headers = asHeaders(ownerCookie);
+      for (const companyName of ["PT Zeta", "PT alfa", "PT Mega"]) {
+        await createCustomer({ headers, input: { ...validInput, companyName } });
+      }
+      const sorted = await listCustomers({ headers, sort: "name" });
+      expect(sorted.items.map((c) => c.companyName)).toEqual(["PT alfa", "PT Mega", "PT Zeta"]);
+
+      const filtered = await listCustomers({ headers, query: "PT", pageSize: 2 });
+      expect(filtered.totalItems).toBe(3);
+      expect(filtered.totalPages).toBe(2);
+    });
+
+    it("never returns another organization's customers from a search (TENANT-04)", async () => {
+      const first = await setupOwner();
+      const second = await setupOwner();
+      await createCustomer({ headers: asHeaders(first.ownerCookie), input: { ...validInput, companyName: "PT Rahasia Sekali" } });
+
+      const result = await listCustomers({ headers: asHeaders(second.ownerCookie), query: "Rahasia" });
+      expect(result.items).toHaveLength(0);
+      expect(result.totalItems).toBe(0);
+    });
+
+    it("counts active, won and total deals per customer, and shows Finance only won deals", async () => {
+      const { organizationId, ownerCookie, memberCookie } = await setupOwnerAndMember("FINANCE");
+      const headers = asHeaders(ownerCookie);
+      const ownerUserId = await ownerUserIdOf(organizationId);
+      const customer = await createCustomer({ headers, input: validInput });
+      const empty = await createCustomer({ headers, input: { ...validInput, companyName: "PT Tanpa Deal", phone: "08111111111" } });
+
+      const newDeal = (title: string) =>
+        createDeal({ headers, input: { customerId: customer.id, title, estimatedValue: "1000000", assignedToId: ownerUserId } });
+      await newDeal("Aktif satu");
+      await newDeal("Aktif dua");
+      let won = await newDeal("Akan menang");
+      for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"] as const) {
+        won = await transitionDeal({ headers, dealId: won.id, expectedVersion: won.version, input: { toStatus } });
+      }
+      const lost = await newDeal("Akan kalah");
+      await transitionDeal({ headers, dealId: lost.id, expectedVersion: lost.version, input: { toStatus: "LOST", lostReason: "OTHER" } });
+
+      const owner = (await listCustomers({ headers })).items;
+      const withDeals = owner.find((c) => c.id === customer.id)!;
+      expect([withDeals.activeDeals, withDeals.wonDeals, withDeals.totalDeals]).toEqual([2, 1, 4]);
+      const without = owner.find((c) => c.id === empty.id)!;
+      expect([without.activeDeals, without.wonDeals, without.totalDeals]).toEqual([0, 0, 0]);
+
+      const finance = (await listCustomers({ headers: asHeaders(memberCookie) })).items.find((c) => c.id === customer.id)!;
+      expect(finance.wonDeals).toBe(1);
+      expect(finance.activeDeals).toBeNull();
+      expect(finance.totalDeals).toBeNull();
+
+      const ownerDeals = await listCustomerDeals({ headers, customerId: customer.id });
+      expect(ownerDeals).toHaveLength(4);
+      expect(ownerDeals.every((d) => d.assignedToName === "Owner")).toBe(true);
+      const financeDeals = await listCustomerDeals({ headers: asHeaders(memberCookie), customerId: customer.id });
+      expect(financeDeals.map((d) => d.title)).toEqual(["Akan menang"]);
+      expect(financeDeals[0]?.wonValue).toBe("1000000");
+    });
+
+    it("returns NOT_FOUND for another organization's customer deals (TENANT-04)", async () => {
+      const first = await setupOwner();
+      const second = await setupOwner();
+      const customer = await createCustomer({ headers: asHeaders(first.ownerCookie), input: validInput });
+      await expect(listCustomerDeals({ headers: asHeaders(second.ownerCookie), customerId: customer.id })).rejects.toThrow(
+        /not found/i,
+      );
+    });
+
+    it("warns about a similar name or number without blocking, ignoring the customer being edited", async () => {
+      const first = await setupOwner();
+      const headers = asHeaders(first.ownerCookie);
+      const existing = await createCustomer({ headers, input: validInput });
+
+      const byName = await findSimilarCustomers({ headers, companyName: "  pt MAJU jaya " });
+      expect(byName.map((c) => c.id)).toEqual([existing.id]);
+
+      const byPhone = await findSimilarCustomers({ headers, phone: "+62 812-3456-789" });
+      expect(byPhone.map((c) => c.id)).toEqual([existing.id]);
+
+      expect(await findSimilarCustomers({ headers, companyName: "PT Maju Jaya", excludeCustomerId: existing.id })).toEqual([]);
+      expect(await findSimilarCustomers({ headers, companyName: "PT Lain", phone: "0899" })).toEqual([]);
+      expect(await findSimilarCustomers({ headers })).toEqual([]);
+
+      // Saving a duplicate stays allowed (CUS-02).
+      const duplicate = await createCustomer({ headers, input: validInput });
+      expect(duplicate.id).not.toBe(existing.id);
+
+      const other = await setupOwner();
+      expect(await findSimilarCustomers({ headers: asHeaders(other.ownerCookie), companyName: "PT Maju Jaya" })).toEqual([]);
+    });
+
+    it("keeps the duplicate check to roles that can write customers", async () => {
+      const { memberCookie } = await setupOwnerAndMember("FINANCE");
+      await expect(findSimilarCustomers({ headers: asHeaders(memberCookie), companyName: "PT Maju Jaya" })).rejects.toThrow();
+    });
   });
 });

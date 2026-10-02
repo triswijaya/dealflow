@@ -436,4 +436,27 @@ describe("follow-ups", () => {
     expect(activeA.items).toHaveLength(1);
     expect(activeA.totalItems).toBe(1);
   });
+
+  it("rejects a completed time in the future, on create and on complete (FUP-02)", async () => {
+    const owner = await setupOwnerWithDeal();
+    const headers = new Headers({ cookie: owner.ownerCookie });
+
+    await expect(
+      createFollowUp({ headers, input: followUpInput(owner.dealId, { completedAt: daysFromNowIso(1) }) }),
+    ).rejects.toThrow(/future/i);
+
+    const created = await createFollowUp({ headers, input: followUpInput(owner.dealId) });
+    await expect(
+      completeFollowUp({ headers, followUpId: created.id, expectedVersion: created.version, input: { completedAt: daysFromNowIso(2) } }),
+    ).rejects.toThrow(/future/i);
+
+    // The moment of the request and a past moment are both fine.
+    const done = await completeFollowUp({
+      headers,
+      followUpId: created.id,
+      expectedVersion: created.version,
+      input: { completedAt: daysFromNowIso(-1) },
+    });
+    expect(done.completedAt).not.toBeNull();
+  });
 });

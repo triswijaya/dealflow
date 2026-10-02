@@ -15,9 +15,24 @@ const ITEMS: Record<string, NavItem> = {
   settings: { key: "settings", href: "/settings/company", label: "Pengaturan", icon: Settings },
 };
 
+// Pages that exist today. A sidebar entry for a module that is still being
+// built is left out rather than leading to a 404; add the path here when its
+// page ships. Same for the global search box.
+const BUILT_PATHS = new Set(["/dashboard", "/customers", "/pipeline", "/deals", "/quotations", "/follow-ups", "/invoices", "/settings/company", "/settings/members"]);
+
+/** For links to a module that may not have its pages yet. */
+export function isBuilt(path: string): boolean {
+  return BUILT_PATHS.has(path);
+}
+export const SEARCH_READY = true;
+
 // Brief §4.1: menus follow the role. Hiding a link is navigation only; every
 // page and action still checks permission on the server (RBAC-01).
 export function sidebarItems(role: Role): NavItem[] {
+  return roleItems(role).filter((item) => BUILT_PATHS.has(item.href));
+}
+
+function roleItems(role: Role): NavItem[] {
   const i = ITEMS;
   switch (role) {
     case "OWNER":
