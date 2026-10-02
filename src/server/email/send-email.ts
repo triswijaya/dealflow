@@ -4,6 +4,8 @@ export interface EmailMessage {
   to: string;
   subject: string;
   text: string;
+  /** Optional rich body; the text twin is always required. */
+  html?: string;
 }
 
 /**

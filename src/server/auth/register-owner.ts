@@ -39,6 +39,39 @@ async function generateUniqueSlug(companyName: string): Promise<string> {
 }
 
 /**
+ * The second half of AUTH-02: the organization, its default settings and the
+ * OWNER membership for an existing user. Resumable and idempotent, so the
+ * onboarding screen (A-03) can simply call it again after a failure.
+ */
+export async function provisionOrganization(params: { userId: string; companyName: string }): Promise<string> {
+  const { userId } = params;
+  const existingMembership = await db.query.member.findFirst({ where: eq(member.userId, userId) });
+
+  let organizationId: string;
+  if (existingMembership) {
+    organizationId = existingMembership.organizationId;
+  } else {
+    const slug = await generateUniqueSlug(params.companyName);
+    const org = await auth.api.createOrganization({
+      body: { name: params.companyName, slug, userId },
+    });
+    if (!org) {
+      throw new Error("Registration failed");
+    }
+    organizationId = org.id;
+  }
+
+  const existingSettings = await db.query.organizationSettings.findFirst({
+    where: eq(organizationSettings.organizationId, organizationId),
+  });
+  if (!existingSettings) {
+    await db.insert(organizationSettings).values({ organizationId });
+  }
+
+  return organizationId;
+}
+
+/**
  * AUTH-02: creates user + organization + default organization_settings +
  * OWNER membership for a new owner registration. Idempotent/resumable: if a
  * previous call stopped partway (network error, process restart, etc.),
@@ -67,30 +100,14 @@ export async function registerOwner(input: RegisterOwnerInput): Promise<Register
       body: { email: input.email, password: input.password, name: input.name },
     });
     userId = signUpResult.user.id;
+    // Best effort: a mail problem must never fail registration. The banner in
+    // the app offers a resend.
+    await auth.api
+      .sendVerificationEmail({ body: { email: input.email, callbackURL: "/verify-email?verified=1" } })
+      .catch((error) => console.error("Could not send the verification email", error));
   }
 
-  const existingMembership = await db.query.member.findFirst({ where: eq(member.userId, userId) });
-
-  let organizationId: string;
-  if (existingMembership) {
-    organizationId = existingMembership.organizationId;
-  } else {
-    const slug = await generateUniqueSlug(input.companyName);
-    const org = await auth.api.createOrganization({
-      body: { name: input.companyName, slug, userId },
-    });
-    if (!org) {
-      throw new Error("Registration failed");
-    }
-    organizationId = org.id;
-  }
-
-  const existingSettings = await db.query.organizationSettings.findFirst({
-    where: eq(organizationSettings.organizationId, organizationId),
-  });
-  if (!existingSettings) {
-    await db.insert(organizationSettings).values({ organizationId });
-  }
+  const organizationId = await provisionOrganization({ userId, companyName: input.companyName });
 
   return { userId, organizationId };
 }

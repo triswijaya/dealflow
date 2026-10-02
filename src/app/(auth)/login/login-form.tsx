@@ -70,9 +70,9 @@ export function LoginForm({ notice, next }: { notice?: string; next?: string }) 
         <Field label="Password" htmlFor="password" required error={fieldErrors.password}>
           <PasswordInput id="password" name="password" autoComplete="current-password" invalid={!!fieldErrors.password} />
         </Field>
-        <Link className="btn tertiary" href="/forgot-password">
-          Lupa password?
-        </Link>
+        <div style={{ textAlign: "right" }}>
+          <Link href="/forgot-password">Lupa password?</Link>
+        </div>
         <Button type="submit" pending={pending}>
           Masuk
         </Button>

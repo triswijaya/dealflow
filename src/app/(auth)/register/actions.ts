@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { registerOwner } from "@/server/auth/register-owner";
 
@@ -35,6 +36,10 @@ export async function registerOwnerAction(
   if (password.length < MIN_PASSWORD_LENGTH) {
     return { error: `Password minimal ${MIN_PASSWORD_LENGTH} karakter.` };
   }
+
+  // If provisioning stops after the account exists, /onboarding finishes the
+  // job from this (first-party, short-lived) cookie instead of asking again.
+  (await cookies()).set("df_company", companyName, { httpOnly: true, sameSite: "lax", maxAge: 60 * 60, path: "/" });
 
   try {
     await registerOwner({ name, companyName, email, password });

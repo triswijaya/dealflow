@@ -6,6 +6,7 @@ import { organization } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { member } from "@/server/db/schema";
+import { invitationEmail, resetPasswordEmail, verificationEmail } from "@/server/email/account-emails";
 import { sendEmail } from "@/server/email/send-email";
 import { env } from "@/server/env";
 import { ac, roles } from "@/lib/auth-permissions";
@@ -29,6 +30,18 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 12,
     maxPasswordLength: 128,
+    resetPasswordTokenExpiresIn: 60 * 60,
+    // A-05: "semua sesi lama sudah dikeluarkan".
+    revokeSessionsOnPasswordReset: true,
+    async sendResetPassword({ user, url }) {
+      await sendEmail(resetPasswordEmail({ to: user.email, name: user.name, url }));
+    },
+  },
+  emailVerification: {
+    expiresIn: 60 * 60 * 24,
+    async sendVerificationEmail({ user, url }) {
+      await sendEmail(verificationEmail({ to: user.email, name: user.name, url }));
+    },
   },
   // AUTH-06: a deactivated user cannot log in. This runs for every session
   // creation path (not just email/password), always against a fresh DB read
@@ -86,13 +99,19 @@ export const auth = betterAuth({
           },
         },
       },
+      // X-02 / A-07: seven days, matching the "berlaku sampai" date in the email.
+      invitationExpiresIn: 60 * 60 * 24 * 7,
       async sendInvitationEmail(data) {
-        const inviteLink = `${env.APP_URL}/accept-invitation/${data.id}`;
-        await sendEmail({
-          to: data.email,
-          subject: `You've been invited to join ${data.organization.name} on DealFlow`,
-          text: `${data.inviter.user.name} invited you to join ${data.organization.name} as ${data.role}.\n\n${inviteLink}`,
-        });
+        await sendEmail(
+          invitationEmail({
+            to: data.email,
+            organizationName: data.organization.name,
+            inviterName: data.inviter.user.name,
+            role: data.role,
+            url: `${env.APP_URL}/accept-invitation/${data.id}`,
+            expiresAt: data.invitation.expiresAt,
+          }),
+        );
       },
       organizationHooks: {
         // AUTH-05: one active organization membership per user on MVP.

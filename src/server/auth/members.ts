@@ -132,3 +132,40 @@ export async function reactivateMember(params: { memberId: string; headers: Head
   const [updated] = await db.update(member).set({ deactivatedAt: null }).where(eq(member.id, target.id)).returning();
   return updated;
 }
+
+const ASSIGNABLE_ROLES = ["ADMIN", "SALES", "FINANCE"] as const;
+
+/**
+ * Changes a member's role. Ownership transfer is not MVP (RBAC-02), so an
+ * Owner's role never changes here, a member can never be promoted to Owner,
+ * and nobody changes their own role (that would be a way to lock yourself
+ * out, or to escalate past what the Owner granted).
+ */
+export async function updateMemberRole(params: { memberId: string; role: InvitableRole; headers: Headers }) {
+  const actor = await requirePermission({ headers: params.headers, permission: { member: ["update"] } });
+  if (!ASSIGNABLE_ROLES.includes(params.role)) {
+    throw new APIError("BAD_REQUEST", { message: "Role must be ADMIN, SALES or FINANCE" });
+  }
+
+  const target = await db.query.member.findFirst({
+    where: and(eq(member.id, params.memberId), eq(member.organizationId, actor.organizationId)),
+  });
+  if (!target) {
+    throw new APIError("NOT_FOUND", { message: "Member not found" });
+  }
+  if (target.id === actor.member.id) {
+    throw new APIError("FORBIDDEN", { message: "You cannot change your own role" });
+  }
+  if (target.role === "OWNER") {
+    throw new APIError("FORBIDDEN", { message: "You are not allowed to change an owner's role" });
+  }
+  if (target.deactivatedAt) {
+    throw new APIError("BAD_REQUEST", { message: "Reactivate the member before changing the role" });
+  }
+  if (target.role === params.role) {
+    return target; // already that role: idempotent
+  }
+
+  const [updated] = await db.update(member).set({ role: params.role }).where(eq(member.id, target.id)).returning();
+  return updated;
+}
