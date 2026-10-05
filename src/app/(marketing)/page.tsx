@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";
 import { LandingPage } from "./landing-page";
 import "./landing.css";
+import "./landing-motion.css";
 
 const title = "DealFlow · Dari peluang menjadi pembayaran";
 const description =
