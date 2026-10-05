@@ -358,6 +358,19 @@ html:has(.lp-root){scroll-behavior:smooth;scroll-padding-top:108px}
 .lp-root,.lp-root *{transition:none!important}
 }
 
+/* Hero atmosphere: soft drifting glow and a masked dot grid behind the hero. */
+.lp-root .lp-atmos{position:relative;isolation:isolate}
+.lp-root .lp-atmos-bg{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.lp-root .lp-atmos-bg:after{content:'';position:absolute;left:0;right:0;bottom:0;height:140px;background:linear-gradient(transparent,var(--lp-bg))}
+.lp-root .lp-dots{position:absolute;inset:0;background-image:radial-gradient(color-mix(in srgb,var(--lp-primary) 22%,transparent) 1px,transparent 1.4px);background-size:22px 22px;-webkit-mask-image:radial-gradient(ellipse 70% 60% at 50% 38%,#000 20%,transparent 75%);mask-image:radial-gradient(ellipse 70% 60% at 50% 38%,#000 20%,transparent 75%)}
+.lp-root .lp-blob{position:absolute;border-radius:50%;filter:blur(70px);animation:lp-drift 20s ease-in-out infinite alternate}
+.lp-root .lp-b1{width:520px;height:520px;right:-100px;top:-120px;background:color-mix(in srgb,var(--lp-lime) 55%,transparent)}
+.lp-root .lp-b2{width:440px;height:440px;left:30%;top:36%;background:color-mix(in srgb,var(--lp-primary) 14%,transparent);animation-duration:25s;animation-delay:-7s}
+.lp-root .lp-b3{width:400px;height:400px;left:-140px;top:6%;background:color-mix(in srgb,var(--lp-soft) 90%,transparent);animation-duration:28s;animation-delay:-12s}
+@keyframes lp-drift{33%{transform:translate(-50px,36px) scale(1.07)}66%{transform:translate(36px,-26px) scale(.95)}100%{transform:translate(-16px,52px) scale(1.03)}}
+@media(max-width:767px){.lp-root .lp-b1{width:320px;height:320px}.lp-root .lp-b2,.lp-root .lp-b3{width:260px;height:260px}}
+@media(prefers-reduced-motion:reduce){.lp-root .lp-blob{animation:none}}
+
 /* Plans are shown for review only; their buttons are inert until sales open. */
 .lp-root .lp-btn-soon{background:transparent;border:1px dashed #B9C4AA;color:var(--lp-muted);cursor:default;pointer-events:none;min-height:44px;padding:10px 16px;font-weight:500}
 .lp-root .lp-btn-soon:hover{transform:none}

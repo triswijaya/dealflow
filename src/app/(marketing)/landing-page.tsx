@@ -74,7 +74,7 @@ export function LandingPage() {
             </nav>
             <div className="lp-navactions">
               <Link className="lp-btn lp-secondary" href="/login">Masuk</Link>
-              <a className="lp-btn lp-primary" href="#cara-kerja">Lihat cara kerjanya<Icon name="arrowRight" /></a>
+              <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
             </div>
             <button ref={menuButtonRef} type="button" className="lp-menu-toggle" aria-label={menuOpen ? "Tutup navigasi" : "Buka navigasi"} aria-expanded={menuOpen} aria-controls="mobile-menu" onClick={() => setMenuOpen((open) => !open)}>
               <Icon name="more" />
@@ -86,16 +86,19 @@ export function LandingPage() {
             <a href="#harga">Harga</a>
             <a href="#faq">FAQ</a>
             <Link href="/login">Masuk</Link>
-            <a className="lp-btn lp-primary" href="#cara-kerja">Lihat cara kerjanya<Icon name="arrowRight" /></a>
+            <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
           </nav>
         </header>
         <main id="konten">
+          <div className="lp-atmos">
+          <div className="lp-atmos-bg" aria-hidden="true"><i className="lp-blob lp-b1" /><i className="lp-blob lp-b2" /><i className="lp-blob lp-b3" /><i className="lp-dots" /></div>
           <section className="lp-hero lp-container" id="beranda">
             <div className="lp-hero-pill"><Icon name="briefcase" />Ruang kerja penjualan untuk bisnis B2B</div>
-            <h1>Deal makin jelas.<br />Pembayaran <span className="lp-marked">makin dekat.</span></h1>
-            <p className="lp-hero-copy">Rapikan customer, penawaran, dan follow-up dalam satu alur. Supaya peluang yang tim Anda bangun terus bergerak sampai dibayar.</p>
+            <h1>Dari chat pertama sampai <span className="lp-marked">uang masuk.</span></h1>
+            <p className="lp-hero-copy">Customer, deal, quotation, follow-up, invoice, dan pembayaran dalam satu alur. Tidak ada lagi deal yang menang tapi tagihannya terlupa.</p>
             <div className="lp-row lp-hero-actions">
-              <a className="lp-btn lp-primary" href="#cara-kerja">Lihat cara kerjanya<Icon name="arrowRight" /></a>
+              <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
+              <a className="lp-btn lp-tertiary" href="#cara-kerja">Lihat cara kerjanya</a>
             </div>
             <p className="lp-hero-caption">
               <span>Untuk tim penjualan Indonesia</span>
@@ -252,6 +255,7 @@ export function LandingPage() {
               </div>
             </div>
           </section>
+          </div>
           <section className="lp-audience lp-container" aria-label="Bisnis yang cocok">
             <p>Dibuat untuk bisnis yang menjual lewat percakapan dan penawaran.</p>
             <div className="lp-audience-list">
