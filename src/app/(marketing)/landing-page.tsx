@@ -266,7 +266,7 @@ export function LandingPage() {
               <span><Icon name="calendar" />Event vendor</span>
             </div>
           </section>
-          <section className="lp-section lp-container" id="produk">
+          <section className="lp-section lp-container lp-grid-bg" id="produk">
             <div className="lp-section-intro">
               <div>
                 <p className="lp-eyebrow">Lebih sedikit yang tercecer</p>
@@ -305,6 +305,8 @@ export function LandingPage() {
             </div>
           </section>
           <section className="lp-flow-section" id="cara-kerja">
+            <i className="lp-aurora" aria-hidden="true" />
+            <i className="lp-beam" aria-hidden="true" />
             <div className="lp-container">
               <div className="lp-flow-header">
                 <div>

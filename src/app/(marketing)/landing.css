@@ -371,6 +371,28 @@ html:has(.lp-root){scroll-behavior:smooth;scroll-padding-top:108px}
 @media(max-width:767px){.lp-root .lp-b1{width:320px;height:320px}.lp-root .lp-b2,.lp-root .lp-b3{width:260px;height:260px}}
 @media(prefers-reduced-motion:reduce){.lp-root .lp-blob{animation:none}}
 
+/* Section atmosphere: horizon line, masked grids, aurora and glows. Decorative only. */
+.lp-root .lp-atmos:after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--lp-primary) 35%,transparent) 30%,var(--lp-lime) 50%,color-mix(in srgb,var(--lp-primary) 35%,transparent) 70%,transparent)}
+.lp-root .lp-audience{border-bottom:0}
+.lp-root .lp-grid-bg{position:relative;isolation:isolate}
+.lp-root .lp-grid-bg:before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background-image:linear-gradient(color-mix(in srgb,var(--lp-primary) 8%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--lp-primary) 8%,transparent) 1px,transparent 1px);background-size:64px 64px;-webkit-mask-image:radial-gradient(ellipse 60% 55% at 50% 30%,#000,transparent 75%);mask-image:radial-gradient(ellipse 60% 55% at 50% 30%,#000,transparent 75%)}
+.lp-root .lp-flow-section{position:relative;isolation:isolate;overflow:hidden}
+.lp-root .lp-flow-section>.lp-container{position:relative}
+.lp-root .lp-flow-section:before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background-image:radial-gradient(color-mix(in srgb,var(--lp-lime) 16%,transparent) 1px,transparent 1.4px);background-size:24px 24px;-webkit-mask-image:radial-gradient(ellipse 60% 70% at 80% 30%,#000,transparent 70%);mask-image:radial-gradient(ellipse 60% 70% at 80% 30%,#000,transparent 70%)}
+.lp-root .lp-aurora{position:absolute;z-index:-1;width:760px;height:760px;right:-260px;top:-380px;border-radius:50%;pointer-events:none;background:conic-gradient(from 0deg,transparent,color-mix(in srgb,var(--lp-lime) 26%,transparent),transparent 30%,#2F6E5299,transparent 60%);filter:blur(60px);animation:lp-spin 32s linear infinite}
+@keyframes lp-spin{to{transform:rotate(360deg)}}
+.lp-root .lp-beam{position:absolute;left:0;right:0;top:0;height:1px;overflow:hidden;pointer-events:none}
+.lp-root .lp-beam:before{content:'';position:absolute;top:0;width:30%;height:1px;background:linear-gradient(90deg,transparent,var(--lp-lime),transparent);animation:lp-beam 7s ease-in-out infinite}
+@keyframes lp-beam{from{left:-30%}to{left:100%}}
+.lp-root .lp-pricing-section{position:relative;isolation:isolate;overflow:hidden}
+.lp-root .lp-pricing-section:before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background-image:radial-gradient(color-mix(in srgb,var(--lp-primary) 16%,transparent) 1px,transparent 1.4px);background-size:22px 22px;-webkit-mask-image:radial-gradient(ellipse 55% 50% at 50% 55%,#000,transparent 75%);mask-image:radial-gradient(ellipse 55% 50% at 50% 55%,#000,transparent 75%)}
+.lp-root .lp-pricing-section:after{content:'';position:absolute;z-index:-1;pointer-events:none;width:min(900px,100%);height:520px;left:50%;top:60%;translate:-50% -50%;background:radial-gradient(ellipse at center,color-mix(in srgb,var(--lp-lime) 28%,transparent),transparent 68%);filter:blur(20px)}
+.lp-root .lp-final-cta{position:relative;isolation:isolate;overflow:hidden}
+.lp-root .lp-final-cta:before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background-image:linear-gradient(color-mix(in srgb,var(--lp-primary) 8%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--lp-primary) 8%,transparent) 1px,transparent 1px);background-size:48px 48px;-webkit-mask-image:radial-gradient(ellipse 55% 70% at 30% 50%,#000,transparent 80%);mask-image:radial-gradient(ellipse 55% 70% at 30% 50%,#000,transparent 80%)}
+.lp-root .lp-final-cta:after{content:'';position:absolute;z-index:-1;pointer-events:none;width:560px;height:560px;right:-120px;top:50%;translate:0 -50%;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--lp-lime) 40%,transparent),transparent 65%);filter:blur(30px)}
+@media(max-width:767px){.lp-root .lp-aurora{width:480px;height:480px;right:-220px;top:-240px}.lp-root .lp-final-cta:after{width:360px;height:360px;right:-160px}}
+@media(prefers-reduced-motion:reduce){.lp-root .lp-aurora,.lp-root .lp-beam:before{animation:none}}
+
 /* Plans are shown for review only; their buttons are inert until sales open. */
 .lp-root .lp-btn-soon{background:transparent;border:1px dashed #B9C4AA;color:var(--lp-muted);cursor:default;pointer-events:none;min-height:44px;padding:10px 16px;font-weight:500}
 .lp-root .lp-btn-soon:hover{transform:none}
