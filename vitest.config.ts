@@ -12,7 +12,7 @@ export default defineConfig({
     // Integration tests need a live Postgres; run them separately via
     // `pnpm test:integration` (vitest.integration.config.ts) so `pnpm
     // test:unit` never depends on Docker being up.
-    exclude: ["**/node_modules/**", "**/*.integration.test.ts"],
+    exclude: ["**/node_modules/**", "**/*.integration.test.ts", "tests/e2e/**"],
     env: {
       APP_ENV: "test",
       // Placeholders only: satisfy the required-field checks so importing

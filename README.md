@@ -17,7 +17,8 @@ In active development. The sales-to-cash flow is built end to end, backend and w
 | Dashboard, global search, settings, members | Done (role-specific dashboards) |
 | Landing page | Done (interactive product story, pricing preview) |
 | Seeded demo data | Done (`pnpm db:seed`) |
-| Browser E2E (Playwright), Sentry, CI, live deployment | Not started |
+| Browser E2E (Playwright) | Started (landing, health, login) |
+| Sentry, live deployment | Not started |
 
 ## Stack
 
@@ -57,6 +58,7 @@ pnpm typecheck
 pnpm build
 pnpm test:unit
 pnpm test:integration
+pnpm test:e2e
 pnpm db:generate
 pnpm db:migrate
 pnpm db:check
@@ -86,6 +88,29 @@ Everything is invented: company names, people, `.test` email addresses, and phon
 - The seed refuses to run unless `APP_ENV` is `local`, `test` or `demo`.
 - If the demo already exists the seed stops. `pnpm db:seed --reset` empties **every table** first and then rebuilds it; it only runs against a local database host (or `APP_ENV=demo`).
 - Activity timestamps show when the seed ran, because they are written by the services as the data is created.
+
+### End-to-end tests
+
+`pnpm test:e2e` drives a real browser against a production build (`requirement.md` TEST-02). Prepare the database first, then build; Playwright starts `pnpm start` itself (or reuses a server already on port 3000):
+
+```sh
+pnpm db:seed --reset   # the login tests use the demo accounts
+pnpm build
+pnpm test:e2e
+```
+
+Locally the tests use your installed Google Chrome, so nothing is downloaded. `pnpm db:seed --reset` empties the database it points at; use a local one.
+
+## Health checks
+
+Two endpoints are meant for uptime monitors and deploy checks. Neither needs a session and neither reveals anything about the deployment.
+
+| Endpoint | Purpose | Responses |
+|---|---|---|
+| `GET /api/health` | Liveness: the process is up. Never touches the database. | `200 {"status":"ok"}` |
+| `GET /api/health/ready` | Readiness: the instance can reach PostgreSQL (2 second limit, result cached for 5 seconds per instance). | `200 {"status":"ready"}` or `503 {"status":"unavailable"}` |
+
+A failed readiness check does not say why; look at the server logs for the cause.
 
 ### Troubleshooting
 

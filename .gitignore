@@ -33,3 +33,7 @@ yarn-error.log*
 # AI agent tooling artifacts (auto-generated locally, never committed)
 AGENTS.md
 CLAUDE.md
+
+# Playwright
+/test-results/
+/playwright-report/
