@@ -15,7 +15,8 @@
     "test:integration": "vitest run -c vitest.integration.config.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:check": "drizzle-kit check"
+    "db:check": "drizzle-kit check",
+    "db:seed": "tsx scripts/seed/index.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",
@@ -44,6 +45,7 @@
     "pdfjs-dist": "6.3.289",
     "shadcn": "4.21.0",
     "tailwindcss": "^4",
+    "tsx": "4.23.13",
     "typescript": "^5",
     "vitest": "4.1.11"
   },
