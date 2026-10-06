@@ -34,9 +34,11 @@
 
 /* HERO: copy on the left, product story on the right */
 .lp-root .lp-hero{padding-top:clamp(16px,3vh,40px)}
-.lp-root .lp-hero-grid{display:grid;grid-template-columns:1.02fr 1fr;gap:56px;align-items:center;min-height:min(780px,calc(100dvh - 87px - 40px))}
+.lp-root .lp-hero-grid{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(0,1fr);gap:56px;align-items:center;min-height:min(780px,calc(100dvh - 87px - 40px))}
 .lp-root .lp-hero-text{text-align:left}
-.lp-root .lp-hero-text h1{margin:0;max-width:none;font-size:clamp(38px,min(4.6vw,7vh),60px)}
+.lp-root .lp-hero-text h1{margin:0;max-width:none;font-size:clamp(44px,min(5.4vw,8.4vh),76px);line-height:1.06}
+.lp-root .lp-hero-text .lp-hero-actions .lp-btn{min-height:58px;padding:16px 28px;font-size:16px}
+.lp-root .lp-hero-text .lp-hero-copy{font-size:19px}
 .lp-root .lp-hero-text .lp-hero-pill{margin-bottom:clamp(14px,2.4vh,24px)}
 .lp-root .lp-hero-text .lp-hero-copy{margin:clamp(14px,2.4vh,22px) 0 clamp(18px,3.2vh,28px);max-width:540px}
 .lp-root .lp-hero-text .lp-hero-actions{justify-content:flex-start}
@@ -286,7 +288,7 @@
 .lp-root .lp-floaty{display:none}
 }
 @media(max-width:767px){
-.lp-root .lp-hero-text h1{font-size:42px}
+.lp-root .lp-hero-text h1{font-size:46px}
 .lp-root .lp-st-glow{inset:40px 0 0 0}
 .lp-root .lp-st-chat{width:min(270px,80%);top:216px}
 .lp-root .lp-st-pay{width:min(270px,80%)}

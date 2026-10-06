@@ -225,6 +225,11 @@ html:has(.df){scroll-behavior:smooth}
 .df .auth-form>.stack{gap:17px}
 .df .auth-form .brand{display:none;margin-bottom:30px}
 .df .auth-state{max-width:480px;margin:auto}
+/* Sign-in style screens sit fixed in the viewport on desktop-sized windows; smaller ones still scroll so nothing is cut off. */
+@media(min-width:768px) and (min-height:820px){
+html:has(.auth-page),html:has(.auth-page) body{overflow:hidden;height:100%}
+.df .auth-page{height:100svh;min-height:0;overflow:hidden}
+}
 .df .chart{height:220px;display:flex;align-items:end;gap:18px;padding-top:20px}
 .df .bar{flex:1;text-align:center;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
 .df .bar i{width:100%;max-width:65px;background:#D8E8CB;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;margin:10px 0;color:var(--df-primary)}

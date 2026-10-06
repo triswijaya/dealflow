@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Icon } from "./landing-icon";
-import { formatRp, useCountTo, useInView, useReducedMotion, type CSSVars } from "./landing-hooks";
+import { formatRp, LANDING_ZOOM, useCountTo, useInView, useReducedMotion, type CSSVars } from "./landing-hooks";
 
 const STAGE_HEIGHT = 640;
 const PAYMENT_AMOUNT = 10_000_000;
@@ -53,7 +53,7 @@ export function HeroStory() {
       const fitEl = fitRef.current;
       const stage = stageRef.current;
       if (!fitEl || !stage) return;
-      const scale = window.innerWidth > 1020 ? Math.max(0.7, Math.min(1, (window.innerHeight - 87 - 48) / STAGE_HEIGHT)) : 1;
+      const scale = window.innerWidth > 1020 ? Math.max(0.7, Math.min(1, (window.innerHeight / LANDING_ZOOM - 87 - 48) / STAGE_HEIGHT)) : 1;
       stage.style.transform = scale < 1 ? `scale(${scale})` : "";
       fitEl.style.height = scale < 1 ? `${STAGE_HEIGHT * scale}px` : "";
     };

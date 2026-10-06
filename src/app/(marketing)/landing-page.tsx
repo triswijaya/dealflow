@@ -7,7 +7,7 @@ import { CompareSlider } from "./compare-slider";
 import { InvoiceDemo, KanbanDemo, QuotationDemo } from "./feature-demos";
 import { FlowStepper } from "./flow-stepper";
 import { HeroStory } from "./hero-story";
-import { useReveal, useScrollEffects, type CSSVars } from "./landing-hooks";
+import { LANDING_ZOOM, useReveal, useScrollEffects, type CSSVars } from "./landing-hooks";
 import { PricingPlans } from "./pricing-plans";
 import { RoleSwitcher } from "./role-switcher";
 
@@ -104,7 +104,7 @@ export function LandingPage() {
   }
 
   return (
-    <div className="lp-root" ref={rootRef}>
+    <div className="lp-root" ref={rootRef} style={{ zoom: LANDING_ZOOM }}>
         <a className="lp-skip" href="#konten">Lewati ke konten</a>
         <header className="lp-topnav">
           <div className="lp-container lp-navinner">
