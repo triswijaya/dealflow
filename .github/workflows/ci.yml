@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same branch or PR supersedes a run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   checks:
     runs-on: ubuntu-latest
@@ -53,6 +58,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # SEC-10: a critical advisory in a production dependency blocks the build. High
+      # findings are reviewed by hand (they currently sit in transitive packages that are
+      # either build-time only or patched upstream within the last two weeks).
+      - name: Dependency audit
+        run: pnpm audit --prod --audit-level=critical
+
       - name: Lint
         run: pnpm lint
 
@@ -70,3 +81,28 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # TEST-02: the browser suite runs against the production build just made, on the
+      # seeded demo data. The reset only touches this job's throwaway database.
+      - name: Prepare demo data for E2E
+        run: |
+          pnpm db:migrate
+          pnpm db:seed --reset
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: pnpm test:e2e
+
+      # TEST-05: traces and screenshots from a failed run, kept for a week. They hold only
+      # the synthetic demo data and test credentials, never real secrets.
+      - name: Upload E2E report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

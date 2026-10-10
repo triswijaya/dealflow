@@ -17,7 +17,8 @@ In active development. The sales-to-cash flow is built end to end, backend and w
 | Dashboard, global search, settings, members | Done (role-specific dashboards) |
 | Landing page | Done (interactive product story, pricing preview) |
 | Seeded demo data | Done (`pnpm db:seed`) |
-| Browser E2E (Playwright) | Started (landing, health, login) |
+| Browser E2E (Playwright) | Landing, health, security headers, SEO, login, and the Sales to Finance hand-off with a tenant-isolation check; runs in CI |
+| Security headers and CSP, structured logging with redaction, dependency audit in CI | Done |
 | Sentry, live deployment | Not started |
 
 ## Stack
@@ -100,6 +101,20 @@ pnpm test:e2e
 ```
 
 Locally the tests use your installed Google Chrome, so nothing is downloaded. `pnpm db:seed --reset` empties the database it points at; use a local one.
+
+Two things to know when running it by hand:
+
+- The hand-off test records a payment, so reseed (`pnpm db:seed --reset`) before every run against the same database.
+- Better Auth limits sign-in to 3 per 10 seconds per IP in a production build and that limit stays on, so the tests pause between sign-ins (`tests/e2e/helpers.ts`). A full run takes about 20 seconds.
+
+CI runs the same steps on a throwaway PostgreSQL service and uploads the Playwright report when a run fails.
+
+## Security and logging
+
+- `next.config.ts` applies security headers and a Content Security Policy from `src/server/security/headers.ts` (no framing, no plugins, scripts and connections limited to this origin; HSTS and `upgrade-insecure-requests` only on hosted environments). The policy is the nonce-free variant from the Next.js guide, so inline scripts are allowed; revisit this when Sentry is added.
+- `src/server/shared/logger.ts` writes one JSON line per event (UTC timestamp, level, operation, request id, duration, status) and redacts passwords, tokens, cookies and connection strings before anything is printed. Errors are logged by name and code only.
+- CI fails on a critical advisory in a production dependency (`pnpm audit --prod --audit-level=critical`). Lower-severity findings are reviewed by hand.
+- `robots.txt` and `sitemap.xml` expose only the landing, login and register pages; signed-in screens and emailed one-time links are marked `noindex`.
 
 ## Health checks
 
