@@ -11,7 +11,7 @@ describe("health endpoints (OBS-03)", () => {
   });
 
   it("readiness reports ready against a reachable database and exposes nothing else", async () => {
-    const response = await readiness();
+    const response = await readiness(new Request("http://localhost/api/health/ready"));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "ready" });
     expect(response.headers.get("cache-control")).toBe("no-store");
