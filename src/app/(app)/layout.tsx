@@ -1,9 +1,13 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { AccessRevoked } from "@/components/system-pages";
 import { getFollowUpBadgeCount } from "@/server/follow-ups/follow-up-views";
 import { loadWorkspaceState } from "./workspace";
+
+// Everything here is behind a sign-in; keep it out of search results even if a link leaks.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const state = await loadWorkspaceState();
