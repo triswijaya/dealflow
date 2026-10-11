@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Icon } from "./landing-icon";
-import { formatRp, LANDING_ZOOM, useCountTo, useInView, useReducedMotion, type CSSVars } from "./landing-hooks";
+import { formatRp, LANDING_ZOOM, useCountTo, useInView, useReducedMotion } from "./landing-hooks";
 
 const STAGE_HEIGHT = 640;
 const PAYMENT_AMOUNT = 10_000_000;
@@ -8,19 +8,24 @@ const PAYMENT_AMOUNT = 10_000_000;
 const STEP_MS = [2400, 2000, 2600, 2800];
 const HOLD_AFTER_PAID_MS = 3400;
 
-const TIMELINE = [
-  { label: "Customer", date: "12 Sep", icon: "users" },
-  { label: "Deal", date: "13 Sep", icon: "brand" },
-  { label: "Quotation", date: "26 Sep", icon: "fileText" },
-  { label: "Menang", date: "28 Sep", icon: "trophy" },
-  { label: "Dibayar", date: "30 Sep", icon: "wallet" },
-] as const;
+const STEPS = ["Customer", "Deal", "Quotation", "Menang", "Dibayar"] as const;
 
-const CONFETTI = Array.from({ length: 14 }, (_, i) => {
-  const angle = (i / 14) * Math.PI * 2;
-  const distance = 70 + (i % 3) * 28;
-  return { tx: Math.round(Math.cos(angle) * distance), ty: Math.round(Math.sin(angle) * distance) - 30, rot: (i * 67) % 540, tone: i % 4 };
-});
+type Note = { id: string; icon: "users" | "brand" | "fileText" | "trophy" | "wallet"; title: string; body: string };
+
+// One DealFlow notification per step of the story; payments add one each.
+const STEP_NOTES: Note[] = [
+  { id: "customer", icon: "users", title: "Customer baru", body: "PT Maju Jaya \u00b7 Budi Santoso" },
+  { id: "deal", icon: "brand", title: "Deal dibuat", body: "CCTV Installation - Bekasi \u00b7 Rp30.000.000" },
+  { id: "quote", icon: "fileText", title: "Quotation R1 terkirim", body: "QUO-2026-0018 \u00b7 berlaku 14 hari" },
+  { id: "won", icon: "trophy", title: "Deal Menang", body: "Finance bisa menerbitkan invoice" },
+];
+
+function notesFor(step: number, payments: number): Note[] {
+  const notes = STEP_NOTES.slice(0, Math.min(step, 3) + 1);
+  for (let n = 1; n <= payments; n++) notes.push({ id: `pay-${n}`, icon: "wallet", title: n === 3 ? "Invoice lunas" : "Pembayaran diterima", body: `Rp10.000.000 \u00b7 ${n} dari 3` });
+  // Newest first, three at most: older ones slide down and fade behind.
+  return notes.slice(-3).reverse();
+}
 
 function paymentBadge(step: number, paid: number) {
   if (step < 3) return { tone: "wait", text: "Menunggu deal Menang" };
@@ -38,7 +43,6 @@ export function HeroStory() {
   const [payments, setPayments] = useState(0);
   const [typing, setTyping] = useState(false);
   const [playing, setPlaying] = useState(true);
-  const [confetti, setConfetti] = useState(false);
   const inView = useInView(stageRef, 0.25);
 
   // Under reduced motion the story is frozen on its final frame.
@@ -46,6 +50,7 @@ export function HeroStory() {
   const shownPayments = reduced ? 3 : payments;
   const paidAmount = useCountTo(shownPayments * PAYMENT_AMOUNT);
   const badge = paymentBadge(shownStep, shownPayments);
+  const notes = notesFor(shownStep, shownPayments);
 
   // Scale the whole composition down on short desktop viewports so the hero fits one screen.
   useEffect(() => {
@@ -67,20 +72,12 @@ export function HeroStory() {
     if (reduced || step !== 4 || payments >= 3) return;
     const id = window.setTimeout(
       () => {
-        const next = payments + 1;
-        setPayments(next);
-        if (next === 3) setConfetti(true);
+        setPayments(payments + 1);
       },
       payments === 0 ? 500 : 750,
     );
     return () => window.clearTimeout(id);
   }, [reduced, step, payments]);
-
-  useEffect(() => {
-    if (!confetti) return;
-    const id = window.setTimeout(() => setConfetti(false), 1000);
-    return () => window.clearTimeout(id);
-  }, [confetti]);
 
   // Advance to the next step, showing the typing dots shortly before the customer replies.
   useEffect(() => {
@@ -95,10 +92,7 @@ export function HeroStory() {
       window.setTimeout(() => {
         setTyping(false);
         setStep(next);
-        if (last) {
-          setPayments(0);
-          setConfetti(false);
-        }
+        if (last) setPayments(0);
       }, duration),
     );
     return () => {
@@ -109,7 +103,6 @@ export function HeroStory() {
 
   function goTo(index: number) {
     setTyping(false);
-    setConfetti(false);
     setStep(index);
     setPayments(index === 4 ? 3 : 0);
   }
@@ -129,116 +122,106 @@ export function HeroStory() {
 
   return (
     <div className="lp-st-fit" ref={fitRef} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}>
-      <div className="lp-stage" ref={stageRef} role="group" aria-label="Ilustrasi alur dari percakapan WhatsApp sampai invoice lunas. Data contoh.">
-        <div className="lp-st-glow" aria-hidden="true" />
+      <div className="lp-stage lp-ph-stage" ref={stageRef} role="group" aria-label="Ilustrasi alur dari percakapan WhatsApp sampai invoice lunas. Data contoh.">
+        <div className="lp-ph-halo" aria-hidden="true" />
 
-        <div className="lp-st-card lp-st-chat" aria-hidden="true">
-          <div className="lp-st-chat-head">
-            <span className="lp-st-avatar">BS</span>
-            <div>
-              <strong>Budi · PT Maju Jaya</strong>
-              <small>WhatsApp</small>
+        <div className="lp-ph" aria-hidden="true">
+          <div className="lp-ph-screen">
+            <div className="lp-ph-status"><span>09.41</span><i className="lp-ph-island" /><span>5G</span></div>
+            <div className="lp-ph-head">
+              <span className="lp-st-avatar">BS</span>
+              <div>
+                <strong>Budi · PT Maju Jaya</strong>
+                <small>{typing ? "sedang mengetik..." : "online"}</small>
+              </div>
             </div>
-            <span className="lp-st-online">online</span>
-          </div>
-          <div className="lp-st-chat-body">
-            {shownStep >= 0 && (
-              <div className="lp-st-bubble lp-st-in">
-                Pak, butuh CCTV 16 titik untuk gudang Bekasi. Bisa minta penawaran?
-                <small>09.12</small>
-              </div>
-            )}
-            {shownStep >= 1 && <div className="lp-st-sys">Deal dibuat · Rp30.000.000</div>}
-            {shownStep >= 2 && (
-              <div className="lp-st-bubble lp-st-out">
-                <span className="lp-st-attach">
-                  <Icon name="fileText" />
-                  QUO-2026-0018 · R1.pdf
-                </span>
-                Terlampir revisi penawarannya ya Pak.
-                <small>14.03 ✓✓</small>
-              </div>
-            )}
-            {shownStep >= 3 && (
-              <>
+            <div className="lp-ph-chat">
+              {shownStep >= 0 && (
+                <div className="lp-st-bubble lp-st-in">
+                  Pak, butuh CCTV 16 titik untuk gudang Bekasi. Bisa minta penawaran?
+                  <small>09.12</small>
+                </div>
+              )}
+              {shownStep >= 2 && (
+                <div className="lp-st-bubble lp-st-out">
+                  <span className="lp-st-attach">
+                    <Icon name="fileText" />
+                    QUO-2026-0018 · R1.pdf
+                  </span>
+                  Terlampir revisi penawarannya ya Pak.
+                  <small>14.03 ✓✓</small>
+                </div>
+              )}
+              {shownStep >= 3 && (
                 <div className="lp-st-bubble lp-st-in">
                   Sudah oke. Kami lanjut, tolong kirim invoice.
                   <small>10.24</small>
                 </div>
-                <div className="lp-st-sys lp-st-sys-won">Deal Menang</div>
-              </>
-            )}
-            {shownStep >= 4 && shownPayments === 3 && <div className="lp-st-sys">Pembayaran ke-3 dicatat · Lunas</div>}
-            {typing && (
-              <div className="lp-st-typing">
-                <i />
-                <i />
-                <i />
+              )}
+              {shownStep >= 4 && shownPayments >= 1 && (
+                <div className="lp-st-bubble lp-st-in">
+                  Sudah kami transfer DP ya Pak.
+                  <small>09.05</small>
+                </div>
+              )}
+              {typing && (
+                <div className="lp-st-typing">
+                  <i />
+                  <i />
+                  <i />
+                </div>
+              )}
+            </div>
+            <div className="lp-ph-input"><span>Ketik pesan</span><i /></div>
+          </div>
+        </div>
+
+        <ol className="lp-ph-notes" aria-hidden="true">
+          {notes.map((note, index) => (
+            <li key={note.id} className="lp-ph-note" style={{ transform: `translateY(${index * 78}px) scale(${1 - index * 0.06})`, opacity: 1 - index * 0.28, zIndex: 3 - index }}>
+              <div className="lp-ph-note-in">
+                <span className={note.icon === "wallet" || note.icon === "trophy" ? "lp-ph-note-icon lp-hot" : "lp-ph-note-icon"}>
+                  <Icon name={note.icon} />
+                </span>
+                <div>
+                  <b>{note.title}</b>
+                  <small>{note.body}</small>
+                </div>
+                <em>DealFlow · baru saja</em>
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className={shownStep < 3 ? "lp-st-card lp-st-pay lp-st-waiting" : "lp-st-card lp-st-pay"} aria-hidden="true">
-          <div className="lp-st-pay-top">
-            <small>INV-2026-0042</small>
-            <span key={badge.text} className={`lp-bd lp-bd-${badge.tone} lp-st-bump`}>
-              {badge.text}
-            </span>
-          </div>
-          <small>Terbayar · PT Maju Jaya</small>
-          <div className="lp-st-amount">{formatRp(paidAmount)}</div>
-          <div className="lp-st-bar">
-            <i style={{ transform: `scaleX(${shownPayments / 3})` }} />
-          </div>
-          <div className="lp-st-pay-rows">
-            <span>{shownStep < 3 ? "Invoice belum dibuat" : `${shownPayments} dari 3 pembayaran`}</span>
-            <span>dari Rp30.000.000</span>
-          </div>
-          {confetti && (
-            <span className="lp-st-confetti" aria-hidden="true">
-              {CONFETTI.map((piece, i) => (
-                <i key={i} className={`lp-st-tone-${piece.tone}`} style={{ "--tx": `${piece.tx}px`, "--ty": `${piece.ty}px`, "--rot": `${piece.rot}deg` } as CSSVars} />
-              ))}
-            </span>
-          )}
-        </div>
-
-        <div className="lp-st-card lp-st-timeline">
-          <div className="lp-st-tl-head">
-            <span>Perjalanan deal · data contoh</span>
-            <button
-              type="button"
-              className="lp-st-play"
-              aria-label={playing ? "Jeda demo" : "Putar demo"}
-              aria-pressed={!playing}
-              onClick={() => setPlaying((value) => !value)}
-              hidden={reduced}
-            >
-              <Icon name={playing ? "pause" : "play"} />
-            </button>
-          </div>
-          <ol className="lp-st-steps">
-            <li className="lp-st-line" aria-hidden="true">
-              <i style={{ transform: `scaleX(${Math.max(0, shownStep) / 4})` }} />
             </li>
-            {TIMELINE.map((item, i) => (
-              <li key={item.label}>
+          ))}
+        </ol>
+
+        <div className={shownStep >= 3 ? "lp-ph-invoice lp-show" : "lp-ph-invoice"} aria-hidden="true">
+          <div className="lp-ph-inv-top">
+            <small>INV-2026-0042</small>
+            <span key={badge.text} className={`lp-bd lp-bd-${badge.tone} lp-st-bump`}>{badge.text}</span>
+          </div>
+          <div className="lp-ph-inv-amount">{formatRp(paidAmount)}</div>
+          <div className="lp-st-bar"><i style={{ transform: `scaleX(${shownPayments / 3})` }} /></div>
+          <small>{shownPayments} dari 3 pembayaran · Rp30.000.000</small>
+        </div>
+
+        <div className="lp-ph-steps">
+          <ol>
+            {STEPS.map((label, i) => (
+              <li key={label}>
                 <button
                   type="button"
-                  className={i < shownStep ? "lp-st-step lp-st-done" : i === shownStep ? "lp-st-step lp-st-current" : "lp-st-step"}
+                  className={i < shownStep ? "lp-ph-step lp-done" : i === shownStep ? "lp-ph-step lp-current" : "lp-ph-step"}
                   aria-current={i === shownStep ? "step" : undefined}
                   onClick={() => goTo(i)}
                 >
-                  <span className="lp-st-dot">
-                    <Icon name={item.icon} />
-                  </span>
-                  <b>{item.label}</b>
-                  {item.date}
+                  <i />
+                  {label}
                 </button>
               </li>
             ))}
           </ol>
+          <button type="button" className="lp-st-play" aria-label={playing ? "Jeda demo" : "Putar demo"} aria-pressed={!playing} onClick={() => setPlaying((value) => !value)} hidden={reduced}>
+            <Icon name={playing ? "pause" : "play"} />
+          </button>
         </div>
       </div>
     </div>

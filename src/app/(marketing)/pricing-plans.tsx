@@ -25,7 +25,7 @@ export function PricingPlans() {
 
   return (
     <>
-      <div className="lp-team">
+      <div className="lp-seats">
         <label htmlFor="team-size">Berapa orang di tim Anda?</label>
         <input
           id="team-size"

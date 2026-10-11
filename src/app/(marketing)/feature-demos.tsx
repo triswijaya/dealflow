@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { formatRp, useCountTo, useInView, useReducedMotion, type CSSVars } from "./landing-hooks";
+import { formatRp, useCountTo, useReducedMotion, type CSSVars } from "./landing-hooks";
 
 const STAGES = ["Quotation", "Negosiasi", "Menang"] as const;
 
@@ -10,11 +10,9 @@ const OTHER_DEALS = [
   { id: "maju", name: "Maju Jaya", value: "Rp30 jt", column: 2 },
 ] as const;
 
-/** Mini pipeline: one highlighted deal moves between columns, on its own or when clicked. */
+/** Mini pipeline: the highlighted deal moves to the next column each time it is clicked. */
 export function KanbanDemo() {
   const reduced = useReducedMotion();
-  const boardRef = useRef<HTMLDivElement>(null);
-  const inView = useInView(boardRef, 0.4);
   const [column, setColumn] = useState(0);
   const cards = useRef(new Map<string, HTMLElement>());
   const before = useRef(new Map<string, DOMRect>());
@@ -39,19 +37,13 @@ export function KanbanDemo() {
     before.current.clear();
   }, [column, reduced]);
 
-  useEffect(() => {
-    if (!inView || reduced) return;
-    const id = window.setTimeout(advance, 2600);
-    return () => window.clearTimeout(id);
-  }, [inView, reduced, column]);
-
   const register = (id: string) => (el: HTMLElement | null) => {
     if (el) cards.current.set(id, el);
     else cards.current.delete(id);
   };
 
   return (
-    <div className="lp-kanban" ref={boardRef}>
+    <div className="lp-kanban">
       {STAGES.map((stage, index) => {
         const here = OTHER_DEALS.filter((deal) => deal.column === index);
         const count = here.length + (column === index ? 1 : 0);
