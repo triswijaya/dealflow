@@ -210,6 +210,44 @@ const INVOICES: Record<InvoiceKind, { issue: number; due: number; payments: { da
   partialOverdue: { issue: -21, due: -4, payments: [{ day: -18, method: "CASH", label: "DP" }] },
 };
 
+// The services stamp every row with the moment the seed runs, so the activity feed would read
+// "just now" everywhere. These helpers move rows back in time afterwards, the same way the
+// expired quotation above is dated. Whole stories are shifted by one amount, which keeps the
+// order of events inside a deal intact.
+async function ageDeal(dealId: string, days: number) {
+  if (days <= 0) return;
+  const back = sql`make_interval(days => ${days})`;
+  await db.execute(sql`update activities set created_at = created_at - ${back} where deal_id = ${dealId}`);
+  await db.execute(sql`update deals set created_at = created_at - ${back}, updated_at = updated_at - ${back}, last_activity_at = last_activity_at - ${back}, won_at = won_at - ${back}, lost_at = lost_at - ${back} where id = ${dealId}`);
+  await db.execute(sql`update quotations set created_at = created_at - ${back}, updated_at = updated_at - ${back}, sent_at = sent_at - ${back}, accepted_at = accepted_at - ${back}, rejected_at = rejected_at - ${back}, frozen_at = frozen_at - ${back} where deal_id = ${dealId}`);
+  await db.execute(sql`update invoices set created_at = created_at - ${back}, updated_at = updated_at - ${back} where deal_id = ${dealId}`);
+  // A logged interaction cannot have been created after it happened.
+  await db.execute(sql`update follow_ups set created_at = least(created_at - ${back}, coalesce(completed_at, created_at - ${back})), updated_at = least(updated_at - ${back}, coalesce(completed_at, updated_at - ${back})) where deal_id = ${dealId}`);
+}
+
+/** Invoices are dated on their issue day and payments on the day they were paid (Jakarta time), with the matching activity rows. */
+async function alignFinance(dealId: string) {
+  // The invoice follows the last sales event by a minute, so it never sorts before the deal it came from.
+  await db.execute(sql`update invoices set created_at = (select max(created_at) from activities where deal_id = ${dealId} and entity_type <> 'invoice' and entity_type <> 'payment') + interval '1 minute' where deal_id = ${dealId}`);
+  await db.execute(sql`update payments set created_at = ((payment_date::timestamp + interval '10 hours') at time zone 'Asia/Jakarta') where invoice_id in (select id from invoices where deal_id = ${dealId})`);
+  await db.execute(sql`update invoices i set updated_at = coalesce((select max(p.created_at) from payments p where p.invoice_id = i.id), i.created_at) where i.deal_id = ${dealId}`);
+  await db.execute(sql`update activities set created_at = i.created_at from invoices i where activities.deal_id = ${dealId} and activities.entity_type = 'invoice' and i.deal_id = activities.deal_id`);
+  await db.execute(sql`
+    with p as (select row_number() over (order by payment_date, id) as n, created_at from payments where invoice_id in (select id from invoices where deal_id = ${dealId})),
+         a as (select id, row_number() over (order by created_at, id) as n from activities where deal_id = ${dealId} and entity_type = 'payment')
+    update activities set created_at = p.created_at from a join p on p.n = a.n where activities.id = a.id`);
+  // The deal's last activity is the latest of everything above.
+  await db.execute(sql`update deals set last_activity_at = greatest(last_activity_at, coalesce((select max(created_at) from activities where deal_id = ${dealId}), last_activity_at)) where id = ${dealId}`);
+}
+
+/** How many days ago the sales side of this deal last moved. */
+function storyAge(spec: DealSpec, index: number): number {
+  // The sales story ends when the invoice is issued; payments are dated separately (alignFinance).
+  if (spec.invoice) return -INVOICES[spec.invoice].issue;
+  if (spec.stage === "WON" || spec.stage === "LOST") return Math.max(1, -spec.closeInDays);
+  return (index * 2) % 7;
+}
+
 async function seedInvoice(finance: Actor, spec: DealSpec, anchor: string, dealId: string, kind: InvoiceKind) {
   const plan = INVOICES[kind];
   const invoice = await createInvoice({
@@ -246,7 +284,7 @@ async function seedInvoice(finance: Actor, spec: DealSpec, anchor: string, dealI
   }
 }
 
-async function seedDeal(spec: DealSpec, anchor: string, customerIds: string[], team: Record<string, Actor>) {
+async function seedDeal(spec: DealSpec, index: number, anchor: string, customerIds: string[], team: Record<string, Actor>) {
   const sales = team[spec.sales];
   const deal = await createDeal({
     headers: sales.headers,
@@ -281,6 +319,9 @@ async function seedDeal(spec: DealSpec, anchor: string, customerIds: string[], t
 
   if (spec.stage !== "WON" && spec.stage !== "LOST") for (const fu of spec.followUps ?? []) if (!fu.done) await followUp(fu);
   if (spec.invoice) await seedInvoice(team.dewi, spec, anchor, deal.id, spec.invoice);
+
+  await ageDeal(deal.id, storyAge(spec, index));
+  if (spec.invoice) await alignFinance(deal.id);
 }
 
 async function seedSecondOrganization() {
@@ -320,9 +361,12 @@ async function main() {
     const created = await createCustomer({ headers: creators[index % creators.length].headers, input: { ...customer, notes: customer.notes ?? undefined } });
     customerIds.push(created.id);
     stats.customers += 1;
+    // Customers were added over the last two months, not all today.
+    const age = 20 + ((index * 7) % 40);
+    await db.execute(sql`update customers set created_at = created_at - make_interval(days => ${age}), updated_at = updated_at - make_interval(days => ${age}) where id = ${created.id}`);
   }
 
-  for (const spec of DEALS) await seedDeal(spec, anchor, customerIds, team);
+  for (const [index, spec] of DEALS.entries()) await seedDeal(spec, index, anchor, customerIds, team);
   await seedSecondOrganization();
 
   // Demo inboxes are .test addresses that never receive mail, so the app's "verify your

@@ -17,7 +17,7 @@ In active development. The sales-to-cash flow is built end to end, backend and w
 | Dashboard, global search, settings, members | Done (role-specific dashboards) |
 | Landing page | Done (interactive product story, pricing preview) |
 | Seeded demo data | Done (`pnpm db:seed`) |
-| Browser E2E (Playwright) | Landing, health, security headers, SEO, login, and the Sales to Finance hand-off with a tenant-isolation check; runs in CI |
+| Browser E2E (Playwright) | Landing, health, security headers, SEO, login, the Sales to Finance hand-off with a tenant-isolation check, and an axe accessibility scan (WCAG 2.1 A and AA) of public and signed-in screens; runs in CI |
 | Security headers and CSP, structured logging with redaction, dependency audit in CI | Done |
 | Sentry, live deployment | Not started |
 
@@ -88,7 +88,7 @@ Everything is invented: company names, people, `.test` email addresses, and phon
 - Dates are relative to an anchor date (today in Jakarta). For a fixed demo, set `SEED_ANCHOR_DATE=YYYY-MM-DD` (not in the future).
 - The seed refuses to run unless `APP_ENV` is `local`, `test` or `demo`.
 - If the demo already exists the seed stops. `pnpm db:seed --reset` empties **every table** first and then rebuilds it; it only runs against a local database host (or `APP_ENV=demo`).
-- Activity timestamps show when the seed ran, because they are written by the services as the data is created.
+- The services stamp every row with the moment the seed runs, so the seed then moves each deal's history back in time: customers were added 20 to 60 days ago, each deal's sales story ends on the day its invoice was issued (or it closed), and payments are dated on the day they were paid. Events inside one deal stay in order, but a deal's sales steps all share one day.
 
 ### End-to-end tests
 
