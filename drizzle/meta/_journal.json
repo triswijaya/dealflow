@@ -106,6 +106,13 @@
       "when": 1789842319989,
       "tag": "0014_dusty_naoko",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1792247840660,
+      "tag": "0015_drop_account_issuer",
+      "breakpoints": true
     }
   ]
 }

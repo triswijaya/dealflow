@@ -2,3 +2,9 @@ allowBuilds:
   esbuild: true
   sharp: false
   unrs-resolver: false
+
+# Security: pull transitive packages up to their patched releases (pnpm audit, 2026-10-17).
+# Both releases are more than two weeks old. Drop these once next and postcss pin them.
+overrides:
+  sharp: 0.35.5
+  source-map-js: 1.2.2

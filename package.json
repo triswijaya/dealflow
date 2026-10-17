@@ -22,10 +22,10 @@
   "dependencies": {
     "@base-ui/react": "1.8.0",
     "@react-pdf/renderer": "4.9.0",
-    "better-auth": "1.7.2",
+    "better-auth": "1.7.7",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
-    "drizzle-orm": "0.45.2",
+    "drizzle-orm": "0.45.3",
     "lucide-react": "1.35.0",
     "next": "16.3.8",
     "postgres": "3.4.9",
@@ -36,12 +36,13 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "24.13.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "drizzle-kit": "0.31.10",
+    "drizzle-kit": "0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "pdfjs-dist": "6.3.289",
