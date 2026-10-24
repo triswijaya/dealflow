@@ -102,7 +102,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
         actions={
           finance ? undefined : (
             <>
-              <div className="chips">
+              <div className="chips seg">
                 <ButtonLink variant="tertiary" href="/pipeline">
                   Pipeline
                 </ButtonLink>

@@ -50,7 +50,7 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
       <header className="pagehead">
         <div>
           <div className="eyebrow">Quotation</div>
-          <h1 style={{ fontFamily: "ui-monospace, monospace" }}>{quotation.quotationNumber}</h1>
+          <h1 className="doc-id">{quotation.quotationNumber}</h1>
           <p>
             {quotation.dealTitle} · {quotation.customerName}
           </p>

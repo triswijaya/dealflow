@@ -51,7 +51,7 @@ export default async function MembersPage() {
                   <Badge>{ROLE_LABEL[entry.role]}</Badge>
                 </td>
                 <td data-label="Status">
-                  <Badge tone={entry.active ? "green" : "neutral"}>{entry.active ? "Aktif" : "Nonaktif"}</Badge>
+                  <Badge tone={entry.active ? "success" : "neutral"}>{entry.active ? "Aktif" : "Nonaktif"}</Badge>
                 </td>
                 <td data-label="Bergabung">{formatDate(entry.joinedAt, timezone)}</td>
                 <td data-label="Aksi">

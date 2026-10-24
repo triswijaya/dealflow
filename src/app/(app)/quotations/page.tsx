@@ -108,7 +108,7 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/quota
                     <td data-label="Nomor">
                       <div>
                         <Link href={`/quotations/${row.id}`}>
-                          <b style={{ fontFamily: "ui-monospace, monospace" }}>{row.quotationNumber}</b>
+                          <b className="doc-id">{row.quotationNumber}</b>
                         </Link>
                       </div>
                     </td>

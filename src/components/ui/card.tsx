@@ -5,23 +5,23 @@ export function Card({ className, ...props }: ComponentProps<"div">) {
   return <div className={cn("card", className)} {...props} />;
 }
 
-/** Eyebrow + title on the left, an optional action on the right. */
+/** Card header: title (and an optional one-line description) on the left, one action on the right. */
 export function CardHeading({
-  eyebrow,
   title,
+  description,
   action,
   className,
 }: {
-  eyebrow?: string;
   title: string;
+  description?: React.ReactNode;
   action?: React.ReactNode;
   className?: string;
 }) {
   return (
-    <div className={cn("row between", className)}>
+    <div className={cn("card-head", className)}>
       <div>
-        {eyebrow ? <div className="eyebrow">{eyebrow}</div> : null}
         <h2>{title}</h2>
+        {description ? <p>{description}</p> : null}
       </div>
       {action}
     </div>

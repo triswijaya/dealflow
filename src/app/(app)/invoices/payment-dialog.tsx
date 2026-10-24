@@ -33,7 +33,7 @@ export function PaymentDialog({ open, onClose, invoice, today }: { open: boolean
 function InvoiceLine({ invoice }: { invoice: PayableInvoice }) {
   return (
     <>
-      <b style={{ fontFamily: "ui-monospace, monospace" }}>{invoice.invoiceNumber}</b> · {invoice.customerName}
+      <b className="doc-id">{invoice.invoiceNumber}</b> · {invoice.customerName}
     </>
   );
 }

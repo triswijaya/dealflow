@@ -20,3 +20,99 @@
   --df-warn-bg: #FDF3D1;
   --df-warn-ink: #6B5200;
 }
+
+/* App (.df) tokens: the "Crisp Neutral" system. Zinc neutrals carry 90% of
+   the screen; one saturated cobalt brand and saturated status colors carry
+   meaning. Components use the role tokens (bg/text/border/brand), never the
+   primitives directly. The landing page keeps the --df-* palette above. */
+:root {
+  /* Neutral primitives. gray-500 is a touch darker than the reference
+     (#71717A) so secondary text stays above 4.5:1 on --ds-gray-50 too. */
+  --ds-gray-0: #FFFFFF;
+  --ds-gray-25: #FAFAFB;
+  --ds-gray-50: #F6F6F8;
+  --ds-gray-100: #EFEFF2;
+  --ds-gray-200: #E6E6EB;
+  --ds-gray-300: #D4D4DB;
+  --ds-gray-400: #A1A1AA;
+  --ds-gray-500: #6A6A73;
+  --ds-gray-600: #52525B;
+  --ds-gray-700: #3F3F46;
+  --ds-gray-900: #18181B;
+
+  /* Brand primitives (cobalt). Swap this block to rebrand. 600 is 6:1 on white. */
+  --ds-brand-50: #EFF3FE;
+  --ds-brand-100: #E0E8FD;
+  --ds-brand-200: #C4D3FB;
+  --ds-brand-300: #9BB3F6;
+  --ds-brand-500: #3D67EB;
+  --ds-brand-600: #2754E6;
+  --ds-brand-700: #1E43C2;
+  --ds-brand-800: #1A389E;
+
+  /* Semantic primitives: 50 tint background, 200 tint border, 600 fill, 700 text. */
+  --ds-success-50: #ECFDF3;
+  --ds-success-200: #ABEFC6;
+  --ds-success-600: #16A34A;
+  --ds-success-700: #15803D;
+  --ds-warning-50: #FFF4ED;
+  --ds-warning-200: #FED7B5;
+  --ds-warning-600: #EA6A0C;
+  --ds-warning-700: #C2410C;
+  --ds-danger-50: #FEF2F2;
+  --ds-danger-200: #FECACA;
+  --ds-danger-600: #E5383B;
+  --ds-danger-700: #C81E1E;
+  /* Info is cyan, not blue, so it never reads as the cobalt brand. */
+  --ds-info-50: #ECFEFF;
+  --ds-info-200: #A5F3FC;
+  --ds-info-600: #0891B2;
+  --ds-info-700: #0E7490;
+
+  /* Roles. */
+  --ds-bg-app: var(--ds-gray-50);
+  --ds-bg-surface: var(--ds-gray-0);
+  --ds-bg-subtle: var(--ds-gray-50);
+  --ds-bg-muted: var(--ds-gray-100);
+  --ds-bg-hover: var(--ds-gray-25);
+  --ds-border: var(--ds-gray-200);
+  --ds-border-strong: var(--ds-gray-300);
+  --ds-text-primary: var(--ds-gray-900);
+  --ds-text-body: var(--ds-gray-700);
+  --ds-text-secondary: var(--ds-gray-500);
+  --ds-text-tertiary: var(--ds-gray-400);
+  --ds-brand: var(--ds-brand-600);
+  --ds-brand-hover: var(--ds-brand-700);
+  --ds-brand-subtle: var(--ds-brand-100);
+  --ds-brand-text: var(--ds-brand-600);
+  --ds-focus-ring: 0 0 0 3px color-mix(in srgb, var(--ds-brand-600) 25%, transparent);
+
+  /* Data viz. */
+  --ds-chart-1: var(--ds-brand-600);
+  --ds-chart-2: var(--ds-brand-200);
+  --ds-chart-3: var(--ds-success-600);
+  --ds-chart-4: var(--ds-warning-600);
+  --ds-chart-5: var(--ds-info-600);
+  --ds-chart-6: var(--ds-danger-600);
+
+  /* Shape, depth, motion, layout. */
+  --ds-radius-xs: 4px;
+  --ds-radius-sm: 6px;
+  --ds-radius-md: 8px;
+  --ds-radius-lg: 12px;
+  --ds-radius-xl: 16px;
+  --ds-radius-full: 9999px;
+  --ds-shadow-xs: 0 1px 2px rgba(16, 16, 24, 0.06);
+  --ds-shadow-sm: 0 1px 3px rgba(16, 16, 24, 0.08), 0 1px 2px rgba(16, 16, 24, 0.04);
+  --ds-shadow-md: 0 4px 12px -2px rgba(16, 16, 24, 0.08), 0 2px 4px -2px rgba(16, 16, 24, 0.04);
+  --ds-shadow-lg: 0 16px 32px -8px rgba(16, 16, 24, 0.14), 0 4px 8px -4px rgba(16, 16, 24, 0.06);
+  --ds-ease: cubic-bezier(0.2, 0, 0, 1);
+  --ds-dur-fast: 120ms;
+  --ds-dur-base: 180ms;
+  --ds-dur-slow: 280ms;
+  --ds-sidebar-w: 240px;
+  --ds-rail-w: 64px;
+  --ds-topbar-h: 56px;
+  --ds-content-max: 1440px;
+  --ds-control-h: 36px;
+}

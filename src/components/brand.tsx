@@ -12,11 +12,15 @@ export function BrandMark() {
   );
 }
 
-export function Brand({ href = "/" }: { href?: string }) {
+/** App mark and name; the optional subtitle names the workspace under it. */
+export function Brand({ href = "/", subtitle }: { href?: string; subtitle?: string }) {
   return (
     <Link className="brand" href={href} aria-label="DealFlow">
       <BrandMark />
-      <span>dealflow</span>
+      <span className="brand-text">
+        <span>DealFlow</span>
+        {subtitle ? <small>{subtitle}</small> : null}
+      </span>
     </Link>
   );
 }

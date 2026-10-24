@@ -44,7 +44,7 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
       <header className="pagehead">
         <div>
           <div className="eyebrow">Invoice</div>
-          <h1 style={{ fontFamily: "ui-monospace, monospace" }}>{invoice.invoiceNumber}</h1>
+          <h1 className="doc-id">{invoice.invoiceNumber}</h1>
           <p>
             {invoice.customer.companyName} · {dealsReady ? <Link href={`/deals/${invoice.dealId}`}>{invoice.dealTitle}</Link> : invoice.dealTitle} ·{" "}
             {invoice.sourceQuotation ? (

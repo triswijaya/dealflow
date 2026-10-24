@@ -1,18 +1,22 @@
 import { Building2, CalendarClock, FileText, Handshake, Kanban, LayoutGrid, Receipt, Settings, type LucideIcon } from "lucide-react";
 import type { Role } from "@/lib/labels";
 
-export type NavItem = { key: string; href: string; label: string; icon: LucideIcon; badge?: "followUps" };
+// Sidebar sections. "system" items sit at the foot of the sidebar, above the account chip.
+export type NavGroup = "main" | "sales" | "finance" | "system";
+export type NavItem = { key: string; href: string; label: string; icon: LucideIcon; group?: NavGroup; badge?: "followUps" };
+
+export const NAV_GROUP_LABEL: Record<NavGroup, string | null> = { main: null, sales: "Penjualan", finance: "Keuangan", system: null };
 
 const ITEMS: Record<string, NavItem> = {
-  dashboard: { key: "dashboard", href: "/dashboard", label: "Ringkasan", icon: LayoutGrid },
-  pipeline: { key: "pipeline", href: "/pipeline", label: "Pipeline", icon: Kanban },
-  deals: { key: "deals", href: "/deals", label: "Deal", icon: Handshake },
-  wonDeals: { key: "deals", href: "/deals", label: "Deal menang", icon: Handshake },
-  customers: { key: "customers", href: "/customers", label: "Customer", icon: Building2 },
-  quotations: { key: "quotations", href: "/quotations", label: "Penawaran", icon: FileText },
-  followUps: { key: "follow-ups", href: "/follow-ups", label: "Follow-up", icon: CalendarClock, badge: "followUps" },
-  invoices: { key: "invoices", href: "/invoices", label: "Invoice", icon: Receipt },
-  settings: { key: "settings", href: "/settings/company", label: "Pengaturan", icon: Settings },
+  dashboard: { key: "dashboard", href: "/dashboard", label: "Ringkasan", icon: LayoutGrid, group: "main" },
+  pipeline: { key: "pipeline", href: "/pipeline", label: "Pipeline", icon: Kanban, group: "sales" },
+  deals: { key: "deals", href: "/deals", label: "Deal", icon: Handshake, group: "sales" },
+  wonDeals: { key: "deals", href: "/deals", label: "Deal menang", icon: Handshake, group: "sales" },
+  customers: { key: "customers", href: "/customers", label: "Customer", icon: Building2, group: "sales" },
+  quotations: { key: "quotations", href: "/quotations", label: "Penawaran", icon: FileText, group: "sales" },
+  followUps: { key: "follow-ups", href: "/follow-ups", label: "Follow-up", icon: CalendarClock, group: "sales", badge: "followUps" },
+  invoices: { key: "invoices", href: "/invoices", label: "Invoice", icon: Receipt, group: "finance" },
+  settings: { key: "settings", href: "/settings/company", label: "Pengaturan", icon: Settings, group: "system" },
 };
 
 // Pages that exist today. A sidebar entry for a module that is still being

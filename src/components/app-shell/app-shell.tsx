@@ -2,19 +2,18 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Ellipsis, LogOut, Search } from "lucide-react";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { ChevronRight, ChevronsUpDown, Ellipsis, LogOut, Search } from "lucide-react";
+import { createContext, Fragment, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Brand } from "@/components/brand";
 import { Dialog } from "@/components/ui/dialog";
 import { Avatar } from "@/components/ui/misc";
 import { Alert } from "@/components/ui/alert";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth-client";
-import { initials } from "@/lib/format";
 import { ROLE_LABEL, type Role } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { GlobalSearchBox } from "./global-search";
-import { SEARCH_READY, bottomNavItems, sectionFor, sidebarItems, type NavItem } from "./nav";
+import { NAV_GROUP_LABEL, SEARCH_READY, bottomNavItems, sectionFor, sidebarItems, type NavGroup, type NavItem } from "./nav";
 
 export type ShellWorkspace = {
   userName: string;
@@ -86,6 +85,69 @@ function VerifyEmailBanner({ email }: { email: string }) {
   );
 }
 
+/** The account chip at the foot of the sidebar; its menu opens upward. */
+function UserMenu({ workspace }: { workspace: ShellWorkspace }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        button.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={root} className="usermenu">
+      <button
+        ref={button}
+        type="button"
+        className="user-chip"
+        title={workspace.userName}
+        aria-label={`Menu akun ${workspace.userName}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Avatar name={workspace.userName} />
+        <span className="usertext">
+          <strong>{workspace.userName}</strong>
+          <small>{ROLE_LABEL[workspace.role]}</small>
+        </span>
+        <ChevronsUpDown className="chev" aria-hidden="true" />
+      </button>
+      {open ? (
+        <div className="menu-content">
+          <div className="menu-meta">
+            <strong>{workspace.userName}</strong>
+            <small>{workspace.userEmail}</small>
+          </div>
+          <div role="menu" aria-label="Akun">
+            <button type="button" role="menuitem" onClick={() => signOut(router)}>
+              <LogOut aria-hidden="true" />
+              Keluar
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AppShell({
   workspace,
   followUpBadge,
@@ -101,14 +163,23 @@ export function AppShell({
   const router = useRouter();
   const [trail, setTrail] = useState<string[]>([]);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const items = sidebarItems(workspace.role);
   const bottom = bottomNavItems(workspace.role);
   const section = sectionFor(pathname, workspace.role);
   const isActive = (item: NavItem) => section?.href === item.href;
   const badgeFor = (item: NavItem) => (item.badge === "followUps" ? followUpBadge : undefined);
-  const crumbs = ["Workspace", ...(section ? [section.label] : []), ...trail];
+
+  // Consecutive items of one group render under one label.
+  const groups: [NavGroup, NavItem[]][] = [];
+  for (const item of items) {
+    const group = item.group ?? "main";
+    if (group === "system") continue;
+    const last = groups[groups.length - 1];
+    if (last && last[0] === group) last[1].push(item);
+    else groups.push([group, [item]]);
+  }
+  const systemItems = items.filter((item) => item.group === "system");
 
   return (
     <BreadcrumbContext.Provider value={setTrail}>
@@ -117,68 +188,54 @@ export function AppShell({
           Lewati ke konten
         </a>
         <aside className="sidebar">
-          <Brand href="/dashboard" />
-          <div className="org">
-            <span className="avatar" title={workspace.organizationName} aria-hidden="true">
-              {initials(workspace.organizationName)}
-            </span>
-            <div>
-              <strong>{workspace.organizationName}</strong>
-              <small style={{ display: "block" }}>Ruang kerja perusahaan</small>
-            </div>
+          <div className="sidebar-head">
+            <Brand href="/dashboard" subtitle={workspace.organizationName} />
           </div>
-          <div className="eyebrow">Workspace</div>
           <nav aria-label="Navigasi utama">
-            {items.map((item) => (
-              <NavLink key={item.href + item.label} item={item} active={isActive(item)} badge={badgeFor(item)} />
+            {groups.map(([group, list]) => (
+              <Fragment key={group}>
+                {NAV_GROUP_LABEL[group] ? <div className="nav-label eyebrow">{NAV_GROUP_LABEL[group]}</div> : null}
+                {list.map((item) => (
+                  <NavLink key={item.href + item.label} item={item} active={isActive(item)} badge={badgeFor(item)} />
+                ))}
+              </Fragment>
             ))}
           </nav>
-          <div className="user usermenu">
-            <button
-              type="button"
-              className="row"
-              style={{ border: 0, background: "none", padding: 0, width: "100%", textAlign: "left", flexWrap: "nowrap" }}
-              aria-label={`Menu akun ${workspace.userName}`}
-              aria-haspopup="menu"
-              aria-expanded={userMenuOpen}
-              onClick={() => setUserMenuOpen((open) => !open)}
-            >
-              <Avatar name={workspace.userName} />
-              <span className="usertext" style={{ minWidth: 0 }}>
-                <strong style={{ display: "block", overflowWrap: "anywhere" }}>{workspace.userName}</strong>
-                <small style={{ display: "block" }}>{ROLE_LABEL[workspace.role]}</small>
-              </span>
-            </button>
-            {userMenuOpen ? (
-              <div className="menu-content" role="menu">
-                <button type="button" role="menuitem" onClick={() => signOut(router)}>
-                  <LogOut aria-hidden="true" />
-                  Keluar
-                </button>
-              </div>
+          <div className="sidebar-foot">
+            {systemItems.length > 0 ? (
+              <nav aria-label="Pengaturan">
+                {systemItems.map((item) => (
+                  <NavLink key={item.href} item={item} active={isActive(item)} />
+                ))}
+              </nav>
             ) : null}
+            <UserMenu workspace={workspace} />
           </div>
         </aside>
 
         <div className="workspace">
           <div className="topbar">
             <nav className="breadcrumb" aria-label="Breadcrumb">
-              {crumbs.map((crumb, index) => (
-                <span key={`${crumb}-${index}`}>
-                  {index > 0 ? <span style={{ margin: "0 8px" }}>/</span> : null}
-                  {crumb}
-                </span>
+              <span>{workspace.organizationName}</span>
+              {section ? (
+                <>
+                  <ChevronRight aria-hidden="true" />
+                  {trail.length > 0 ? <Link href={section.href}>{section.label}</Link> : <span aria-current="page">{section.label}</span>}
+                </>
+              ) : null}
+              {trail.map((crumb, index) => (
+                <Fragment key={`${crumb}-${index}`}>
+                  <ChevronRight aria-hidden="true" />
+                  <span aria-current={index === trail.length - 1 ? "page" : undefined}>{crumb}</span>
+                </Fragment>
               ))}
             </nav>
-            {SEARCH_READY ? <GlobalSearchBox /> : <span />}
-            <span className="row" style={{ gap: 8 }}>
-              <small>{workspace.organizationName}</small>
-            </span>
+            {SEARCH_READY ? <GlobalSearchBox /> : null}
           </div>
 
           <div className="mobile-top">
             <Brand href="/dashboard" />
-            <div className="row">
+            <div className="row" style={{ gap: 8 }}>
               {SEARCH_READY ? (
                 <Link className="iconbtn" href="/search" aria-label="Pencarian global" title="Pencarian global">
                   <Search aria-hidden="true" />
@@ -190,7 +247,7 @@ export function AppShell({
 
           <main className="main" id="konten">
             {!workspace.emailVerified || demoMode ? (
-              <div className="stack" style={{ gap: 10, marginBottom: 22 }}>
+              <div className="shell-notices">
                 {!workspace.emailVerified ? <VerifyEmailBanner email={workspace.userEmail} /> : null}
                 {demoMode ? <Alert tone="info">Mode demo: data fiktif dan direset berkala.</Alert> : null}
               </div>
@@ -216,24 +273,21 @@ export function AppShell({
         </nav>
 
         <Dialog open={moreOpen} onClose={() => setMoreOpen(false)} title="Lainnya">
-          <nav className="stack" style={{ gap: 4 }} aria-label="Menu lainnya">
+          <nav className="stack" style={{ gap: 2 }} aria-label="Menu lainnya">
             {bottom.more.map((item) => {
               const Icon = item.icon;
               return (
-                <Link key={item.href} className="btn tertiary" style={{ justifyContent: "flex-start" }} href={item.href} onClick={() => setMoreOpen(false)}>
+                <Link key={item.href} className={cn("navitem", isActive(item) && "active")} href={item.href} onClick={() => setMoreOpen(false)}>
                   <Icon aria-hidden="true" />
                   {item.label}
                 </Link>
               );
             })}
-            <button type="button" className="btn tertiary" style={{ justifyContent: "flex-start" }} onClick={() => signOut(router)}>
+            <button type="button" className="navitem" style={{ border: 0, background: "none", width: "100%" }} onClick={() => signOut(router)}>
               <LogOut aria-hidden="true" />
               Keluar
             </button>
           </nav>
-          <button type="button" className="btn secondary wfull" style={{ marginTop: 16 }} onClick={() => setMoreOpen(false)}>
-            Tutup
-          </button>
         </Dialog>
       </ToastProvider>
     </BreadcrumbContext.Provider>

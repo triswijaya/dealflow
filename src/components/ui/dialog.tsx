@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -43,8 +44,12 @@ export function Dialog({ open, onClose, title, description, size = "default", ch
         <div className={cn("dialog-panel", size === "large" && "large")}>
           <div className="sheet-handle" aria-hidden="true" />
           <h2 id={titleId}>{title}</h2>
-          {description ? <div className="muted" style={{ marginBottom: 20 }}>{description}</div> : null}
+          {description ? <div className="dialog-desc">{description}</div> : null}
           {children}
+          {/* After the content so the first field, not the close button, takes focus on open. */}
+          <button type="button" className="iconbtn dialog-close" aria-label="Tutup" title="Tutup" onClick={onClose}>
+            <X aria-hidden="true" />
+          </button>
         </div>
       ) : null}
     </dialog>
