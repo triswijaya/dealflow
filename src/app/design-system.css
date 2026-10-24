@@ -15,9 +15,6 @@
 .df,.df *{box-sizing:border-box}
 .df svg{display:inline}
 .df{
-  --df-bg:var(--ds-bg-app);--df-ink:var(--ds-text-primary);--df-muted:var(--ds-text-secondary);--df-border:var(--ds-border);
-  --df-primary:var(--ds-brand);--df-primary-hover:var(--ds-brand-hover);--df-danger:var(--ds-danger-700);
-  --df-lime:var(--ds-brand-100);--df-lime-soft:var(--ds-brand-50);
   margin:0;min-height:100svh;background:var(--ds-bg-surface);color:var(--ds-text-body);
   font:400 14px/20px var(--font-inter),ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;

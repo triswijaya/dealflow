@@ -129,7 +129,7 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
           <dt>Berlaku sampai</dt>
           <dd>
             {urgent ? (
-              <span style={{ color: "var(--df-warn-ink)" }}>
+              <span style={{ color: "var(--ds-warning-700)" }}>
                 {formatDate(quotation.validUntil)} · {daysLeft === 0 ? "hari ini" : `${daysLeft} hari lagi`}
               </span>
             ) : (

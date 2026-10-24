@@ -131,7 +131,7 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/quota
                     <td data-label="Berlaku sampai">
                       <div>
                         {soon ? (
-                          <span style={{ color: "var(--df-warn-ink)" }}>
+                          <span style={{ color: "var(--ds-warning-700)" }}>
                             {formatDate(row.validUntil)} · {days === 0 ? "hari ini" : `${days} hari lagi`}
                           </span>
                         ) : past ? (

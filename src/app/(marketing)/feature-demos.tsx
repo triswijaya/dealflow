@@ -134,7 +134,7 @@ export function QuotationDemo() {
       </div>
       <div className="lp-qdoc">
         <div className="lp-qdoc-head">
-          <b>QUO-0018 · {current.no}</b>
+          <b>QT-2026-00018 · {current.no}</b>
           <span key={current.no} className={`lp-bd lp-bd-${current.badge.tone} lp-st-bump`}>
             {current.badge.text}
           </span>
@@ -204,7 +204,7 @@ export function InvoiceDemo() {
         <span key={status.text} className={`lp-bd lp-bd-${status.tone} lp-st-bump`} role="status">
           {status.text}
         </span>
-        <button type="button" className="lp-btn lp-primary lp-btn-sm" onClick={() => setPayments((value) => (value >= 3 ? 0 : value + 1))}>
+        <button type="button" className="lp-btn lp-btn-primary lp-btn-sm" onClick={() => setPayments((value) => (value >= 3 ? 0 : value + 1))}>
           {done ? "Ulangi demo" : "Catat Rp10 jt"}
         </button>
       </div>

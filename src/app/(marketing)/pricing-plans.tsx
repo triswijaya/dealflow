@@ -44,7 +44,7 @@ export function PricingPlans() {
         {PLANS.map((plan, index) => {
           const isRecommended = index === recommended;
           return (
-            <article className={isRecommended ? "lp-plan lp-rec lp-spot" : "lp-plan lp-spot"} key={plan.name}>
+            <article className={isRecommended ? "lp-plan lp-rec lp-reveal" : "lp-plan lp-reveal"} key={plan.name} style={{ "--d": index } as CSSVars}>
               <div className="lp-plan-top">
                 <h3>{plan.name}</h3>
                 {isRecommended ? <span className="lp-plan-tag">Pas untuk tim Anda</span> : plan.tag && <span className="lp-plan-tag lp-plain">{plan.tag}</span>}
@@ -55,10 +55,10 @@ export function PricingPlans() {
                 <small> / bulan</small>
               </div>
               <p className="lp-price-meta">Per perusahaan · hingga {plan.seats} anggota</p>
-              <span className={isRecommended ? "lp-btn lp-primary lp-btn-soon" : "lp-btn lp-secondary lp-btn-soon"} aria-disabled="true">
+              <span className={isRecommended ? "lp-btn lp-btn-primary lp-btn-soon" : "lp-btn lp-btn-secondary lp-btn-soon"} aria-disabled="true">
                 Segera tersedia
               </span>
-              <ul className="lp-checklist">
+              <ul className="lp-checks">
                 {FEATURES.map((feature) => (
                   <li key={feature}>
                     <Icon name="check" />
