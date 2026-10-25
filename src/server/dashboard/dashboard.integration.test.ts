@@ -15,9 +15,10 @@ import { recordPayment } from "@/server/invoices/payments";
 import { organizationDateString } from "@/server/shared/organization-date";
 import { addMember, migrateTestDatabase, setupOrganization, type TestOrg } from "@/server/testing/org-helpers";
 import { getPipelineMetrics, getWonThisMonth } from "./dashboard";
+import { orgDay } from "@/server/testing/dates";
 
 const TZ = "Asia/Jakarta";
-const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+const day = orgDay;
 
 describe("dashboard metrics", () => {
   let migrationClient: ReturnType<typeof postgres>;

@@ -6,6 +6,7 @@ import { createInvoice } from "@/server/invoices/invoices";
 import { createQuotation } from "@/server/quotations/quotations";
 import { addMember, migrateTestDatabase, setupOrganization, type TestOrg } from "@/server/testing/org-helpers";
 import { globalSearch } from "./search";
+import { orgDay } from "@/server/testing/dates";
 
 describe("global search", () => {
   let migrationClient: ReturnType<typeof postgres>;
@@ -25,11 +26,11 @@ describe("global search", () => {
     const open = await createDeal({ headers: org.ownerHeaders, input: { customerId: customer.id, title: "Jaringan Maju", estimatedValue: "5000000", assignedToId: org.ownerUserId } });
     const quotation = await createQuotation({
       headers: org.ownerHeaders,
-      input: { dealId: open.id, validUntil: new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10), items: [{ description: "Kabel", quantity: "1", unit: "paket", unitPrice: "5000000" }] },
+      input: { dealId: open.id, validUntil: orgDay(14), items: [{ description: "Kabel", quantity: "1", unit: "paket", unitPrice: "5000000" }] },
     });
     const invoice = await createInvoice({
       headers: org.ownerHeaders,
-      input: { dealId: won.id, dueDate: new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10), items: [{ description: "Paket", quantity: "1", unit: "paket", unitPrice: "30000000" }], idempotencyKey: crypto.randomUUID() },
+      input: { dealId: won.id, dueDate: orgDay(20), items: [{ description: "Paket", quantity: "1", unit: "paket", unitPrice: "30000000" }], idempotencyKey: crypto.randomUUID() },
     });
     return { customer, won, open, quotation, invoice };
   }

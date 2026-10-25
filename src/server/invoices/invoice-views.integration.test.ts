@@ -15,8 +15,9 @@ import {
   listInvoiceableDeals,
 } from "./invoice-views";
 import { recordPayment } from "./payments";
+import { orgDay } from "@/server/testing/dates";
 
-const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+const day = orgDay;
 
 describe("invoice read models", () => {
   let migrationClient: ReturnType<typeof postgres>;
