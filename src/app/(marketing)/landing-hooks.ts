@@ -3,6 +3,9 @@ import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, 
 /** Inline style that also accepts CSS custom properties, e.g. `{ "--pos": 50 }`. */
 export type CSSVars = CSSProperties & { [key: `--${string}`]: string | number };
 
+/** The landing page renders at this scale by default (a browser at 100% looks like 90%). */
+export const LANDING_ZOOM = 0.9;
+
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
 function subscribeReducedMotion(onChange: () => void) {
@@ -17,6 +20,18 @@ export function useReducedMotion() {
     () => window.matchMedia(REDUCED_MOTION).matches,
     () => false,
   );
+}
+
+export function useInView<T extends Element>(ref: RefObject<T | null>, threshold = 0.3) {
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, threshold]);
+  return inView;
 }
 
 /** Rupiah with dot separators, no decimals. Hand-rolled so server and client render the same text. */
@@ -47,20 +62,11 @@ export function useCountTo(target: number, duration = 700) {
   return reduced ? target : value;
 }
 
-/**
- * Adds `.lp-in` to each `.lp-reveal` under `root` the first time it scrolls into
- * view. Hiding only starts once `.lp-js` is on the root, so the page reads fully
- * without JavaScript or with reduced motion.
- */
+/** Marks `.lp-reveal` elements with `.lp-in` once they scroll into view. Content stays visible without JS. */
 export function useReveal(rootRef: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    const items = root.querySelectorAll<HTMLElement>(".lp-reveal");
-    if (!("IntersectionObserver" in window) || window.matchMedia(REDUCED_MOTION).matches) {
-      items.forEach((el) => el.classList.add("lp-in"));
-      return;
-    }
     root.classList.add("lp-js");
     const observer = new IntersectionObserver(
       (entries) => {
@@ -70,46 +76,56 @@ export function useReveal(rootRef: RefObject<HTMLElement | null>) {
           observer.unobserve(entry.target);
         }
       },
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
+      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" },
     );
-    items.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    root.querySelectorAll(".lp-reveal").forEach((el) => observer.observe(el));
+    return () => {
+      observer.disconnect();
+      root.classList.remove("lp-js");
+    };
   }, [rootRef]);
 }
 
-/** The id of the section currently in the reading band, for the nav highlight. */
-export function useActiveSection(ids: readonly string[]) {
-  const [active, setActive] = useState<string | null>(null);
-  const key = ids.join(",");
+type ScrollTargets = {
+  progress: RefObject<HTMLElement | null>;
+  sticky: RefObject<HTMLElement | null>;
+  hero: RefObject<HTMLElement | null>;
+  end: RefObject<HTMLElement | null>;
+  sectionIds: readonly string[];
+};
+
+/** Drives the header progress bar, the mobile sticky CTA and the active nav link from one scroll listener. */
+export function useScrollEffects({ progress, sticky, hero, end, sectionIds }: ScrollTargets) {
+  const [activeId, setActiveId] = useState<string | null>(null);
   useEffect(() => {
-    const sections = key
-      .split(",")
-      .map((id) => document.getElementById(id))
-      .filter((el): el is HTMLElement => el !== null);
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) setActive(entry.target.id);
-        }
-      },
-      { rootMargin: "-40% 0px -55% 0px" },
-    );
-    sections.forEach((section) => observer.observe(section));
-    return () => observer.disconnect();
-  }, [key]);
-  return active;
-}
-
-function subscribeScroll(onChange: () => void) {
-  window.addEventListener("scroll", onChange, { passive: true });
-  return () => window.removeEventListener("scroll", onChange);
-}
-
-/** True once the page has scrolled past the top, so the nav can lift off the hero. */
-export function useScrolled(offset = 8) {
-  return useSyncExternalStore(
-    subscribeScroll,
-    () => window.scrollY > offset,
-    () => false,
-  );
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      progress.current?.style.setProperty("transform", `scaleX(${max > 0 ? window.scrollY / max : 0})`);
+      const heroEl = hero.current;
+      const endEl = end.current;
+      const show =
+        !!heroEl && !!endEl && window.scrollY > heroEl.offsetHeight - 100 && endEl.getBoundingClientRect().top > window.innerHeight;
+      sticky.current?.classList.toggle("lp-show", show);
+      let current: string | null = null;
+      for (const id of sectionIds) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top < window.innerHeight * 0.4) current = id;
+      }
+      setActiveId(current);
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    schedule();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      cancelAnimationFrame(raf);
+    };
+  }, [progress, sticky, hero, end, sectionIds]);
+  return activeId;
 }

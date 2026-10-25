@@ -50,39 +50,39 @@
 }
 
 :root {
-    /* App palette: "Crisp Neutral" zinc neutrals with one cobalt brand (see tokens.css). */
+    /* App palette: the landing page's forest green on warm cream (see tokens.css). */
     --background: #FFFFFF;
-    --foreground: #18181B;
+    --foreground: #16231C;
     --card: #FFFFFF;
-    --card-foreground: #18181B;
+    --card-foreground: #16231C;
     --popover: #FFFFFF;
-    --popover-foreground: #18181B;
-    --primary: #2754E6;
+    --popover-foreground: #16231C;
+    --primary: #163B2E;
     --primary-foreground: #FFFFFF;
-    --secondary: #F6F6F8;
-    --secondary-foreground: #18181B;
-    --muted: #EFEFF2;
-    --muted-foreground: #6A6A73;
-    --accent: #EFF3FE;
-    --accent-foreground: #1E43C2;
+    --secondary: #F6F5F0;
+    --secondary-foreground: #16231C;
+    --muted: #EFEEE7;
+    --muted-foreground: #596056;
+    --accent: #EEF4EF;
+    --accent-foreground: #224E3D;
     --destructive: #C81E1E;
-    --border: #E6E6EB;
-    --input: #D4D4DB;
-    --ring: #2754E6;
-    --chart-1: #2754E6;
-    --chart-2: #C4D3FB;
+    --border: #E3E1D9;
+    --input: #D2D0C6;
+    --ring: #163B2E;
+    --chart-1: #2F6E52;
+    --chart-2: #C9DECE;
     --chart-3: #16A34A;
     --chart-4: #EA6A0C;
-    --chart-5: #0891B2;
+    --chart-5: #2563EB;
     --radius: 0.75rem;
-    --sidebar: #F6F6F8;
-    --sidebar-foreground: #3F3F46;
-    --sidebar-primary: #2754E6;
+    --sidebar: #F6F5F0;
+    --sidebar-foreground: #38403A;
+    --sidebar-primary: #163B2E;
     --sidebar-primary-foreground: #FFFFFF;
     --sidebar-accent: #FFFFFF;
-    --sidebar-accent-foreground: #18181B;
-    --sidebar-border: #E6E6EB;
-    --sidebar-ring: #2754E6;
+    --sidebar-accent-foreground: #16231C;
+    --sidebar-border: #E3E1D9;
+    --sidebar-ring: #163B2E;
 }
 
 .dark {
