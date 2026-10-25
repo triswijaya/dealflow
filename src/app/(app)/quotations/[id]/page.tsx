@@ -50,7 +50,7 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
       <header className="pagehead">
         <div>
           <div className="eyebrow">Quotation</div>
-          <h1 style={{ fontFamily: "ui-monospace, monospace" }}>{quotation.quotationNumber}</h1>
+          <h1 className="doc-id">{quotation.quotationNumber}</h1>
           <p>
             {quotation.dealTitle} · {quotation.customerName}
           </p>
@@ -129,7 +129,7 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
           <dt>Berlaku sampai</dt>
           <dd>
             {urgent ? (
-              <span style={{ color: "var(--df-warn-ink)" }}>
+              <span style={{ color: "var(--ds-warning-700)" }}>
                 {formatDate(quotation.validUntil)} · {daysLeft === 0 ? "hari ini" : `${daysLeft} hari lagi`}
               </span>
             ) : (

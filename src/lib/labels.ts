@@ -1,7 +1,10 @@
 // UI vocabulary from the design brief §13 and the badge colors from the
 // approved mockups. Codes mirror the server's stored values exactly.
 
-export type BadgeTone = "neutral" | "blue" | "teal" | "green" | "primary" | "lime" | "red" | "yellow" | "outline";
+// Status tones follow business meaning, the same way everywhere: success is
+// done or paid, warning needs attention or is in progress, danger is late or
+// lost, info is scheduled or sent, brand marks the selling stages.
+export type BadgeTone = "neutral" | "info" | "brand" | "success" | "warning" | "danger" | "outline";
 
 export const ACTIVE_DEAL_STAGES = ["NEW", "CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION"] as const;
 export const DEAL_STAGES = [...ACTIVE_DEAL_STAGES, "WON", "LOST"] as const;
@@ -10,12 +13,12 @@ export type ActiveDealStage = (typeof ACTIVE_DEAL_STAGES)[number];
 
 export const DEAL_STAGE: Record<DealStage, { label: string; tone: BadgeTone }> = {
   NEW: { label: "Baru", tone: "neutral" },
-  CONTACTED: { label: "Dihubungi", tone: "blue" },
-  QUALIFIED: { label: "Terkualifikasi", tone: "teal" },
-  QUOTATION: { label: "Penawaran", tone: "green" },
-  NEGOTIATION: { label: "Negosiasi", tone: "primary" },
-  WON: { label: "Menang", tone: "lime" },
-  LOST: { label: "Kalah", tone: "red" },
+  CONTACTED: { label: "Dihubungi", tone: "info" },
+  QUALIFIED: { label: "Terkualifikasi", tone: "info" },
+  QUOTATION: { label: "Penawaran", tone: "brand" },
+  NEGOTIATION: { label: "Negosiasi", tone: "warning" },
+  WON: { label: "Menang", tone: "success" },
+  LOST: { label: "Kalah", tone: "danger" },
 };
 
 // DEAL-03: one step forward only; the button label names the target step.
@@ -46,17 +49,17 @@ export function lostReasonLabel(value: string | null): string {
 
 export const QUOTATION_STATUS: Record<string, { label: string; tone: BadgeTone }> = {
   DRAFT: { label: "Draf", tone: "neutral" },
-  SENT: { label: "Terkirim", tone: "blue" },
-  ACCEPTED: { label: "Diterima", tone: "lime" },
-  REJECTED: { label: "Ditolak", tone: "red" },
-  EXPIRED: { label: "Kedaluwarsa", tone: "yellow" },
+  SENT: { label: "Terkirim", tone: "info" },
+  ACCEPTED: { label: "Diterima", tone: "success" },
+  REJECTED: { label: "Ditolak", tone: "danger" },
+  EXPIRED: { label: "Kedaluwarsa", tone: "warning" },
 };
 
 export const INVOICE_STATUS: Record<string, { label: string; tone: BadgeTone }> = {
-  UNPAID: { label: "Belum dibayar", tone: "neutral" },
-  PARTIALLY_PAID: { label: "Dibayar sebagian", tone: "blue" },
-  PAID: { label: "Lunas", tone: "lime" },
-  OVERDUE: { label: "Lewat jatuh tempo", tone: "red" },
+  UNPAID: { label: "Belum dibayar", tone: "warning" },
+  PARTIALLY_PAID: { label: "Dibayar sebagian", tone: "info" },
+  PAID: { label: "Lunas", tone: "success" },
+  OVERDUE: { label: "Lewat jatuh tempo", tone: "danger" },
 };
 
 export const FOLLOW_UP_TYPES = [
@@ -72,10 +75,10 @@ export function followUpTypeLabel(value: string): string {
 }
 
 export const FOLLOW_UP_BUCKET: Record<string, { label: string; tone: BadgeTone }> = {
-  TODAY: { label: "Hari ini", tone: "primary" },
-  OVERDUE: { label: "Terlambat", tone: "red" },
-  UPCOMING: { label: "Mendatang", tone: "neutral" },
-  DONE: { label: "Selesai", tone: "green" },
+  TODAY: { label: "Hari ini", tone: "warning" },
+  OVERDUE: { label: "Terlambat", tone: "danger" },
+  UPCOMING: { label: "Mendatang", tone: "info" },
+  DONE: { label: "Selesai", tone: "success" },
 };
 
 export const PAYMENT_METHODS = [

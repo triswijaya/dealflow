@@ -116,8 +116,8 @@ export function PipelineBoard({
                   const next = NEXT_DEAL_STAGE[stage.status];
                   return (
                     <article key={card.id} className="deal-card">
-                      <div className="row between">
-                        <small className="muted">{card.customerName}</small>
+                      <div className="deal-card-head">
+                        <small title={card.customerName}>{card.customerName}</small>
                         <Menu label="Menu tindakan">
                           <MenuItem onSelect={() => openDialog({ mode: next.to === "WON" ? "won" : "advance", card })}>
                             {next.to === "WON" ? "Tandai menang" : `Pindah ke ${DEAL_STAGE[next.to].label}`}
@@ -132,20 +132,20 @@ export function PipelineBoard({
                       <h3>
                         <Link href={`/deals/${card.id}`}>{card.title}</Link>
                       </h3>
-                      <div className="row between">
+                      <div className="deal-card-value">
                         <b className="money">{formatRupiah(card.estimatedValue)}</b>
                         {card.hasQuotation ? <FileText aria-label="Sudah memiliki quotation" role="img" /> : null}
                       </div>
-                      <div className="row" style={{ marginTop: 18, flexWrap: "nowrap" }}>
-                        <Avatar name={card.assignedToName} />
-                        <small>Aktivitas {lowerFirst(formatRelative(card.lastActivityAt))}</small>
-                      </div>
                       {card.followUpOverdue ? (
-                        <small className="red" style={{ display: "block", marginTop: 8 }}>
-                          <Clock aria-hidden="true" style={{ width: 14, height: 14, marginRight: 5, verticalAlign: -2 }} />
+                        <small className="overdue-note">
+                          <Clock aria-hidden="true" />
                           Follow-up terlambat
                         </small>
                       ) : null}
+                      <div className="deal-card-foot">
+                        <Avatar name={card.assignedToName} />
+                        <small>Aktivitas {lowerFirst(formatRelative(card.lastActivityAt))}</small>
+                      </div>
                     </article>
                   );
                 })

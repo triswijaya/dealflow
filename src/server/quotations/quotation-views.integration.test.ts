@@ -8,6 +8,7 @@ import { customers, organizationSettings, quotations } from "@/server/db/schema"
 import { addMember, migrateTestDatabase, setupOrganization, type TestOrg } from "@/server/testing/org-helpers";
 import { createQuotation, reviseQuotation, transitionQuotationStatus } from "./quotations";
 import { getQuotationEditorContext, getQuotationDetail, listQuotationActivities, listQuotationRows, listQuotationVersions } from "./quotation-views";
+import { orgDay } from "@/server/testing/dates";
 
 describe("quotation read models", () => {
   let migrationClient: ReturnType<typeof postgres>;
@@ -19,7 +20,7 @@ describe("quotation read models", () => {
   });
 
   const item = (overrides: Record<string, unknown> = {}) => ({ description: "CCTV Camera 4MP", quantity: "4", unit: "pcs", unitPrice: "1500000", ...overrides });
-  const future = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+  const future = orgDay;
 
   async function dealWith(org: TestOrg, companyName = "PT Maju Jaya", title = "CCTV Installation") {
     const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName, contactPerson: "Budi Santoso", phone: "08123456789", email: "budi@example.test", address: "Jl. Industri 12" } });

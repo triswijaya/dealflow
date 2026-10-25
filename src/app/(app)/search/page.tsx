@@ -1,6 +1,5 @@
 import { SearchX } from "lucide-react";
 import type { Metadata } from "next";
-import { SetBreadcrumb } from "@/components/app-shell/app-shell";
 import { SearchGroups, hasResults } from "@/components/domain/search-results";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
@@ -21,7 +20,6 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
 
   return (
     <>
-      <SetBreadcrumb trail={["Pencarian"]} />
       <PageHeader title="Hasil pencarian" description={query.length >= MIN_QUERY_LENGTH ? `Hasil untuk “${query}”` : "Temukan customer, deal, dan dokumen organisasi."} />
       <Card>
         <form action="/search" role="search" className="row" style={{ alignItems: "flex-end", flexWrap: "nowrap" }}>

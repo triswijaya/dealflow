@@ -50,8 +50,8 @@
 }
 
 :root {
-    /* DealFlow brand: deep forest green + lime, cream surface (mockup v3). */
-    --background: #F6F5F0;
+    /* App palette: the landing page's forest green on warm cream (see tokens.css). */
+    --background: #FFFFFF;
     --foreground: #16231C;
     --card: #FFFFFF;
     --card-foreground: #16231C;
@@ -59,28 +59,28 @@
     --popover-foreground: #16231C;
     --primary: #163B2E;
     --primary-foreground: #FFFFFF;
-    --secondary: #C6F135;
+    --secondary: #F6F5F0;
     --secondary-foreground: #16231C;
     --muted: #EFEEE7;
-    --muted-foreground: #6B7268;
-    --accent: #E3F5C4;
-    --accent-foreground: #163B2E;
-    --destructive: oklch(0.577 0.245 27.325);
+    --muted-foreground: #596056;
+    --accent: #EEF4EF;
+    --accent-foreground: #224E3D;
+    --destructive: #C81E1E;
     --border: #E3E1D9;
-    --input: #E3E1D9;
+    --input: #D2D0C6;
     --ring: #163B2E;
-    --chart-1: #163B2E;
-    --chart-2: #2F6E52;
-    --chart-3: #7FB069;
-    --chart-4: #C6F135;
-    --chart-5: #EFEEE7;
-    --radius: 1rem;
-    --sidebar: #FFFFFF;
-    --sidebar-foreground: #16231C;
+    --chart-1: #2F6E52;
+    --chart-2: #C9DECE;
+    --chart-3: #16A34A;
+    --chart-4: #EA6A0C;
+    --chart-5: #2563EB;
+    --radius: 0.75rem;
+    --sidebar: #F6F5F0;
+    --sidebar-foreground: #38403A;
     --sidebar-primary: #163B2E;
     --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: #E3F5C4;
-    --sidebar-accent-foreground: #163B2E;
+    --sidebar-accent: #FFFFFF;
+    --sidebar-accent-foreground: #16231C;
     --sidebar-border: #E3E1D9;
     --sidebar-ring: #163B2E;
 }

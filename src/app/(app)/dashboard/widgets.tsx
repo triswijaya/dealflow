@@ -1,4 +1,3 @@
-import { Plus } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -7,7 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Avatar, KeyValue } from "@/components/ui/misc";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeading } from "@/components/ui/card";
 import { ChipLink } from "@/components/ui/misc";
 import { formatDate, formatDateTime, formatRelative, formatRupiah, formatRupiahCompact } from "@/lib/format";
 import { DEAL_STAGE, INVOICE_STATUS, paymentMethodLabel } from "@/lib/labels";
@@ -41,18 +40,27 @@ export async function PipelineWidget() {
       const negotiating = metrics.stages.find((stage) => stage.status === "NEGOTIATION");
       return (
         <Card>
-          <div className="row between">
+          <CardHeading
+            title="Perjalanan peluang"
+            description="Nilai deal aktif di lima tahap penjualan"
+            action={
+              <ButtonLink variant="tertiary" href="/pipeline">
+                Buka pipeline
+              </ButtonLink>
+            }
+          />
+          <div className="chart-summary">
             <div>
-              <div className="eyebrow">Setiap langkah berarti</div>
-              <h2>Perjalanan peluang</h2>
+              <strong>{metrics.totalCount}</strong>
+              <span>Deal aktif</span>
             </div>
-            <ButtonLink variant="tertiary" href="/pipeline">
-              Buka pipeline →
-            </ButtonLink>
-          </div>
-          <div className="row" style={{ marginTop: 18 }}>
-            <strong style={{ fontSize: 35 }}>{metrics.totalCount}</strong>
-            <small>deal aktif di lima tahap penjualan</small>
+            <div>
+              <strong title={formatRupiah(metrics.totalValue)}>{formatRupiahCompact(metrics.totalValue)}</strong>
+              <span>
+                <i className="legend-dot" aria-hidden="true" />
+                Nilai pipeline
+              </span>
+            </div>
           </div>
           <div className="chart">
             {metrics.stages.map((stage) => {
@@ -66,15 +74,12 @@ export async function PipelineWidget() {
               );
             })}
           </div>
-          <div className="line" />
           {negotiating && negotiating.count > 0 ? (
-            <Link className="muted" style={{ fontSize: 12 }} href="/deals?stage=NEGOTIATION">
+            <Link className="chart-foot" href="/deals?stage=NEGOTIATION">
               {negotiating.count} peluang sedang dinegosiasikan · {formatRupiah(negotiating.value)} →
             </Link>
           ) : (
-            <span className="muted" style={{ fontSize: 12 }}>
-              Belum ada peluang di tahap negosiasi.
-            </span>
+            <span className="chart-foot">Belum ada peluang di tahap negosiasi.</span>
           )}
         </Card>
       );
@@ -102,16 +107,15 @@ export async function AgendaWidget({ agenda, timezone, today }: { agenda: string
     },
     ({ counts, rows }) => (
       <Card className="dashboard-agenda">
-        <div className="row between">
-          <div>
-            <div className="eyebrow">Jaga percakapannya</div>
-            <h2>Agenda follow-up</h2>
-          </div>
-          <Link className="iconbtn" href="/follow-ups" aria-label="Semua follow-up" title="Semua follow-up">
-            <Plus aria-hidden="true" />
-          </Link>
-        </div>
-        <div style={{ marginTop: 18 }}>
+        <CardHeading
+          title="Agenda follow-up"
+          action={
+            <ButtonLink variant="tertiary" href="/follow-ups">
+              Lihat semua
+            </ButtonLink>
+          }
+        />
+        <div>
           <div className="chips">
             {AGENDA_TABS.map((tab) => (
               <ChipLink key={tab.key} href={tab.key === "hari-ini" ? "/dashboard" : `/dashboard?agenda=${tab.key}`} active={tab.key === current.key}>
@@ -121,7 +125,7 @@ export async function AgendaWidget({ agenda, timezone, today }: { agenda: string
           </div>
         </div>
         {rows.length === 0 ? (
-          <p className="muted" style={{ margin: "18px 0" }}>
+          <p className="muted" style={{ margin: "16px 0 4px" }}>
             {current.tab === "TODAY" ? "Tidak ada follow-up hari ini. Tetap produktif!" : current.tab === "OVERDUE" ? "Tidak ada follow-up yang terlambat." : "Belum ada follow-up mendatang."}
           </p>
         ) : (
@@ -132,11 +136,6 @@ export async function AgendaWidget({ agenda, timezone, today }: { agenda: string
             <Link href="/follow-ups?tab=terlambat">{counts.overdue} agenda perlu dijadwalkan ulang →</Link>
           </Alert>
         ) : null}
-        <div style={{ marginTop: 12 }}>
-          <ButtonLink variant="tertiary" href="/follow-ups">
-            Lihat semua follow-up →
-          </ButtonLink>
-        </div>
       </Card>
     ),
   );
@@ -148,12 +147,15 @@ export async function CloserWidget({ timezone }: { timezone: string }) {
     async () => (await listDealRows({ headers: await headers(), pageSize: 1, sort: "lastActivityAt", direction: "desc", filters: { status: "NEGOTIATION" } })).items[0] ?? null,
     (deal) => (
       <Card>
-        <div className="row between">
-          <h2>Selangkah lebih dekat</h2>
-          <ButtonLink variant="tertiary" href="/deals">
-            Semua deal →
-          </ButtonLink>
-        </div>
+        <CardHeading
+          title="Selangkah lebih dekat"
+          description="Deal negosiasi dengan aktivitas terbaru"
+          action={
+            <ButtonLink variant="tertiary" href="/deals">
+              Semua deal
+            </ButtonLink>
+          }
+        />
         {deal ? (
           <dl>
             <KeyValue label={deal.customerName}>
@@ -239,12 +241,14 @@ export async function NearestDueWidget() {
     async () => listNearestDueInvoices({ headers: await headers() }),
     (invoices) => (
       <Card>
-        <div className="row between">
-          <h2>Jatuh tempo terdekat</h2>
-          <ButtonLink variant="tertiary" href="/invoices">
-            Semua invoice →
-          </ButtonLink>
-        </div>
+        <CardHeading
+          title="Jatuh tempo terdekat"
+          action={
+            <ButtonLink variant="tertiary" href="/invoices">
+              Semua invoice
+            </ButtonLink>
+          }
+        />
         {invoices.length === 0 ? (
           <p className="muted">Tidak ada tagihan yang menunggu pembayaran.</p>
         ) : (

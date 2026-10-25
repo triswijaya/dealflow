@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { isBuilt } from "@/components/app-shell/nav";
@@ -30,11 +31,11 @@ async function safe<T>(read: () => Promise<T>): Promise<T | null> {
   }
 }
 
-type Kpi = { key: string; label: string; value: string; note: string; href: string; title?: string; tone?: "dark" | "lime" };
+type Kpi = { key: string; label: string; value: string; note: string; href: string; title?: string };
 
 function KpiTile({ kpi }: { kpi: Kpi }) {
   return (
-    <Link className={`kpi${kpi.tone === "dark" ? " is-dark" : kpi.tone === "lime" ? " lime" : ""}`} href={kpi.href} title={kpi.title}>
+    <Link className="kpi" href={kpi.href} title={kpi.title}>
       <label>{kpi.label}</label>
       <strong>{kpi.value}</strong>
       <small>{kpi.note}</small>
@@ -75,7 +76,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       note: !pipeline ? "Tidak dapat dimuat" : pipeline.totalCount > 0 ? `${pipeline.totalCount} peluang sedang berjalan` : quiet,
       href: "/pipeline",
       title: pipeline ? formatRupiah(pipeline.totalValue) : undefined,
-      tone: "dark",
     });
     kpis.push({
       key: "won",
@@ -84,7 +84,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       note: !won ? "Tidak dapat dimuat" : won.count > 0 ? `${won.count} deal menjadi kesepakatan` : quiet,
       href: "/deals?stage=WON",
       title: won ? `Nilai deal yang dimenangkan, bukan uang yang sudah diterima. ${formatRupiah(won.value)}` : undefined,
-      tone: "lime",
     });
   }
   if (seesInvoices) {
@@ -95,7 +94,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       note: !invoices ? "Tidak dapat dimuat" : invoices.outstandingCount > 0 ? `${invoices.outstandingCount} invoice belum lunas` : quiet,
       href: "/invoices",
       title: invoices ? formatRupiah(invoices.outstandingTotal) : undefined,
-      tone: finance ? "dark" : undefined,
     });
     kpis.push({
       key: "overdue",
@@ -114,7 +112,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       note: !received ? "Tidak dapat dimuat" : received.count > 0 ? `${received.count} pembayaran · uang masuk` : quiet,
       href: "/invoices",
       title: received ? formatRupiah(received.total) : undefined,
-      tone: "lime",
     });
   }
   if (seesSales) {
@@ -149,13 +146,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   return (
     <>
       <PageHeader
-        eyebrow="Ringkasan bisnis"
-        title="Ruang untuk bertumbuh&nbsp;✳"
-        display
+        title="Ringkasan"
         description={`Halo, ${firstName(workspace.user.name)}. Ini kabar peluang dan percakapan tim hari ini.`}
         actions={
           <>
-            <span className="chip">{formatDate(workspace.today)}</span>
+            <span className="chip date-chip">
+              <CalendarDays aria-hidden="true" />
+              {formatDate(workspace.today)}
+            </span>
             {primary}
           </>
         }
@@ -168,7 +166,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       </div>
 
       {fresh ? (
-        <div style={{ marginTop: 22 }}>
+        <div style={{ marginTop: 20 }}>
           <Card>
             <div className="eyebrow">Mulai dari sini</div>
             <h2>Tiga langkah untuk memulai</h2>
@@ -189,7 +187,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           </Card>
         </div>
       ) : finance ? (
-        <div className="stack" style={{ marginTop: 22 }}>
+        <div className="stack" style={{ marginTop: 20 }}>
           <Widget>
             <ReadyToInvoiceWidget />
           </Widget>
@@ -205,7 +203,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         </div>
       ) : (
         <>
-          <div className="cols split" style={{ marginTop: 22 }}>
+          <div className="cols split" style={{ marginTop: 20 }}>
             <Widget>
               <PipelineWidget />
             </Widget>
@@ -213,7 +211,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
               <AgendaWidget agenda={one(agenda)} timezone={timezone} today={workspace.today} />
             </Widget>
           </div>
-          <div className="cols g2" style={{ marginTop: 22 }}>
+          <div className="cols g2" style={{ marginTop: 20 }}>
             <Widget>
               <CloserWidget timezone={timezone} />
             </Widget>

@@ -189,7 +189,7 @@ export function QuotationEditor({
       <header className="pagehead">
         <div>
           <div className="eyebrow">Quotation</div>
-          <h1 style={{ fontFamily: quotation ? "ui-monospace, monospace" : undefined }}>{heading}</h1>
+          <h1 className={quotation ? "doc-id" : undefined}>{heading}</h1>
           <p>{dirty ? "Perubahan belum disimpan" : quotation ? "Semua perubahan tersimpan" : "Draf baru"}</p>
         </div>
         <div className="row actions">

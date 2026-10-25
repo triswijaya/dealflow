@@ -44,7 +44,7 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
         description="Peluang aktif di lima tahap penjualan."
         actions={
           <>
-            <div className="chips">
+            <div className="chips seg">
               <ButtonLink variant="secondary" href="/pipeline">
                 Pipeline
               </ButtonLink>

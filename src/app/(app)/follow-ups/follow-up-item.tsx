@@ -70,7 +70,7 @@ export function FollowUpItem({
   return (
     <div className="follow">
       {done ? (
-        <Badge tone="green">Selesai</Badge>
+        <Badge tone="success">Selesai</Badge>
       ) : canAct ? (
         <IconButton label="Tandai selesai" onClick={() => show("complete")}>
           <Check aria-hidden="true" />

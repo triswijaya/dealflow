@@ -149,7 +149,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
                     <td data-label="Nomor">
                       <div>
                         <Link href={`/invoices/${row.id}`}>
-                          <b style={{ fontFamily: "ui-monospace, monospace" }}>{row.invoiceNumber}</b>
+                          <b className="doc-id">{row.invoiceNumber}</b>
                         </Link>
                       </div>
                     </td>
