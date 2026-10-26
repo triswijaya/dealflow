@@ -93,16 +93,13 @@ export function HeroStory() {
 
   return (
     <div className="lp-ws" ref={frameRef} role="group" aria-label="Ilustrasi alur dari percakapan WhatsApp sampai invoice lunas. Data contoh.">
-      <div className="lp-win">
-        <div className="lp-win-bar">
-          <span className="lp-dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <p className="lp-win-title" aria-hidden="true">
-            <Icon name="brand" />
-            CCTV Installation - Bekasi
+      <div className="lp-panel">
+        <div className="lp-panel-head">
+          <p className="lp-panel-title" aria-hidden="true">
+            <span className="lp-panel-mark">
+              <Icon name="brand" />
+            </span>
+            <b>CCTV Installation - Bekasi</b>
             <span className="lp-pill-xs">Rp30 jt</span>
           </p>
           <button type="button" className="lp-st-play" aria-label={playing ? "Jeda demo" : "Putar demo"} aria-pressed={!playing} onClick={() => setPlaying((value) => !value)} hidden={reduced}>
@@ -110,36 +107,24 @@ export function HeroStory() {
           </button>
         </div>
 
-        <div className="lp-win-body">
-          <div className="lp-win-side">
-            <p className="lp-win-label">Alur deal</p>
-            <ol className="lp-steps">
-              {STEPS.map((label, i) => (
-                <li key={label}>
-                  <button
-                    type="button"
-                    className={i < shownStep ? "lp-step lp-done" : i === shownStep ? "lp-step lp-current" : "lp-step"}
-                    aria-current={i === shownStep ? "step" : undefined}
-                    onClick={() => goTo(i)}
-                  >
-                    <Icon name={STEP_ICONS[i]} />
-                    <span>{label}</span>
-                    <i className="lp-step-mark" />
-                  </button>
-                </li>
-              ))}
-            </ol>
-            <div className="lp-win-deals" aria-hidden="true">
-              <p className="lp-win-label">Deal lain</p>
-              <ul>
-                <li>Hotel Mega Kencana<i /></li>
-                <li>PT Bumi Karya<i /></li>
-                <li>Klinik Sehat Sentosa</li>
-              </ul>
-            </div>
-          </div>
+        <ol className="lp-steps">
+          {STEPS.map((label, i) => (
+            <li key={label}>
+              <button
+                type="button"
+                className={i < shownStep ? "lp-step lp-done" : i === shownStep ? "lp-step lp-current" : "lp-step"}
+                aria-current={i === shownStep ? "step" : undefined}
+                onClick={() => goTo(i)}
+              >
+                <Icon name={STEP_ICONS[i]} />
+                {label}
+              </button>
+            </li>
+          ))}
+        </ol>
 
-          <div className="lp-win-main" aria-hidden="true">
+        <div className="lp-panel-body">
+          <div className="lp-panel-chat" aria-hidden="true">
             <div className="lp-chat-head">
               <span className="lp-st-avatar">BS</span>
               <div>
@@ -182,6 +167,10 @@ export function HeroStory() {
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="lp-panel-activity" aria-hidden="true">
+            <p className="lp-win-label">Aktivitas DealFlow</p>
             <ol className="lp-ws-notes">
               {notes.map((note, index) => (
                 <li key={note.id} className="lp-note" style={{ opacity: 1 - index * 0.28 }}>

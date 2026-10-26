@@ -1,6 +1,8 @@
 # Landing page design language
 
-Reference: devin.ai. Soft paper canvas, near-black type with grey secondary text, pill-shaped controls, generously rounded panels, and a product window with a card floating over its edge.
+Reference: devin.ai. Soft paper canvas, near-black type with grey secondary text, pill-shaped controls, generously rounded panels, and a product panel with a card floating over its edge.
+
+**Adapted, not copied.** Devin is an agent product, so its hero shows a Mac app window (traffic lights, session sidebar, pull-request card). DealFlow is a sales CRM, so the hero shows its own deal view instead and borrows only the language: round shapes, soft elevation, a card overlapping the panel edge. No operating-system window chrome.
 
 **Provenance.** Written from three screenshots of the live site (home hero, home closing section with footer, `/security` hero), measured at 1506 CSS px wide, plus an earlier token reference. Sections between the hero and the closing block were not observed; they are adapted to the same rules, not copied.
 
@@ -39,18 +41,18 @@ Everything is round.
 | Element | Radius |
 |---|---|
 | Buttons, tabs, tags, badges, inputs, status pills | `999px` |
-| Product window, floating card, plan cards, bento | `20–24px` |
+| Product panel, floating card, plan cards, bento | `20–24px` |
 | Panes inside a card | `14–16px` |
 | Rows, list items | `10–12px` |
 
-Elevation: hairline plus a long, soft, low-opacity shadow on the product window and the floating card only. Everything else is flat.
+Elevation: hairline plus a long, soft, low-opacity shadow on the product panel and the floating card only. Everything else is flat.
 
 ## Components
 
 - **Nav:** 64px, logo glyph + wordmark left, links left-aligned after it, right side a pill pair: outlined "Masuk" and black "Buat ruang kerja".
 - **Primary button:** `--lp-ink` pill, white text, 44px tall in content (34px in nav).
 - **Secondary button:** transparent pill, 1px `--lp-line`, ink text; white fill on hover.
-- **Product window:** white, 16px radius, traffic-light dots, a left sidebar of rows (the story steps) and a main thread. A white 20px-radius card overlaps its bottom-right edge and runs past it.
+- **Product panel:** white, 24px radius. Header with the deal name and a value pill; below it the deal stages as a row of pill buttons (current = ink fill, done = grey fill); then the WhatsApp thread on the left and an activity list on the right. A white 20px-radius invoice card hangs off the bottom-right edge, overlapping it.
 - **Ticker row:** hairline above, small blue square + uppercase label + one line of text, right-aligned link with an arrow.
 - **Closing section:** centred two-tone headline, centred pill pair, hairline, footer with a large grey logo left and link columns right (headings ink, links grey).
 
