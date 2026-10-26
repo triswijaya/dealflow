@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CustomerPicker } from "@/components/domain/customer-picker";
 import { Button } from "@/components/ui/button";
+import { DateRangeFilter } from "@/components/ui/date-range-filter";
 import { Field, Input } from "@/components/ui/field";
 import { Menu, MenuItem } from "@/components/ui/menu";
 import type { CustomerOptionDto } from "@/server/customers/customers";
@@ -25,7 +26,6 @@ export function InvoiceToolbar({ query, customer, from, to }: { query: string; c
     setSelectedId(customer?.id ?? null);
     setSelected(customer);
   }
-  const rangeInvalid = Boolean(from && to && from > to);
 
   function push(changes: Record<string, string | undefined>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -47,51 +47,40 @@ export function InvoiceToolbar({ query, customer, from, to }: { query: string; c
   useEffect(() => () => clearTimeout(timer.current), []);
 
   return (
-    <>
-      <form className="toolbar" role="search" style={{ marginTop: 22 }} onSubmit={(event) => event.preventDefault()}>
-        <Field label="Cari nomor invoice, deal, atau customer" htmlFor="invoice-search">
-          <Input
-            ref={input}
-            id="invoice-search"
-            type="search"
-            defaultValue={query}
-            maxLength={200}
-            autoComplete="off"
-            onChange={(event) => {
-              const value = event.target.value.trim();
-              clearTimeout(timer.current);
-              timer.current = setTimeout(() => {
-                pushed.current = value;
-                push({ q: value });
-              }, DEBOUNCE_MS);
-            }}
-          />
-        </Field>
-        <CustomerPicker
-          id="invoice-customer-filter"
-          label="Customer"
-          value={selected}
-          clearable
-          placeholder="Semua"
-          onChange={(next) => {
-            setSelected(next);
-            setSelectedId(next?.id ?? null);
-            push({ customer: next?.id });
+    <form className="toolbar" role="search" onSubmit={(event) => event.preventDefault()}>
+      <Field label="Cari nomor invoice, deal, atau customer" htmlFor="invoice-search">
+        <Input
+          ref={input}
+          id="invoice-search"
+          type="search"
+          defaultValue={query}
+          maxLength={200}
+          autoComplete="off"
+          placeholder="Cari invoice, deal, atau customer"
+          onChange={(event) => {
+            const value = event.target.value.trim();
+            clearTimeout(timer.current);
+            timer.current = setTimeout(() => {
+              pushed.current = value;
+              push({ q: value });
+            }, DEBOUNCE_MS);
           }}
         />
-        <Field label="Jatuh tempo sejak" htmlFor="invoice-from" error={rangeInvalid ? "Tanggal awal tidak boleh setelah tanggal akhir." : undefined}>
-          <Input id="invoice-from" type="date" value={from ?? ""} max={to || undefined} invalid={rangeInvalid} onChange={(event) => push({ from: event.target.value })} />
-        </Field>
-        <Field label="Sampai" htmlFor="invoice-to">
-          <Input id="invoice-to" type="date" value={to ?? ""} min={from || undefined} onChange={(event) => push({ to: event.target.value })} />
-        </Field>
-        {from || to ? (
-          <Button variant="tertiary" onClick={() => push({ from: undefined, to: undefined })}>
-            Reset tanggal
-          </Button>
-        ) : null}
-      </form>
-    </>
+      </Field>
+      <CustomerPicker
+        id="invoice-customer-filter"
+        label="Customer"
+        value={selected}
+        clearable
+        placeholder="Semua customer"
+        onChange={(next) => {
+          setSelected(next);
+          setSelectedId(next?.id ?? null);
+          push({ customer: next?.id });
+        }}
+      />
+      <DateRangeFilter id="invoice-due" label="Jatuh tempo" from={from} to={to} onChange={push} />
+    </form>
   );
 }
 

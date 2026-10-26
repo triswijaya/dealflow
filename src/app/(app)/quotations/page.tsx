@@ -57,14 +57,19 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/quota
   return (
     <>
       <PageHeader title="Penawaran" description="Semua quotation dan revisinya." actions={<NewFromDealButton />} />
-      <QuotationToolbar query={query} customer={customer} latestOnly={latestOnly} />
-      <div className="chips" style={{ marginTop: 14, marginBottom: 14 }}>
-        {STATUSES.map((value) => (
-          <ChipLink key={value} href={href({ status: status === value ? null : value })} active={status === value}>
-            {QUOTATION_STATUS[value]?.label ?? value}
-          </ChipLink>
-        ))}
-      </div>
+      {/* Nothing to filter yet on a first run: the empty state says what to do first. */}
+      {filtered || result.totalItems > 0 ? (
+        <>
+          <QuotationToolbar query={query} customer={customer} latestOnly={latestOnly} />
+          <div className="chips" style={{ marginTop: 14, marginBottom: 14 }}>
+            {STATUSES.map((value) => (
+              <ChipLink key={value} href={href({ status: status === value ? null : value })} active={status === value}>
+                {QUOTATION_STATUS[value]?.label ?? value}
+              </ChipLink>
+            ))}
+          </div>
+        </>
+      ) : null}
 
       {result.items.length === 0 ? (
         filtered || result.totalItems > 0 ? (

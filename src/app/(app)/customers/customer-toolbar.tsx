@@ -52,6 +52,7 @@ export function CustomerToolbar({ query, sort }: { query: string; sort: "newest"
           defaultValue={query}
           maxLength={200}
           autoComplete="off"
+          placeholder="Cari nama, kontak, atau telepon"
           onChange={(event) => {
             const value = event.target.value.trim();
             clearTimeout(timer.current);

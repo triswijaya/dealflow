@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { isBuilt } from "@/components/app-shell/nav";
-import { Avatar } from "@/components/ui/misc";
+import { Avatar, QuietEmpty } from "@/components/ui/misc";
 import { formatDate, formatDateTime, formatRelative, formatRupiah, formatTime, firstName } from "@/lib/format";
 import { DEAL_STAGE, followUpTypeLabel, lostReasonLabel, type DealStage } from "@/lib/labels";
 import type { ActivityDto, FeedActivityDto } from "@/server/deals/deal-views";
@@ -109,7 +109,7 @@ export function ActivityTimeline({
   showDeal?: boolean;
 }) {
   if (events.length === 0) {
-    return <p className="muted">Belum ada aktivitas.</p>;
+    return <QuietEmpty>Belum ada aktivitas.</QuietEmpty>;
   }
   const now = new Date();
   return (

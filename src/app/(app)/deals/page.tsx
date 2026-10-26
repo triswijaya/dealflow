@@ -82,6 +82,8 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
     activeFilters.push({ key: "range", label: `${from ? formatDate(from) : "…"} – ${to ? formatDate(to) : "…"}`, remove: href({ from: null, to: null }) });
   }
   const filtered = activeFilters.length > 0;
+  // Nothing to filter yet on a first run: the empty state says what to do first.
+  const firstRun = !filtered && result.totalItems === 0;
 
   function sortHeader(key: string) {
     const current = sortKey === key;
@@ -115,8 +117,8 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
           )
         }
       />
-      <DealToolbar query={query} assignedToId={assignedToId} customer={customer} members={members} dateRange from={from} to={to} />
-      {finance ? null : (
+      {firstRun ? null : <DealToolbar query={query} assignedToId={assignedToId} customer={customer} members={members} dateRange from={from} to={to} />}
+      {finance || firstRun ? null : (
         <div className="chips" style={{ marginTop: 14 }}>
           <ChipLink href={href({ stage: null })} active={!stage}>
             Semua
@@ -168,8 +170,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
           <table>
             <thead>
               <tr>
-                <th>Judul deal</th>
-                <th>Customer</th>
+                <th>Deal</th>
                 <th>Tahap</th>
                 <th className="num" aria-sort={ariaSort("value")}>
                   {sortHeader("value")}
@@ -187,16 +188,14 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
                 const won = deal.status === "WON";
                 return (
                   <tr key={deal.id}>
-                    <td data-label="Judul deal">
+                    <td data-label="Deal" className="cell-primary">
                       <div>
                         <b>
                           <Link href={`/deals/${deal.id}`}>{deal.title}</Link>
                         </b>
-                      </div>
-                    </td>
-                    <td data-label="Customer">
-                      <div>
-                        <Link href={`/customers/${deal.customerId}`}>{deal.customerName}</Link>
+                        <small>
+                          <Link href={`/customers/${deal.customerId}`}>{deal.customerName}</Link>
+                        </small>
                       </div>
                     </td>
                     <td data-label="Tahap">

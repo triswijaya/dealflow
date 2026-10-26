@@ -1,23 +1,29 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, TriangleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/misc";
 
 /** A widget that failed to load shows its own error and retry; the rest of the dashboard carries on (UX-04). */
 export function WidgetError({ title }: { title: string }) {
   const router = useRouter();
   return (
-    <div className="card" role="group" aria-label={title}>
+    <section className="region" aria-label={title}>
       <h2>{title}</h2>
-      <Alert tone="error">Gagal memuat data. Coba lagi.</Alert>
-      <div className="footer">
-        <Button variant="secondary" onClick={() => router.refresh()}>
-          <RefreshCw aria-hidden="true" />
-          Coba lagi
-        </Button>
-      </div>
-    </div>
+      <EmptyState
+        size="region"
+        tone="error"
+        icon={TriangleAlert}
+        title="Gagal memuat data"
+        description="Bagian lain tetap bisa dipakai. Coba muat ulang bagian ini."
+        action={
+          <Button variant="secondary" onClick={() => router.refresh()}>
+            <RefreshCw aria-hidden="true" />
+            Coba lagi
+          </Button>
+        }
+      />
+    </section>
   );
 }

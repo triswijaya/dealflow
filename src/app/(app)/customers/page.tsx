@@ -58,7 +58,8 @@ export default async function CustomersPage({ searchParams }: PageProps<"/custom
         description="Semua calon dan pelanggan organisasi Anda."
         actions={canWrite ? <NewCustomerButton /> : undefined}
       />
-      <CustomerToolbar query={query} sort={sort} />
+      {/* Nothing to search yet on a first run: the empty state says what to do first. */}
+      {filtered || result.totalItems > 0 ? <CustomerToolbar query={query} sort={sort} /> : null}
 
       {result.items.length === 0 ? (
         filtered || result.totalItems > 0 ? (

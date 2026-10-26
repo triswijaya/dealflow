@@ -113,7 +113,7 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
         <section className="region" id="riwayat-pembayaran">
           <h2>Riwayat pembayaran</h2>
           {invoice.payments.length === 0 ? (
-            <EmptyState icon={WalletCards} title="Belum ada pembayaran." description="Pembayaran akan ditampilkan setelah dicatat." />
+            <EmptyState size="region" icon={WalletCards} title="Belum ada pembayaran" description="Pembayaran akan tampil di sini setelah dicatat." />
           ) : (
             <div className="table-wrap">
               <table>

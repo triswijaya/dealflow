@@ -46,7 +46,7 @@ export function DealFormDialog({
   ...props
 }: { open: boolean; onClose: () => void } & Omit<DealFormProps, "onClose">) {
   return (
-    <Dialog open={open} onClose={onClose} title={props.deal ? "Edit deal" : "Buat deal"} size="large">
+    <Dialog open={open} onClose={onClose} title={props.deal ? "Edit deal" : "Buat deal"} size="drawer">
       <DealForm {...props} onClose={onClose} />
     </Dialog>
   );

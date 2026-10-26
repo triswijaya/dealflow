@@ -4,7 +4,6 @@ import { Banknote, CalendarClock, CalendarDays, Handshake, Receipt, TriangleAler
 import { Suspense, type ReactNode } from "react";
 import { isBuilt } from "@/components/app-shell/nav";
 import { ButtonLink } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { PageHeader, Skeleton } from "@/components/ui/misc";
 import { MetricCard, type Hue } from "@/components/ui/stat";
 import { formatDate, firstName, formatRupiah, formatRupiahCompact } from "@/lib/format";
@@ -142,6 +141,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     (invoices?.outstandingCount ?? 0) === 0 &&
     (followUps ? followUps.today + followUps.overdue + followUps.upcoming + followUps.done === 0 : false);
 
+  // First run: the empty metrics give way to the three things that fill them.
+  const steps = [
+    { title: "Tambah customer pertama", description: "Simpan perusahaan dan kontak yang sedang Anda ajak bicara.", action: "Tambah customer", href: "/customers" },
+    { title: "Buat deal pertama", description: "Catat peluangnya: nilai, tahap, dan siapa yang menangani.", action: "Buat deal", href: "/deals/new" },
+    ...((role === "OWNER" || role === "ADMIN") && isBuilt("/settings/members")
+      ? [{ title: "Ajak tim bergabung", description: "Undang sales dan finance agar semua bekerja di satu alur.", action: "Undang tim", href: "/settings/members" }]
+      : []),
+  ];
+
   const primary = finance ? (
     <ButtonLink href="/invoices/new">Buat invoice</ButtonLink>
   ) : (
@@ -164,31 +172,34 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         }
       />
 
-      <div className="metrics">
-        {tiles.map((kpi) => (
-          <Metric key={kpi.key} kpi={kpi} />
-        ))}
-      </div>
-
       {fresh ? (
-        <Card className="mt" style={{ marginTop: 24 }}>
-          <h2>Tiga langkah untuk memulai</h2>
-          <p className="muted" style={{ margin: "8px 0 18px", maxWidth: 520 }}>
-            Ruang kerja Anda masih kosong. Mulai dari customer pertama, lalu buat peluangnya, dan ajak tim bergabung.
-          </p>
-          <div className="row">
-            <ButtonLink href="/customers">Tambah customer pertama</ButtonLink>
-            <ButtonLink variant="secondary" href="/deals/new">
-              Buat deal pertama
-            </ButtonLink>
-            {(role === "OWNER" || role === "ADMIN") && isBuilt("/settings/members") ? (
-              <ButtonLink variant="tertiary" href="/settings/members">
-                Undang tim
-              </ButtonLink>
-            ) : null}
-          </div>
-        </Card>
-      ) : finance ? (
+        <section className="region">
+          <h2>Mulai dalam {steps.length} langkah</h2>
+          <p className="muted setup-lead">Ruang kerja {workspace.organization.name} masih kosong. Angka di ringkasan ini muncul begitu deal pertama berjalan.</p>
+          <ol className="setup-steps">
+            {steps.map((step, index) => (
+              <li key={step.title} className="setup-step">
+                <span className="step-num" aria-hidden="true">
+                  {index + 1}
+                </span>
+                <h3>{step.title}</h3>
+                <p>{step.description}</p>
+                <ButtonLink variant={index === 0 ? "primary" : "secondary"} href={step.href}>
+                  {step.action}
+                </ButtonLink>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : (
+        <div className="metrics">
+          {tiles.map((kpi) => (
+            <Metric key={kpi.key} kpi={kpi} />
+          ))}
+        </div>
+      )}
+
+      {fresh ? null : finance ? (
         <div className="bleed with-rail" style={{ marginTop: 24 }}>
           <div className="rail-main">
             <Widget>

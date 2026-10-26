@@ -1,4 +1,4 @@
-import { FileText } from "lucide-react";
+import { CalendarPlus, FileText, Receipt } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -268,7 +268,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
           ) : null}
           <Card>
             <h2>Quotation</h2>
-            <EmptyState icon={FileText} title="Tidak ada quotation" description="Invoice memakai item manual." />
+            <EmptyState size="region" icon={FileText} title="Tidak ada quotation" description="Invoice memakai item manual." />
           </Card>
           <Card>
             <h2>Aktivitas finance</h2>
@@ -319,13 +319,18 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                       {families.length} keluarga quotation · {quotations.length} versi
                     </p>
                   </div>
-                  {active && isBuilt("/quotations") ? <ButtonLink href={`/quotations/new?dealId=${deal.id}`}>Buat quotation</ButtonLink> : null}
+                  {active && isBuilt("/quotations") && families.length > 0 ? (
+                    <ButtonLink variant="secondary" href={`/quotations/new?dealId=${deal.id}`}>
+                      Buat quotation
+                    </ButtonLink>
+                  ) : null}
                 </div>
                 {families.length === 0 ? (
                   <EmptyState
+                    size="region"
                     icon={FileText}
-                    title="Belum ada quotation. Quotation tidak wajib untuk memenangkan deal."
-                    description="Buat penawaran bila customer memerlukannya."
+                    title="Belum ada quotation"
+                    description="Quotation tidak wajib untuk memenangkan deal. Buat penawaran bila customer memerlukannya."
                     action={
                       active && isBuilt("/quotations") ? (
                         <ButtonLink variant="secondary" href={`/quotations/new?dealId=${deal.id}`}>
@@ -347,11 +352,17 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                     <h2>Follow-up</h2>
                     <p className="muted">Percakapan untuk deal ini.</p>
                   </div>
-                  {active ? <ScheduleFollowUpButton timezone={timezone} deal={dealOption} /> : null}
+                  {active && followUps.length > 0 ? <ScheduleFollowUpButton variant="secondary" timezone={timezone} deal={dealOption} /> : null}
                 </div>
                 {!active ? <Alert tone="info">Deal sudah final. Follow-up baru tidak dapat dibuat.</Alert> : null}
                 {followUps.length === 0 ? (
-                  <EmptyState icon={FileText} title="Belum ada follow-up untuk deal ini." description={active ? "Jadwalkan percakapan berikutnya dengan customer." : undefined} />
+                  <EmptyState
+                    size="region"
+                    icon={CalendarPlus}
+                    title="Belum ada follow-up untuk deal ini"
+                    description={active ? "Jadwalkan percakapan berikutnya dengan customer." : undefined}
+                    action={active ? <ScheduleFollowUpButton variant="secondary" timezone={timezone} deal={dealOption} /> : undefined}
+                  />
                 ) : null}
                 {followGroup("Terlambat", overdue)}
                 {followGroup("Hari ini", today)}
@@ -369,9 +380,10 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
             ) : null}
             {tab === "invoice" && !invoice ? (
               <EmptyState
-                icon={FileText}
-                title="Belum ada invoice untuk deal ini."
-                description="Kesepakatan siap ditagih."
+                size="region"
+                icon={Receipt}
+                title="Belum ada invoice untuk deal ini"
+                description="Kesepakatan sudah final dan siap ditagih."
                 action={isBuilt("/invoices") ? <ButtonLink variant="secondary" href={`/invoices/new?dealId=${deal.id}`}>Buat invoice</ButtonLink> : undefined}
               />
             ) : null}

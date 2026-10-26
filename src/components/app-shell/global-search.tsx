@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { globalSearchAction } from "@/app/(app)/search/actions";
 import { SearchGroups, hasResults } from "@/components/domain/search-results";
+import { useFloating } from "@/components/ui/use-floating";
 import { MIN_QUERY_LENGTH } from "@/server/search/search-limits";
 import type { SearchResults } from "@/server/search/search";
 
@@ -21,6 +22,7 @@ export function GlobalSearchBox() {
   const router = useRouter();
   const root = useRef<HTMLFormElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const dropdown = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const ticket = useRef(0);
   const [text, setText] = useState("");
@@ -30,6 +32,7 @@ export function GlobalSearchBox() {
   // Read once on the client; the server render assumes a non-Apple keyboard.
   const apple = useSyncExternalStore(noSubscribe, () => /Mac|iPhone|iPad/.test(navigator.platform), () => false);
   const shortcut = apple ? "⌘ K" : "Ctrl K";
+  useFloating(open, root, dropdown, { placement: "bottom-end" });
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -83,7 +86,6 @@ export function GlobalSearchBox() {
       className="global-search"
       action="/search"
       role="search"
-      style={{ position: "relative" }}
       onSubmit={(event) => {
         event.preventDefault();
         setOpen(false);
@@ -113,7 +115,7 @@ export function GlobalSearchBox() {
         {shortcut}
       </kbd>
       {open ? (
-        <div className="search-dropdown" role="region" aria-label="Hasil pencarian" aria-live="polite">
+        <div ref={dropdown} className="search-dropdown" popover="manual" role="region" aria-label="Hasil pencarian" aria-live="polite">
           {query.length < MIN_QUERY_LENGTH ? (
             <small>Ketik minimal {MIN_QUERY_LENGTH} karakter untuk mencari.</small>
           ) : failed ? (

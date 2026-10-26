@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { useFloating } from "./use-floating";
 
 const DEBOUNCE_MS = 250;
 
@@ -48,6 +49,7 @@ export function Combobox<T extends { id: string }>({
 }: ComboboxProps<T>) {
   const listId = useId();
   const root = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLUListElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const ticket = useRef(0);
   const [open, setOpen] = useState(false);
@@ -56,6 +58,7 @@ export function Combobox<T extends { id: string }>({
   const [searched, setSearched] = useState(false);
   const [active, setActive] = useState(0);
   const [failed, setFailed] = useState(false);
+  useFloating(open, root, list, { matchWidth: true });
 
   function run(query: string) {
     clearTimeout(timer.current);
@@ -151,7 +154,7 @@ export function Combobox<T extends { id: string }>({
           </button>
         ) : null}
         {open ? (
-          <ul className="picker-list" id={listId} role="listbox" aria-label={label}>
+          <ul ref={list} className="picker-list" id={listId} role="listbox" aria-label={label} popover="manual">
             {failed ? (
               <li className="picker-empty" role="presentation">
                 Gagal memuat pilihan. Coba lagi.
