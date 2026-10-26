@@ -1,7 +1,6 @@
 import { Users } from "lucide-react";
 import { Avatar, EmptyState, PageHeader } from "@/components/ui/misc";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
 import { ROLE_LABEL } from "@/lib/labels";
 import { getTeam } from "@/server/settings/team";
@@ -63,9 +62,9 @@ export default async function MembersPage() {
         </table>
       </div>
 
-      <div style={{ marginTop: 26 }}>
-        <Card>
-          <h2>Undangan tertunda</h2>
+      <div className="bleed" style={{ marginTop: 32 }}>
+        <section className="region">
+          <h2 style={{ marginLeft: "var(--content-inset)" }}>Undangan tertunda</h2>
           {team.invitations.length === 0 ? (
             <EmptyState icon={Users} title="Tidak ada undangan tertunda." description="Undangan yang dikirim akan tampil di sini." />
           ) : (
@@ -100,7 +99,7 @@ export default async function MembersPage() {
               </table>
             </div>
           )}
-        </Card>
+        </section>
       </div>
     </>
   );

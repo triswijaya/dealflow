@@ -129,7 +129,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
         </div>
       )}
       {filtered ? (
-        <div className="chips" style={{ margin: "14px 0" }} aria-label="Filter aktif">
+        <div className="chips" style={{ marginTop: 14, marginBottom: 14 }} aria-label="Filter aktif">
           {activeFilters.map((filter) => (
             <Link key={filter.key} className="chip active" href={filter.remove} aria-label={`Hapus filter ${filter.label}`}>
               {filter.label} ×
@@ -209,21 +209,22 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
                         <span title={won ? "Nilai menang" : "Nilai estimasi"}>{formatRupiah(won && deal.wonValue ? deal.wonValue : deal.estimatedValue)}</span>
                       </div>
                     </td>
-                    <td data-label="Assigned sales">
+                    <td className="nowrap" data-label="Assigned sales">
                       <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
                         <Avatar name={deal.assignedToName} />
                         {deal.assignedToName}
                       </div>
                     </td>
-                    <td data-label="Target closing">
+                    <td className="nowrap" data-label="Target closing">
                       <div>{deal.expectedCloseDate ? formatDate(deal.expectedCloseDate) : "-"}</div>
                     </td>
-                    <td data-label="Aktivitas terakhir">
+                    <td className="nowrap" data-label="Aktivitas terakhir">
                       <div>
-                        {formatDate(deal.lastActivityAt, workspace.timezone)}, {formatTime(deal.lastActivityAt, workspace.timezone)}
+                        {formatDate(deal.lastActivityAt, workspace.timezone)}
+                        <small>{formatTime(deal.lastActivityAt, workspace.timezone)}</small>
                       </div>
                     </td>
-                    <td data-label="Dibuat">
+                    <td className="nowrap" data-label="Dibuat">
                       <div>{formatDate(deal.createdAt, workspace.timezone)}</div>
                     </td>
                     <td data-label="Aksi">

@@ -56,7 +56,7 @@ export function VersionCompare({ versions }: { versions: QuotationVersionDto[] }
                   return (
                     <div key={field.label} className="kv">
                       <dt>{field.label}</dt>
-                      <dd>{value !== other ? <mark style={{ background: "var(--ds-warning-50)" }}>{value}</mark> : value}</dd>
+                      <dd>{value !== other ? <mark style={{ background: "var(--status-warning-soft)" }}>{value}</mark> : value}</dd>
                     </div>
                   );
                 })}

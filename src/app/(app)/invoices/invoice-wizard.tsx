@@ -186,7 +186,7 @@ export function InvoiceWizard({ initialDeals, initialContext, today }: { initial
   }
 
   const stepper = (
-    <ol className="stepper" aria-label="Langkah" style={{ listStyle: "none", margin: "0 0 20px", padding: "10px 0 22px" }}>
+    <ol className="stepper" aria-label="Langkah" style={{ listStyle: "none", marginTop: 0, marginBottom: 20, padding: "10px 0 22px" }}>
       {STEPS.map((label, index) => (
         <li key={label} className={cn("step", index + 1 < step && "done", index + 1 === step && "current")} aria-current={index + 1 === step ? "step" : undefined}>
           <b>{index + 1 < step ? <Check aria-hidden="true" /> : index + 1}</b>

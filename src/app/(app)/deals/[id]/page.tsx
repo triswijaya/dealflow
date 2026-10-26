@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
-import { Avatar, EmptyState, KeyValue, TabLinks } from "@/components/ui/misc";
+import { Avatar, DetailHeader, EmptyState, KeyValue, TabLinks } from "@/components/ui/misc";
 import { formatDate, formatDateTime, formatPhone, formatRupiah } from "@/lib/format";
 import { DEAL_STAGE, INVOICE_STATUS, QUOTATION_STATUS, lostReasonLabel, type DealStage } from "@/lib/labels";
 import { one } from "@/lib/url";
@@ -98,7 +98,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
   const nextFollowUp = open[0] ?? null;
 
   const dealMeta = (
-    <div className="dealmeta">
+    <div className="dealmeta bleed">
       <dl>
         <div className="kv">
           <dt>Customer</dt>
@@ -136,7 +136,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
   );
 
   const customerCard = (
-    <Card>
+    <section className="region">
       <h2>Customer</h2>
       <dl>
         <KeyValue label="Kontak">{deal.customer.contactPerson}</KeyValue>
@@ -152,7 +152,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
           <Notes value={deal.customer.notes} />
         </KeyValue>
       </dl>
-    </Card>
+    </section>
   );
 
   const quotationCard = (quotation: (typeof families)[number]) => {
@@ -181,16 +181,16 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
 
   const followGroup = (title: string, rows: FollowUpRowDto[]) =>
     rows.length === 0 ? null : (
-      <Card key={title}>
+      <section key={title} className="region">
         <h2>{title}</h2>
         {rows.map((row) => (
           <FollowUpItem key={row.id} row={row} timezone={timezone} today={workspace.today} canAct />
         ))}
-      </Card>
+      </section>
     );
 
   const finalNotice = (
-    <>
+    <div className="stack" style={{ gap: 8 }}>
       {won ? (
         <Alert tone="success">
           Menang pada {deal.wonAt ? formatDate(deal.wonAt, timezone) : "-"} · Nilai menang {formatRupiah(deal.wonValue ?? deal.estimatedValue)}
@@ -215,21 +215,23 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
       {active && !finance && deal.status === "NEGOTIATION" && BigInt(deal.estimatedValue) <= 0n ? (
         <Alert tone="warning">Isi nilai deal lebih dari Rp0 sebelum menandai menang.</Alert>
       ) : null}
-    </>
+    </div>
   );
 
   return (
     <>
       <SetBreadcrumb trail={[deal.title]} />
-      <header className="pagehead">
-        <div>
-          <div className="eyebrow">Deal</div>
-          <h1 style={{ overflowWrap: "anywhere" }}>{deal.title}</h1>
-          <p>
+      <DetailHeader
+        backHref="/deals"
+        backLabel="Kembali ke daftar deal"
+        title={deal.title}
+        badge={<Badge tone={stage?.tone}>{stage?.label ?? deal.status}</Badge>}
+        description={
+          <>
             {deal.customer.companyName} · {formatRupiah(won && deal.wonValue ? deal.wonValue : deal.estimatedValue)}
-          </p>
-        </div>
-        <div className="row actions">
+          </>
+        }
+        actions={
           <DealActions
             deal={deal}
             members={members}
@@ -238,15 +240,10 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
             invoice={invoice ? { id: invoice.id, invoiceNumber: invoice.invoiceNumber } : null}
             autoOpen={autoOpen}
           />
-        </div>
-      </header>
+        }
+      />
 
-      <div className="stack" style={{ gap: 14 }}>
-        <div>
-          <Badge tone={stage?.tone}>{stage?.label ?? deal.status}</Badge>
-        </div>
-        {finalNotice}
-      </div>
+      {finalNotice}
 
       {finance ? null : dealMeta}
       {finance ? null : <DealStepper status={deal.status} enteredAt={deal.stageEnteredAt} timezone={timezone} />}
@@ -279,8 +276,8 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
           </Card>
         </div>
       ) : (
-        <div className="cols split" style={{ marginTop: 20 }}>
-          <div>
+        <div className="bleed with-rail" style={{ marginTop: 24 }}>
+          <div className="rail-main">
             <TabLinks
               tabs={tabCandidates.map((candidate) => ({
                 href: candidate === "ringkasan" ? `/deals/${deal.id}` : `/deals/${deal.id}?tab=${candidate}`,
@@ -299,7 +296,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
             />
 
             {tab === "ringkasan" ? (
-              <Card>
+              <section className="region">
                 <h2>Ringkasan</h2>
                 {deal.description ? <p style={{ whiteSpace: "pre-line" }}>{deal.description}</p> : <p className="muted">Belum ada deskripsi.</p>}
                 <dl>
@@ -310,7 +307,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                   <KeyValue label="Diubah terakhir">{formatDateTime(deal.updatedAt, timezone)}</KeyValue>
                   <KeyValue label="Tahap sejak">{deal.stageEnteredAt[deal.status as DealStage] ? formatDateTime(deal.stageEnteredAt[deal.status as DealStage]!, timezone) : "-"}</KeyValue>
                 </dl>
-              </Card>
+              </section>
             ) : null}
 
             {tab === "quotation" ? (
@@ -365,10 +362,10 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
             ) : null}
 
             {tab === "invoice" && invoice ? (
-              <Card>
+              <section className="region">
                 <h2>Invoice deal Menang</h2>
                 <InvoiceFacts invoice={invoice} />
-              </Card>
+              </section>
             ) : null}
             {tab === "invoice" && !invoice ? (
               <EmptyState
@@ -380,18 +377,18 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
             ) : null}
 
             {tab === "aktivitas" ? (
-              <Card>
+              <section className="region">
                 <h2>Riwayat aktivitas</h2>
                 <ActivityTimeline events={activities} timezone={timezone} customerName={deal.customer.companyName} dealTitle={deal.title} />
-              </Card>
+              </section>
             ) : null}
           </div>
-
-          <aside className="stack">
+          <div className="rail-divider" />
+          <aside className="rail-side">
             {customerCard}
             {active ? <NextFollowUpCard next={nextFollowUp} deal={dealOption} timezone={timezone} canSchedule /> : null}
             {latestQuotation ? (
-              <Card>
+              <section className="region">
                 <h2>Quotation terbaru</h2>
                 <p>
                   <b>{latestQuotation.quotationNumber}</b>
@@ -402,7 +399,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                 <a className="btn tertiary" href={`/api/quotations/${latestQuotation.id}/pdf`}>
                   Unduh PDF
                 </a>
-              </Card>
+              </section>
             ) : null}
           </aside>
         </div>

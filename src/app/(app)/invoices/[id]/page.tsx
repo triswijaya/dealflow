@@ -8,13 +8,14 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/misc";
+import { DetailHeader, EmptyState } from "@/components/ui/misc";
+import { MetricCard } from "@/components/ui/stat";
 import { daysUntil, formatDate, formatDateTime, formatPhone, formatQuantity, formatRupiah } from "@/lib/format";
 import { INVOICE_STATUS, paymentMethodLabel } from "@/lib/labels";
 import { getInvoiceDetail, listInvoiceActivities } from "@/server/invoices/invoice-views";
 import { load, requireWorkspace } from "../../workspace";
 import { RecordPaymentButton } from "../invoice-controls";
-import { WalletCards } from "lucide-react";
+import { CircleCheck, Clock, Receipt, TriangleAlert, WalletCards } from "lucide-react";
 
 export const metadata: Metadata = { title: "Detail invoice · DealFlow" };
 
@@ -41,51 +42,47 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
   return (
     <>
       <SetBreadcrumb trail={[invoice.invoiceNumber]} />
-      <header className="pagehead">
-        <div>
-          <div className="eyebrow">Invoice</div>
-          <h1 className="doc-id">{invoice.invoiceNumber}</h1>
-          <p>
+      <DetailHeader
+        backHref="/invoices"
+        backLabel="Kembali ke daftar invoice"
+        title={invoice.invoiceNumber}
+        titleClassName="doc-id"
+        badge={<Badge tone={info?.tone}>{invoice.status === "OVERDUE" ? "Lewat jatuh tempo" : (info?.label ?? invoice.status)}</Badge>}
+        description={
+          <>
             {invoice.customer.companyName} · {dealsReady ? <Link href={`/deals/${invoice.dealId}`}>{invoice.dealTitle}</Link> : invoice.dealTitle} ·{" "}
             {invoice.sourceQuotation ? (
               <Link href={`/quotations/${invoice.sourceQuotation.id}`}>{invoice.sourceQuotation.quotationNumber}</Link>
             ) : (
               "Item manual"
             )}
-          </p>
-        </div>
-        <div className="row actions">
-          {remaining > 0n ? (
+          </>
+        }
+        actions={
+          remaining > 0n ? (
             <RecordPaymentButton
               today={workspace.today}
               invoice={{ id: invoice.id, invoiceNumber: invoice.invoiceNumber, customerName: invoice.customer.companyName ?? "", issueDate: invoice.issueDate, total: invoice.total, remainingAmount: invoice.remainingAmount }}
             />
-          ) : null}
-        </div>
-      </header>
+          ) : null
+        }
+      />
 
-      <div style={{ marginBottom: 14 }}>
-        <Badge tone={info?.tone}>{invoice.status === "OVERDUE" ? "Lewat jatuh tempo" : (info?.label ?? invoice.status)}</Badge>
+      <div className="metrics">
+        <MetricCard icon={Receipt} hue="indigo" title="Total" value={formatRupiah(invoice.total)} label="Total invoice" href="#dokumen" hint={formatRupiah(invoice.total)} />
+        <MetricCard icon={CircleCheck} hue="mint" title="Terbayar" value={formatRupiah(invoice.paidAmount)} label="Pembayaran tercatat" href="#riwayat-pembayaran" hint={formatRupiah(invoice.paidAmount)} />
+        <MetricCard
+          icon={overdueDays > 0 ? TriangleAlert : Clock}
+          hue={overdueDays > 0 ? "coral" : "butter"}
+          title="Sisa"
+          value={formatRupiah(invoice.remainingAmount)}
+          label={overdueDays > 0 ? `Lewat ${overdueDays} hari` : `Jatuh tempo ${formatDate(invoice.dueDate)}`}
+          href="#riwayat-pembayaran"
+          hint={formatRupiah(invoice.remainingAmount)}
+          danger={overdueDays > 0}
+        />
       </div>
-
-      <div className="kpis" style={{ ["--n" as string]: 3 }}>
-        <a className="kpi" href="#dokumen" title={formatRupiah(invoice.total)}>
-          <label>Total</label>
-          <strong>{formatRupiah(invoice.total)}</strong>
-          <small>Total invoice</small>
-        </a>
-        <a className="kpi" href="#riwayat-pembayaran" title={formatRupiah(invoice.paidAmount)}>
-          <label>Terbayar</label>
-          <strong>{formatRupiah(invoice.paidAmount)}</strong>
-          <small>Pembayaran tercatat</small>
-        </a>
-        <a className="kpi is-dark" href="#riwayat-pembayaran" title={formatRupiah(invoice.remainingAmount)}>
-          <label>Sisa</label>
-          <strong>{formatRupiah(invoice.remainingAmount)}</strong>
-          <small>{overdueDays > 0 ? `Lewat ${overdueDays} hari` : `Jatuh tempo ${formatDate(invoice.dueDate)}`}</small>
-        </a>
-      </div>
-      <div className="progress" role="img" aria-label={`${percent}% terbayar`} style={{ marginTop: 14 }}>
+      <div className="progress" role="img" aria-label={`${percent}% terbayar`} style={{ marginTop: 20 }}>
         <span style={{ width: `${percent}%` }} />
       </div>
       <small>{percent}% terbayar</small>
@@ -113,7 +110,7 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
       ) : null}
 
       <div className="stack" style={{ marginTop: 24 }}>
-        <Card id="riwayat-pembayaran">
+        <section className="region" id="riwayat-pembayaran">
           <h2>Riwayat pembayaran</h2>
           {invoice.payments.length === 0 ? (
             <EmptyState icon={WalletCards} title="Belum ada pembayaran." description="Pembayaran akan ditampilkan setelah dicatat." />
@@ -161,7 +158,7 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
               </table>
             </div>
           )}
-        </Card>
+        </section>
 
         <div id="dokumen" className="stack">
           <Alert tone="info">Invoice terbit bersifat final.</Alert>

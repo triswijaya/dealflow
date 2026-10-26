@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronRight, ChevronsUpDown, Ellipsis, LogOut, Search } from "lucide-react";
-import { createContext, Fragment, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Bell, ChevronRight, ChevronsUpDown, Ellipsis, LogOut, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { createContext, Fragment, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Brand } from "@/components/brand";
 import { Dialog } from "@/components/ui/dialog";
 import { Avatar } from "@/components/ui/misc";
 import { Alert } from "@/components/ui/alert";
+import { Count } from "@/components/ui/badge";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth-client";
 import { ROLE_LABEL, type Role } from "@/lib/labels";
@@ -36,6 +37,33 @@ export function SetBreadcrumb({ trail }: { trail: string[] }) {
   return null;
 }
 
+// The collapsed state is a per-user preference kept in the browser.
+const SIDEBAR_KEY = "dealflow.sidebar";
+const sidebarListeners = new Set<() => void>();
+function subscribeSidebar(onChange: () => void) {
+  sidebarListeners.add(onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    sidebarListeners.delete(onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+function readSidebarCollapsed() {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) === "collapsed";
+  } catch {
+    return false;
+  }
+}
+function writeSidebarCollapsed(collapsed: boolean) {
+  try {
+    localStorage.setItem(SIDEBAR_KEY, collapsed ? "collapsed" : "expanded");
+  } catch {
+    // Private windows can refuse storage; the toggle then only lasts until reload.
+  }
+  sidebarListeners.forEach((listener) => listener());
+}
+
 async function signOut(router: ReturnType<typeof useRouter>) {
   await authClient.signOut({
     fetchOptions: {
@@ -53,11 +81,7 @@ function NavLink({ item, active, badge }: { item: NavItem; active: boolean; badg
     <Link className={cn("navitem", active && "active")} href={item.href} title={item.label} aria-current={active ? "page" : undefined}>
       <Icon aria-hidden="true" />
       <span className="navtext">{item.label}</span>
-      {badge ? (
-        <span className="badge" aria-label={`${badge} follow-up perlu ditindaklanjuti`}>
-          {badge}
-        </span>
-      ) : null}
+      {badge ? <Count label={`${badge} follow-up perlu ditindaklanjuti`}>{badge}</Count> : null}
     </Link>
   );
 }
@@ -163,6 +187,19 @@ export function AppShell({
   const router = useRouter();
   const [trail, setTrail] = useState<string[]>([]);
   const [moreOpen, setMoreOpen] = useState(false);
+  const collapsed = useSyncExternalStore(subscribeSidebar, readSidebarCollapsed, () => false);
+
+  // Cmd/Ctrl + \ folds the sidebar, as the toggle does.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "\\") {
+        event.preventDefault();
+        writeSidebarCollapsed(!readSidebarCollapsed());
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   const items = sidebarItems(workspace.role);
   const bottom = bottomNavItems(workspace.role);
@@ -187,73 +224,114 @@ export function AppShell({
         <a className="skip-link" href="#konten">
           Lewati ke konten
         </a>
-        <aside className="sidebar">
-          <div className="sidebar-head">
-            <Brand href="/dashboard" subtitle={workspace.organizationName} />
-          </div>
-          <nav aria-label="Navigasi utama">
-            {groups.map(([group, list]) => (
-              <Fragment key={group}>
-                {NAV_GROUP_LABEL[group] ? <div className="nav-label eyebrow">{NAV_GROUP_LABEL[group]}</div> : null}
-                {list.map((item) => (
-                  <NavLink key={item.href + item.label} item={item} active={isActive(item)} badge={badgeFor(item)} />
-                ))}
-              </Fragment>
-            ))}
-          </nav>
-          <div className="sidebar-foot">
-            {systemItems.length > 0 ? (
-              <nav aria-label="Pengaturan">
-                {systemItems.map((item) => (
-                  <NavLink key={item.href} item={item} active={isActive(item)} />
-                ))}
-              </nav>
-            ) : null}
-            <UserMenu workspace={workspace} />
-          </div>
-        </aside>
-
-        <div className="workspace">
-          <div className="topbar">
-            <nav className="breadcrumb" aria-label="Breadcrumb">
-              <span>{workspace.organizationName}</span>
-              {section ? (
-                <>
-                  <ChevronRight aria-hidden="true" />
-                  {trail.length > 0 ? <Link href={section.href}>{section.label}</Link> : <span aria-current="page">{section.label}</span>}
-                </>
-              ) : null}
-              {trail.map((crumb, index) => (
-                <Fragment key={`${crumb}-${index}`}>
-                  <ChevronRight aria-hidden="true" />
-                  <span aria-current={index === trail.length - 1 ? "page" : undefined}>{crumb}</span>
-                </Fragment>
+        <div className="app" data-collapsed={collapsed}>
+          <aside className="sidebar" id="sidebar">
+            <div className="sidebar-head">
+              <Brand href="/dashboard" />
+              <button
+                type="button"
+                className="iconbtn collapse-toggle"
+                aria-label={collapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
+                title={collapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
+                aria-controls="sidebar"
+                aria-expanded={!collapsed}
+                aria-keyshortcuts="Control+\ Meta+\"
+                onClick={() => writeSidebarCollapsed(!collapsed)}
+              >
+                {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+              </button>
+            </div>
+            <nav aria-label="Navigasi utama">
+              {groups.map(([group, list]) => (
+                <div key={group} className="nav-group">
+                  {NAV_GROUP_LABEL[group] ? <div className="nav-label">{NAV_GROUP_LABEL[group]}</div> : null}
+                  {list.map((item) => (
+                    <NavLink key={item.href + item.label} item={item} active={isActive(item)} badge={badgeFor(item)} />
+                  ))}
+                </div>
               ))}
             </nav>
-            {SEARCH_READY ? <GlobalSearchBox /> : null}
-          </div>
-
-          <div className="mobile-top">
-            <Brand href="/dashboard" />
-            <div className="row" style={{ gap: 8 }}>
-              {SEARCH_READY ? (
-                <Link className="iconbtn" href="/search" aria-label="Pencarian global" title="Pencarian global">
-                  <Search aria-hidden="true" />
-                </Link>
+            <div className="sidebar-foot">
+              {systemItems.length > 0 ? (
+                <nav aria-label="Pengaturan">
+                  {systemItems.map((item) => (
+                    <NavLink key={item.href} item={item} active={isActive(item)} />
+                  ))}
+                </nav>
               ) : null}
-              <Avatar name={workspace.userName} />
+              <div className="nav-group">
+                <div className="nav-label">Akun</div>
+                <UserMenu workspace={workspace} />
+              </div>
+            </div>
+          </aside>
+
+          <div className="panel">
+            <div className="panel-scroll">
+              <div className="topbar-wrap">
+                <header className="topbar">
+                  <nav className="breadcrumb" aria-label="Breadcrumb">
+                    <span>{workspace.organizationName}</span>
+                    {section ? (
+                      <>
+                        <ChevronRight aria-hidden="true" />
+                        {trail.length > 0 ? (
+                          <Link href={section.href}>{section.label}</Link>
+                        ) : (
+                          <span aria-current="page">
+                            <section.icon aria-hidden="true" />
+                            {section.label}
+                          </span>
+                        )}
+                      </>
+                    ) : null}
+                    {trail.map((crumb, index) => (
+                      <Fragment key={`${crumb}-${index}`}>
+                        <ChevronRight aria-hidden="true" />
+                        <span aria-current={index === trail.length - 1 ? "page" : undefined}>{crumb}</span>
+                      </Fragment>
+                    ))}
+                  </nav>
+                  <div className="topbar-actions">
+                    {SEARCH_READY ? <GlobalSearchBox /> : null}
+                    {followUpBadge !== undefined ? (
+                      <Link
+                        className="iconbtn square"
+                        href="/follow-ups"
+                        aria-label={followUpBadge ? `Follow-up, ${followUpBadge} perlu ditindaklanjuti` : "Follow-up"}
+                        title="Follow-up"
+                      >
+                        <Bell aria-hidden="true" />
+                        {followUpBadge ? <span className="signal" aria-hidden="true" /> : null}
+                      </Link>
+                    ) : null}
+                  </div>
+                </header>
+              </div>
+
+              <div className="mobile-top">
+                <Brand href="/dashboard" />
+                <div className="row" style={{ gap: 8 }}>
+                  {SEARCH_READY ? (
+                    <Link className="iconbtn square" href="/search" aria-label="Pencarian global" title="Pencarian global">
+                      <Search aria-hidden="true" />
+                    </Link>
+                  ) : null}
+                  <Avatar name={workspace.userName} />
+                </div>
+              </div>
+
+              <main className="main" id="konten">
+                {!workspace.emailVerified || demoMode ? (
+                  <div className="shell-notices">
+                    {!workspace.emailVerified ? <VerifyEmailBanner email={workspace.userEmail} /> : null}
+                    {demoMode ? <Alert tone="info">Mode demo: data fiktif dan direset berkala.</Alert> : null}
+                  </div>
+                ) : null}
+                {children}
+              </main>
             </div>
           </div>
-
-          <main className="main" id="konten">
-            {!workspace.emailVerified || demoMode ? (
-              <div className="shell-notices">
-                {!workspace.emailVerified ? <VerifyEmailBanner email={workspace.userEmail} /> : null}
-                {demoMode ? <Alert tone="info">Mode demo: data fiktif dan direset berkala.</Alert> : null}
-              </div>
-            ) : null}
-            {children}
-          </main>
         </div>
 
         <nav className="bottomnav" aria-label="Navigasi mobile">

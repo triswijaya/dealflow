@@ -1,12 +1,19 @@
-import type { LucideIcon } from "lucide-react";
+import { ChevronLeft, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-export function Avatar({ name, size, className }: { name: string; size?: "lg"; className?: string }) {
+/** The same person always gets the same pastel family (DESIGN.md 3.8). */
+function hueOf(name: string) {
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return hash % 7;
+}
+
+export function Avatar({ name, size, className }: { name: string; size?: "xs" | "sm" | "lg"; className?: string }) {
   return (
-    <span className={cn("avatar", size, className)} title={name} aria-hidden="true">
+    <span className={cn("avatar", `av-${hueOf(name)}`, size, className)} title={name} aria-hidden="true">
       {initials(name)}
     </span>
   );
@@ -21,25 +28,60 @@ export function PersonName({ name }: { name: string }) {
   );
 }
 
+/** Page header (DESIGN.md 8.5): one title, one line of description, actions on the right, a hairline below. */
 export function PageHeader({
-  eyebrow,
   title,
   description,
   actions,
-  display,
 }: {
-  eyebrow?: string;
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
-  display?: boolean;
 }) {
   return (
     <header className="pagehead">
       <div>
-        {eyebrow ? <div className="eyebrow">{eyebrow}</div> : null}
-        <h1 className={cn(display && "display")}>{title}</h1>
+        <h1>{title}</h1>
         {description ? <p>{description}</p> : null}
+      </div>
+      {actions ? <div className="row actions">{actions}</div> : null}
+    </header>
+  );
+}
+
+/** Detail page header (DESIGN.md 8.5, variant D): back button, title with its status beside it, actions on the right. */
+export function DetailHeader({
+  backHref,
+  backLabel,
+  title,
+  titleClassName,
+  badge,
+  description,
+  actions,
+}: {
+  backHref: string;
+  backLabel: string;
+  title: ReactNode;
+  titleClassName?: string;
+  badge?: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <header className="pagehead">
+      <div className="detail-head">
+        <Link className="iconbtn" href={backHref} aria-label={backLabel} title={backLabel}>
+          <ChevronLeft aria-hidden="true" />
+        </Link>
+        <div>
+          <div className="title-row">
+            <h1 className={titleClassName} style={{ overflowWrap: "anywhere" }}>
+              {title}
+            </h1>
+            {badge}
+          </div>
+          {description ? <p>{description}</p> : null}
+        </div>
       </div>
       {actions ? <div className="row actions">{actions}</div> : null}
     </header>

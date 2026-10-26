@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/format";
 import { followUpTypeLabel } from "@/lib/labels";
 import type { DealOptionDto } from "@/server/deals/deal-views";
@@ -23,7 +22,7 @@ export function NextFollowUpCard({
 }) {
   const [completing, setCompleting] = useState(false);
   return (
-    <Card>
+    <section className="region">
       <h2>Follow-up berikutnya</h2>
       {next ? (
         <>
@@ -47,6 +46,6 @@ export function NextFollowUpCard({
           ) : null}
         </>
       )}
-    </Card>
+    </section>
   );
 }

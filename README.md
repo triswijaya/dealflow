@@ -25,6 +25,10 @@ In active development. The sales-to-cash flow is built end to end, backend and w
 
 Next.js (App Router), React, TypeScript, PostgreSQL with Drizzle ORM, Better Auth (organization plugin), Zod, Tailwind CSS, Vitest.
 
+## Design system
+
+The signed-in app follows the Inkwash design system in [DESIGN.md](DESIGN.md): tokens in `src/app/inkwash.css`, components in `src/app/design-system.css`.
+
 ## Requirement
 
 The authoritative product and engineering specification lives in [requirement.md](requirement.md). It is the single source of truth for scope, business rules, architecture, and acceptance requirements.

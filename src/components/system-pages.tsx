@@ -23,7 +23,7 @@ function SystemPage({
   showBrand?: boolean;
 }) {
   return (
-    <div style={{ maxWidth: 570, margin: "70px auto", padding: "0 16px" }}>
+    <div style={{ maxWidth: 570, margin: "0 auto", padding: "70px 16px" }}>
       {showBrand ? <Brand href="/dashboard" /> : null}
       <div style={{ marginTop: showBrand ? 40 : 0 }}>
         <div className="empty">
