@@ -120,7 +120,7 @@ export function PipelineBoard({
                 </small>
               </div>
               {cards.length === 0 ? (
-                <div className="ghost-empty">Belum ada deal di tahap ini</div>
+                <p className="quiet-empty">Belum ada deal.</p>
               ) : (
                 cards.map((card) => {
                   const next = NEXT_DEAL_STAGE[stage.status];

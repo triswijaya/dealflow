@@ -73,7 +73,7 @@ export function CustomerFormDialog({
   onCreated?: (customer: CustomerOptionDto) => void;
 }) {
   return (
-    <Dialog open={open} onClose={onClose} title={customer ? "Edit customer" : "Tambah customer"} size="large">
+    <Dialog open={open} onClose={onClose} title={customer ? "Edit customer" : "Tambah customer"} size="drawer">
       <CustomerForm customer={customer} onClose={onClose} onCreated={onCreated} />
     </Dialog>
   );

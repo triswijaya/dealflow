@@ -107,8 +107,9 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
 
   const emptyDeals = (message: string) => (
     <EmptyState
+      size="region"
       icon={MessageCircle}
-      title="Belum ada deal untuk customer ini."
+      title="Belum ada deal untuk customer ini"
       description={message}
       action={
         !finance && dealsReady ? (

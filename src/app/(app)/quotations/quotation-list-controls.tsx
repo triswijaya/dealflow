@@ -50,44 +50,43 @@ export function QuotationToolbar({ query, customer, latestOnly }: { query: strin
   useEffect(() => () => clearTimeout(timer.current), []);
 
   return (
-    <>
-      <form className="toolbar" role="search" onSubmit={(event) => event.preventDefault()}>
-        <Field label="Cari nomor quotation, deal, atau customer" htmlFor="quotation-search">
-          <Input
-            ref={input}
-            id="quotation-search"
-            type="search"
-            defaultValue={query}
-            maxLength={200}
-            autoComplete="off"
-            onChange={(event) => {
-              const value = event.target.value.trim();
-              clearTimeout(timer.current);
-              timer.current = setTimeout(() => {
-                pushed.current = value;
-                push({ q: value });
-              }, DEBOUNCE_MS);
-            }}
-          />
-        </Field>
-        <CustomerPicker
-          id="quotation-customer-filter"
-          label="Customer"
-          value={selected}
-          clearable
-          placeholder="Semua"
-          onChange={(next) => {
-            setSelected(next);
-            setSelectedId(next?.id ?? null);
-            push({ customer: next?.id });
+    <form className="toolbar" role="search" onSubmit={(event) => event.preventDefault()}>
+      <Field label="Cari nomor quotation, deal, atau customer" htmlFor="quotation-search">
+        <Input
+          ref={input}
+          id="quotation-search"
+          type="search"
+          defaultValue={query}
+          maxLength={200}
+          autoComplete="off"
+          placeholder="Cari quotation, deal, atau customer"
+          onChange={(event) => {
+            const value = event.target.value.trim();
+            clearTimeout(timer.current);
+            timer.current = setTimeout(() => {
+              pushed.current = value;
+              push({ q: value });
+            }, DEBOUNCE_MS);
           }}
         />
-      </form>
-      <label className="toggle" style={{ marginTop: 12 }}>
+      </Field>
+      <CustomerPicker
+        id="quotation-customer-filter"
+        label="Customer"
+        value={selected}
+        clearable
+        placeholder="Semua customer"
+        onChange={(next) => {
+          setSelected(next);
+          setSelectedId(next?.id ?? null);
+          push({ customer: next?.id });
+        }}
+      />
+      <label className="toggle">
         <input type="checkbox" checked={latestOnly} onChange={(event) => push({ versions: event.target.checked ? undefined : "all" })} />
         Hanya versi terbaru
       </label>
-    </>
+    </form>
   );
 }
 

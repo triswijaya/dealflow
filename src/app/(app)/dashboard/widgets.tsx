@@ -1,10 +1,10 @@
 import { headers } from "next/headers";
-import { CalendarClock, ChevronRight, Clock, TriangleAlert } from "lucide-react";
+import { Activity, CalendarClock, CalendarPlus, ChevronRight, CircleCheck, Clock, Handshake, TriangleAlert, WalletCards } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ActivityTimeline } from "@/components/domain/activity-timeline";
 import { Alert } from "@/components/ui/alert";
-import { Avatar, KeyValue } from "@/components/ui/misc";
+import { Avatar, EmptyState, KeyValue } from "@/components/ui/misc";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { CardHeading } from "@/components/ui/card";
@@ -151,9 +151,7 @@ export async function AgendaWidget({ agenda, timezone, today }: { agenda: string
           })}
         </div>
         {rows.length === 0 ? (
-          <p className="muted" style={{ margin: "16px 0 4px", fontSize: 13 }}>
-            {current.tab === "TODAY" ? "Tidak ada follow-up hari ini. Tetap produktif!" : current.tab === "OVERDUE" ? "Tidak ada follow-up yang terlambat." : "Belum ada follow-up mendatang."}
-          </p>
+          <AgendaEmpty tab={current.tab} />
         ) : (
           rows.map((row) => <FollowUpItem key={row.id} row={row} timezone={timezone} today={today} canAct compact />)
         )}
@@ -165,6 +163,17 @@ export async function AgendaWidget({ agenda, timezone, today }: { agenda: string
       </section>
     ),
   );
+}
+
+const AGENDA_EMPTY = {
+  TODAY: { tone: "success", icon: CircleCheck, title: "Agenda hari ini sudah bersih", description: "Tidak ada follow-up yang dijadwalkan hari ini." },
+  OVERDUE: { tone: "success", icon: CircleCheck, title: "Tidak ada yang terlambat", description: "Semua follow-up masih sesuai jadwal." },
+  UPCOMING: { tone: "neutral", icon: CalendarPlus, title: "Belum ada follow-up mendatang", description: "Jadwalkan percakapan berikutnya dari halaman deal." },
+} as const;
+
+function AgendaEmpty({ tab }: { tab: keyof typeof AGENDA_EMPTY }) {
+  const empty = AGENDA_EMPTY[tab];
+  return <EmptyState size="region" tone={empty.tone} icon={empty.icon} title={empty.title} description={empty.description} />;
 }
 
 export async function CloserWidget({ timezone }: { timezone: string }) {
@@ -199,7 +208,7 @@ export async function CloserWidget({ timezone }: { timezone: string }) {
             </KeyValue>
           </dl>
         ) : (
-          <p className="muted">Belum ada peluang di tahap negosiasi. Peluang yang masuk negosiasi akan muncul di sini.</p>
+          <EmptyState size="region" icon={Handshake} title="Belum ada deal di tahap negosiasi" description="Deal yang masuk negosiasi akan muncul di sini." />
         )}
       </section>
     ),
@@ -213,7 +222,11 @@ export async function FeedWidget({ timezone, title = "Kabar dari tim" }: { timez
     (events) => (
       <section className="region">
         <h2>{title}</h2>
-        {events.length === 0 ? <p className="muted">Belum ada aktivitas. Kabar dari tim akan muncul di sini.</p> : <ActivityTimeline events={events} timezone={timezone} showDeal />}
+        {events.length === 0 ? (
+          <EmptyState size="region" icon={Activity} title="Belum ada aktivitas" description="Catatan, perubahan tahap, dan dokumen dari tim akan muncul di sini." />
+        ) : (
+          <ActivityTimeline events={events} timezone={timezone} showDeal />
+        )}
       </section>
     ),
   );
@@ -230,13 +243,18 @@ export async function ReadyToInvoiceWidget() {
       <section className="region">
         <h2>Siap ditagih</h2>
         {ready.length === 0 ? (
-          <div>
-            <h3>Semua deal menang sudah ditagih</h3>
-            <p className="muted">Deal menang yang baru akan muncul di sini sampai invoice diterbitkan.</p>
-            <ButtonLink variant="tertiary" href="/invoices">
-              Lihat invoice
-            </ButtonLink>
-          </div>
+          <EmptyState
+            size="region"
+            tone="success"
+            icon={CircleCheck}
+            title="Semua deal menang sudah ditagih"
+            description="Deal menang yang baru akan muncul di sini sampai invoice diterbitkan."
+            action={
+              <ButtonLink variant="tertiary" href="/invoices">
+                Lihat invoice
+              </ButtonLink>
+            }
+          />
         ) : (
           <>
             {ready.slice(0, 4).map((deal) => (
@@ -276,7 +294,7 @@ export async function NearestDueWidget() {
           }
         />
         {invoices.length === 0 ? (
-          <p className="muted">Tidak ada tagihan yang menunggu pembayaran.</p>
+          <EmptyState size="region" tone="success" icon={CircleCheck} title="Tidak ada tagihan yang menunggu" description="Invoice yang belum lunas akan muncul di sini, diurutkan dari jatuh tempo terdekat." />
         ) : (
           <div className="table-wrap">
             <table>
@@ -333,7 +351,7 @@ export async function RecentPaymentsWidget() {
       <section className="region">
         <h2>Pembayaran terbaru</h2>
         {payments.length === 0 ? (
-          <p className="muted">Belum ada pembayaran tercatat.</p>
+          <EmptyState size="region" icon={WalletCards} title="Belum ada pembayaran tercatat" description="Pembayaran yang dicatat di invoice akan muncul di sini." />
         ) : (
           <div className="table-wrap">
             <table>

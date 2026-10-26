@@ -1,4 +1,4 @@
-import { CalendarCheck, SearchX } from "lucide-react";
+import { CalendarPlus, CircleCheck, History, SearchX, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState, PageHeader, TabLinks } from "@/components/ui/misc";
@@ -21,11 +21,11 @@ const TABS: { key: string; tab: FollowUpTab; label: string; count: "today" | "ov
   { key: "mendatang", tab: "UPCOMING", label: "Mendatang", count: "upcoming" },
   { key: "selesai", tab: "DONE", label: "Selesai", count: "done" },
 ];
-const EMPTY: Record<FollowUpTab, { title: string; description: string }> = {
-  TODAY: { title: "Tidak ada follow-up hari ini.", description: "Tetap produktif!" },
-  OVERDUE: { title: "Tidak ada follow-up yang terlambat.", description: "Semua percakapan terjadwal masih sesuai waktunya." },
-  UPCOMING: { title: "Belum ada follow-up mendatang.", description: "Jadwalkan percakapan berikutnya dari halaman deal atau tombol di atas." },
-  DONE: { title: "Belum ada follow-up yang selesai.", description: "Follow-up yang Anda tandai selesai akan tampil di sini." },
+const EMPTY: Record<FollowUpTab, { icon: LucideIcon; tone: "neutral" | "success"; title: string; description: string }> = {
+  TODAY: { icon: CircleCheck, tone: "success", title: "Agenda hari ini sudah bersih", description: "Tidak ada follow-up yang dijadwalkan hari ini." },
+  OVERDUE: { icon: CircleCheck, tone: "success", title: "Tidak ada yang terlambat", description: "Semua percakapan terjadwal masih sesuai waktunya." },
+  UPCOMING: { icon: CalendarPlus, tone: "neutral", title: "Belum ada follow-up mendatang", description: "Jadwalkan percakapan berikutnya dari halaman deal atau tombol di atas." },
+  DONE: { icon: History, tone: "neutral", title: "Belum ada follow-up yang selesai", description: "Follow-up yang Anda tandai selesai akan tampil di sini." },
 };
 
 export default async function FollowUpsPage({ searchParams }: PageProps<"/follow-ups">) {
@@ -88,7 +88,8 @@ export default async function FollowUpsPage({ searchParams }: PageProps<"/follow
           />
         ) : (
           <EmptyState
-            icon={CalendarCheck}
+            icon={EMPTY[current.tab].icon}
+            tone={EMPTY[current.tab].tone}
             title={EMPTY[current.tab].title}
             description={EMPTY[current.tab].description}
             action={

@@ -88,27 +88,43 @@ export function DetailHeader({
   );
 }
 
+/**
+ * The state block (DESIGN.md 9.18): icon chip, title, description, actions,
+ * centred. "page" fills the content area under a page header; "region" sits
+ * inside a section or a tab. The tone recolours the chip only: "success" for
+ * a cleared list, "error" for a failed read.
+ */
 export function EmptyState({
   icon: Icon,
   title,
   description,
   action,
+  size = "page",
+  tone = "neutral",
 }: {
   icon: LucideIcon;
   title: string;
   description?: ReactNode;
   action?: ReactNode;
+  size?: "page" | "region";
+  tone?: "neutral" | "success" | "error";
 }) {
+  const Heading = size === "page" ? "h2" : "h3";
   return (
-    <div className="empty">
+    <div className={cn("empty", size === "region" && "empty-region", tone !== "neutral" && `empty-${tone}`)}>
       <div className="empty-icon">
         <Icon aria-hidden="true" />
       </div>
-      <h2>{title}</h2>
+      <Heading>{title}</Heading>
       {description ? <p>{description}</p> : null}
-      {action}
+      {action ? <div className="empty-actions">{action}</div> : null}
     </div>
   );
+}
+
+/** A quiet empty row: one calm line in tertiary text, no chip (DESIGN.md 8.11). */
+export function QuietEmpty({ children }: { children: ReactNode }) {
+  return <p className="quiet-empty">{children}</p>;
 }
 
 export function Skeleton({ lines = 4 }: { lines?: number }) {

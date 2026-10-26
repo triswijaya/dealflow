@@ -2,7 +2,8 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select } from "@/components/ui/field";
+import { DateRangeFilter } from "@/components/ui/date-range-filter";
+import { Field, Select } from "@/components/ui/field";
 import { FOLLOW_UP_TYPES, ROLE_LABEL, type Role } from "@/lib/labels";
 import type { AssignableMemberDto } from "@/server/deals/deal-views";
 
@@ -23,7 +24,6 @@ export function FollowUpToolbar({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const rangeInvalid = Boolean(from && to && from > to);
 
   function push(changes: Record<string, string | undefined>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -41,7 +41,7 @@ export function FollowUpToolbar({
     <div className="toolbar">
       <Field label="Tipe" htmlFor="followup-filter-type">
         <Select id="followup-filter-type" value={type} onChange={(event) => push({ type: event.target.value })}>
-          <option value="">Semua</option>
+          <option value="">Semua tipe</option>
           {FOLLOW_UP_TYPES.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -51,7 +51,7 @@ export function FollowUpToolbar({
       </Field>
       <Field label="Assigned sales" htmlFor="followup-filter-sales">
         <Select id="followup-filter-sales" value={assignedToId} onChange={(event) => push({ sales: event.target.value })}>
-          <option value="">Semua</option>
+          <option value="">Semua sales</option>
           {members.map((member) => (
             <option key={member.userId} value={member.userId}>
               {member.name} · {ROLE_LABEL[member.role as Role] ?? member.role}
@@ -59,12 +59,7 @@ export function FollowUpToolbar({
           ))}
         </Select>
       </Field>
-      <Field label="Sejak" htmlFor="followup-filter-from" error={rangeInvalid ? "Tanggal awal tidak boleh setelah tanggal akhir." : undefined}>
-        <Input id="followup-filter-from" type="date" value={from ?? ""} max={to || undefined} invalid={rangeInvalid} onChange={(event) => push({ from: event.target.value })} />
-      </Field>
-      <Field label="Sampai" htmlFor="followup-filter-to">
-        <Input id="followup-filter-to" type="date" value={to ?? ""} min={from || undefined} onChange={(event) => push({ to: event.target.value })} />
-      </Field>
+      <DateRangeFilter id="followup-filter" label="Jadwal" from={from} to={to} onChange={push} />
       {active ? (
         <Button variant="tertiary" onClick={() => push({ type: undefined, sales: undefined, from: undefined, to: undefined })}>
           Reset filter

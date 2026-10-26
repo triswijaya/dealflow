@@ -66,7 +66,7 @@ export default async function MembersPage() {
         <section className="region">
           <h2 style={{ marginLeft: "var(--content-inset)" }}>Undangan tertunda</h2>
           {team.invitations.length === 0 ? (
-            <EmptyState icon={Users} title="Tidak ada undangan tertunda." description="Undangan yang dikirim akan tampil di sini." />
+            <EmptyState size="region" icon={Users} title="Tidak ada undangan tertunda" description="Undangan yang dikirim akan tampil di sini sampai diterima." />
           ) : (
             <div className="table-wrap">
               <table>

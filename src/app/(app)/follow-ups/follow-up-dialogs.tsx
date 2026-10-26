@@ -79,7 +79,7 @@ export function FollowUpFormDialog({
   const readOnly = Boolean(followUp?.completedAt);
   const title = readOnly ? "Follow-up selesai · hanya baca" : followUp ? "Edit follow-up" : "Jadwalkan follow-up";
   return (
-    <Dialog open={open} onClose={onClose} title={title} size="large">
+    <Dialog open={open} onClose={onClose} title={title} size="drawer">
       <FollowUpForm timezone={timezone} followUp={followUp} deal={deal} preset={preset} readOnly={readOnly} onClose={onClose} />
     </Dialog>
   );

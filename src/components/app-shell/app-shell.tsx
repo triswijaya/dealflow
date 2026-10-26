@@ -6,6 +6,7 @@ import { Bell, ChevronRight, ChevronsUpDown, Ellipsis, LogOut, PanelLeftClose, P
 import { createContext, Fragment, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Brand } from "@/components/brand";
 import { Dialog } from "@/components/ui/dialog";
+import { useFloating } from "@/components/ui/use-floating";
 import { Avatar } from "@/components/ui/misc";
 import { Alert } from "@/components/ui/alert";
 import { Count } from "@/components/ui/badge";
@@ -115,6 +116,8 @@ function UserMenu({ workspace }: { workspace: ShellWorkspace }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  useFloating(open, button, content, { placement: "top-start", matchWidth: true });
 
   useEffect(() => {
     if (!open) return;
@@ -155,7 +158,7 @@ function UserMenu({ workspace }: { workspace: ShellWorkspace }) {
         <ChevronsUpDown className="chev" aria-hidden="true" />
       </button>
       {open ? (
-        <div className="menu-content">
+        <div ref={content} className="menu-content" popover="manual">
           <div className="menu-meta">
             <strong>{workspace.userName}</strong>
             <small>{workspace.userEmail}</small>

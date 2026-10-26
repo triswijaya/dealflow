@@ -98,14 +98,19 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
         />
       </div>
 
-      <InvoiceToolbar query={query} customer={customer} from={from} to={to} />
-      <div className="chips" style={{ marginTop: 14, marginBottom: 14 }}>
-        {STATUSES.map((value) => (
-          <ChipLink key={value} href={href({ status: status === value ? null : value })} active={status === value}>
-            {value === "OVERDUE" ? "Lewat jatuh tempo" : INVOICE_STATUS[value]?.label}
-          </ChipLink>
-        ))}
-      </div>
+      {/* Nothing to filter yet on a first run: the empty state says what to do first. */}
+      {filtered || result.totalItems > 0 ? (
+        <>
+          <InvoiceToolbar query={query} customer={customer} from={from} to={to} />
+          <div className="chips" style={{ marginTop: 14, marginBottom: 14 }}>
+            {STATUSES.map((value) => (
+              <ChipLink key={value} href={href({ status: status === value ? null : value })} active={status === value}>
+                {value === "OVERDUE" ? "Lewat jatuh tempo" : INVOICE_STATUS[value]?.label}
+              </ChipLink>
+            ))}
+          </div>
+        </>
+      ) : null}
 
       {result.items.length === 0 ? (
         filtered || result.totalItems > 0 ? (
@@ -137,8 +142,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
             <thead>
               <tr>
                 <th>Nomor</th>
-                <th>Customer</th>
-                <th>Deal</th>
+                <th>Customer · deal</th>
                 <th>Tanggal terbit</th>
                 <th>Jatuh tempo</th>
                 <th className="num">Total</th>
@@ -163,21 +167,22 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
                         </Link>
                       </div>
                     </td>
-                    <td data-label="Customer">
+                    <td data-label="Customer · deal" className="cell-primary">
                       <div>
                         <Link href={`/customers/${row.customerId}`}>{row.customerName}</Link>
+                        <small>
+                          <Link href={`/deals/${row.dealId}`}>{row.dealTitle}</Link>
+                        </small>
                       </div>
                     </td>
-                    <td data-label="Deal">
-                      <div>
-                        <Link href={`/deals/${row.dealId}`}>{row.dealTitle}</Link>
-                      </div>
-                    </td>
-                    <td data-label="Tanggal terbit">
+                    <td className="nowrap" data-label="Tanggal terbit">
                       <div>{formatDate(row.issueDate)}</div>
                     </td>
-                    <td data-label="Jatuh tempo">
-                      <div>{late > 0 ? <span className="red">{formatDate(row.dueDate)} · lewat {late} hari</span> : formatDate(row.dueDate)}</div>
+                    <td className="nowrap" data-label="Jatuh tempo">
+                      <div>
+                        {formatDate(row.dueDate)}
+                        {late > 0 ? <small className="red">lewat {late} hari</small> : null}
+                      </div>
                     </td>
                     <td className="num" data-label="Total">
                       <div>{formatRupiah(row.total)}</div>

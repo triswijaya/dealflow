@@ -56,12 +56,17 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
           </>
         }
       />
-      <DealToolbar query={query} assignedToId={assignedToId} customer={customer} members={members} />
-      <div style={{ marginBottom: 18 }}>
-        <ButtonLink variant="tertiary" href="/deals?stage=WON">
-          Lihat deal Menang &amp; Kalah →
-        </ButtonLink>
-      </div>
+      {/* A brand-new pipeline has nothing to filter: the empty state says what to do first. */}
+      {empty && !filtered ? null : (
+        <>
+          <DealToolbar query={query} assignedToId={assignedToId} customer={customer} members={members} />
+          <div style={{ marginBottom: 18 }}>
+            <ButtonLink variant="tertiary" href="/deals?stage=WON">
+              Lihat deal Menang &amp; Kalah →
+            </ButtonLink>
+          </div>
+        </>
+      )}
 
       {empty ? (
         filtered ? (

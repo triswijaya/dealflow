@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Ellipsis } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { useFloating, type Placement } from "./use-floating";
 
 const CloseContext = createContext<() => void>(() => {});
 
@@ -13,15 +14,19 @@ export function Menu({
   trigger,
   children,
   className,
+  placement = "bottom-end",
 }: {
   label?: string;
   trigger?: ReactNode;
   children: ReactNode;
   className?: string;
+  placement?: Placement;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  useFloating(open, button, content, { placement });
 
   useEffect(() => {
     if (!open) return;
@@ -57,7 +62,7 @@ export function Menu({
         {trigger ?? <Ellipsis aria-hidden="true" />}
       </button>
       {open ? (
-        <div className="menu-content" role="menu">
+        <div ref={content} className="menu-content" role="menu" popover="manual">
           <CloseContext.Provider value={() => setOpen(false)}>{children}</CloseContext.Provider>
         </div>
       ) : null}

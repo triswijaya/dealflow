@@ -1748,6 +1748,18 @@ How this system is applied in this repository. Everything above is unchanged; on
 | Initials avatar with hashed hue | `Avatar` in `components/ui/misc.tsx` |
 | Main region plus right rail | `.bleed.with-rail` > `.rail-main`, `.rail-divider`, `.rail-side` |
 | Pipeline lanes | `.board` > `.column` > `.deal-card` |
+| Anchored overlays (§8.14): menus, listboxes, search results, filter panels | `useFloating` in `components/ui/use-floating.ts`; the overlay carries `popover="manual"` so it renders in the top layer and no table, lane, panel or dialog clips it |
+| Filter toolbar (§8.8) | `.toolbar`: search pill, ghost dropdowns, a customer picker pill, and `DateRangeFilter` (a `Popover` with the two dates) |
+| State block (§9.18) | `EmptyState` with `size` `page` or `region` and `tone` `neutral`, `success` or `error`; `QuietEmpty` for one-line empty rows |
+| Modal and drawer (§9.15) | `Dialog` with `size` `default`, `large` or `drawer`; header fixed, body scrolls, the closing `DialogFooter` sticks to the bottom |
+| Centred auth (§8.12) | `AuthShell` in `components/auth-shell.tsx`, variants `form` and `state` |
+
+**Screen decisions**
+
+- Sign-in screens use the centred auth card, not the split layout: brand in the corner, one 400px card, and a quiet line of what the product does under it.
+- Long create and edit forms (deal, customer, follow-up) open in the 560px drawer; short confirmations and payments stay modal.
+- A list with no records yet shows only its first-run state block, without a toolbar; a filtered list with no matches keeps the toolbar and shows the no-results block.
+- The dashboard of a new organization replaces its empty metrics with numbered setup steps.
 
 **Known deviations from the reference**
 
