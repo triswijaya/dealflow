@@ -5,10 +5,9 @@ import { notFound } from "next/navigation";
 import { SetBreadcrumb } from "@/components/app-shell/app-shell";
 import { isBuilt } from "@/components/app-shell/nav";
 import { Alert } from "@/components/ui/alert";
-import { Avatar, EmptyState, KeyValue, TabLinks } from "@/components/ui/misc";
+import { Avatar, DetailHeader, EmptyState, KeyValue, TabLinks } from "@/components/ui/misc";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink, IconLink } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { formatPhone, formatRelative, formatRupiah } from "@/lib/format";
 import { DEAL_STAGE, isActiveStage, lostReasonLabel, type DealStage } from "@/lib/labels";
 import { getCustomer, listCustomerDeals, type CustomerDealDto } from "@/server/customers/customers";
@@ -87,7 +86,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
   const visible = finance ? deals : deals.filter((deal) => matches(deal, tab));
 
   const info = (
-    <Card>
+    <section className="region">
       <h2>Informasi customer</h2>
       <dl>
         <KeyValue label="Kontak">{customer.contactPerson}</KeyValue>
@@ -103,7 +102,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
           <Notes value={customer.notes} />
         </KeyValue>
       </dl>
-    </Card>
+    </section>
   );
 
   const emptyDeals = (message: string) => (
@@ -124,67 +123,70 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
   return (
     <>
       <SetBreadcrumb trail={[customer.companyName]} />
-      <header className="pagehead">
-        <div>
-          <div className="eyebrow">Customer</div>
-          <h1 className="row" style={{ gap: 14, flexWrap: "nowrap" }}>
+      <DetailHeader
+        backHref="/customers"
+        backLabel="Kembali ke daftar customer"
+        title={
+          <span className="row" style={{ gap: 12, flexWrap: "nowrap" }}>
             <Avatar name={customer.companyName} size="lg" />
             <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{customer.companyName}</span>
-          </h1>
-          <p>{customer.contactPerson}</p>
-        </div>
-        <div className="row actions">
-          {finance ? null : (
-            <EditCustomerButton
-              customer={{
-                id: customer.id,
-                version: customer.version,
-                companyName: customer.companyName,
-                contactPerson: customer.contactPerson,
-                phoneRaw: customer.phoneRaw,
-                email: customer.email,
-                address: customer.address,
-                notes: customer.notes,
-              }}
-            />
-          )}
-          <IconLink label="Buka WhatsApp" href={`https://wa.me/${customer.phoneNormalized}`} target="_blank" rel="noopener noreferrer">
-            <MessageCircle aria-hidden="true" />
-          </IconLink>
-          {!finance && dealsReady ? (
-            <ButtonLink href={`/deals/new?customerId=${customer.id}`}>Buat deal</ButtonLink>
-          ) : null}
-        </div>
-      </header>
+          </span>
+        }
+        description={customer.contactPerson}
+        actions={
+          <>
+            {finance ? null : (
+              <EditCustomerButton
+                customer={{
+                  id: customer.id,
+                  version: customer.version,
+                  companyName: customer.companyName,
+                  contactPerson: customer.contactPerson,
+                  phoneRaw: customer.phoneRaw,
+                  email: customer.email,
+                  address: customer.address,
+                  notes: customer.notes,
+                }}
+              />
+            )}
+            <IconLink label="Buka WhatsApp" href={`https://wa.me/${customer.phoneNormalized}`} target="_blank" rel="noopener noreferrer">
+              <MessageCircle aria-hidden="true" />
+            </IconLink>
+            {!finance && dealsReady ? <ButtonLink href={`/deals/new?customerId=${customer.id}`}>Buat deal</ButtonLink> : null}
+          </>
+        }
+      />
 
-      <div className={finance ? "cols g2" : "cols split"}>
-        {finance ? info : null}
-        <Card>
-          <h2>{finance ? "Deal Menang" : "Deal customer"}</h2>
-          {finance ? null : (
-            <TabLinks
-              tabs={TABS.map((candidate) => ({
-                href: candidate === "aktif" ? `/customers/${customer.id}` : `/customers/${customer.id}?tab=${candidate}`,
-                label: TAB_LABEL[candidate],
-                active: candidate === tab,
-              }))}
-            />
-          )}
-          {visible.length === 0 ? (
-            emptyDeals(finance ? "Belum ada deal Menang untuk ditampilkan." : deals.length === 0 ? "Mulai peluang baru untuk customer ini." : `Tab ${TAB_LABEL[tab]} belum memiliki data.`)
-          ) : (
-            <div className="stack" style={{ gap: 12 }}>
-              {visible.map((deal) => (
-                <DealCard key={deal.id} deal={deal} linked={dealsReady} />
-              ))}
-            </div>
-          )}
-        </Card>
-        {finance ? null : info}
+      <div className="bleed with-rail" style={{ marginTop: 0 }}>
+        <div className="rail-main">
+          <section className="region">
+            <h2>{finance ? "Deal Menang" : "Deal customer"}</h2>
+            {finance ? null : (
+              <TabLinks
+                tabs={TABS.map((candidate) => ({
+                  href: candidate === "aktif" ? `/customers/${customer.id}` : `/customers/${customer.id}?tab=${candidate}`,
+                  label: TAB_LABEL[candidate],
+                  active: candidate === tab,
+                }))}
+              />
+            )}
+            {visible.length === 0 ? (
+              emptyDeals(finance ? "Belum ada deal Menang untuk ditampilkan." : deals.length === 0 ? "Mulai peluang baru untuk customer ini." : `Tab ${TAB_LABEL[tab]} belum memiliki data.`)
+            ) : (
+              <div className="stack" style={{ gap: 8 }}>
+                {visible.map((deal) => (
+                  <DealCard key={deal.id} deal={deal} linked={dealsReady} />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+        <div className="rail-divider" />
+        <aside className="rail-side">{info}</aside>
       </div>
 
       {finance ? null : (
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 24 }}>
           <Alert tone="info">Mengubah data customer tidak mengubah quotation terkirim atau invoice yang sudah terbit.</Alert>
         </div>
       )}

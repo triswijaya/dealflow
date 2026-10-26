@@ -1,7 +1,6 @@
 import { CalendarCheck, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import { ButtonLink } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { EmptyState, PageHeader, TabLinks } from "@/components/ui/misc";
 import { Pagination } from "@/components/ui/pagination";
 import { FOLLOW_UP_TYPES } from "@/lib/labels";
@@ -102,12 +101,16 @@ export default async function FollowUpsPage({ searchParams }: PageProps<"/follow
           />
         )
       ) : (
-        <Card>
-          {result.items.map((row) => (
-            <FollowUpItem key={row.id} row={row} timezone={workspace.timezone} today={workspace.today} canAct />
-          ))}
-          <Pagination page={result.page} pageSize={result.pageSize} totalItems={result.totalItems} totalPages={result.totalPages} />
-        </Card>
+        <>
+          <section className="region">
+            {result.items.map((row) => (
+              <FollowUpItem key={row.id} row={row} timezone={workspace.timezone} today={workspace.today} canAct />
+            ))}
+          </section>
+          <div className="bleed">
+            <Pagination page={result.page} pageSize={result.pageSize} totalItems={result.totalItems} totalPages={result.totalPages} />
+          </div>
+        </>
       )}
     </>
   );

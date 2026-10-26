@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { ConflictDialog } from "@/components/ui/conflict-dialog";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
@@ -85,7 +84,7 @@ export function CompanyForm({ settings }: { settings: CompanySettingsDto }) {
 
   return (
     <form onSubmit={onSubmit} noValidate>
-      <Card>
+      <div className="form-flat">
         <div className="stack">
           <div className="input-grid">
             <Field label="Nama perusahaan" htmlFor="company-name" required error={errors.name}>
@@ -135,7 +134,7 @@ export function CompanyForm({ settings }: { settings: CompanySettingsDto }) {
             Simpan perubahan
           </Button>
         </div>
-      </Card>
+      </div>
       <ConflictDialog
         open={conflict}
         onClose={() => setConflict(false)}

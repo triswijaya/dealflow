@@ -1,10 +1,11 @@
-import { Receipt, SearchX } from "lucide-react";
+import { CircleCheck, Receipt, SearchX, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { ChipLink, EmptyState, PageHeader } from "@/components/ui/misc";
 import { Pagination } from "@/components/ui/pagination";
+import { StatusTile } from "@/components/ui/stat";
 import { daysUntil, formatDate, formatRupiah, formatRupiahCompact } from "@/lib/format";
 import { INVOICE_STATUS } from "@/lib/labels";
 import { one, positiveInt, withParams } from "@/lib/url";
@@ -70,26 +71,35 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
         description="Tagihan dan status pembayaran."
         actions={canCreate ? <ButtonLink href="/invoices/new">Buat invoice</ButtonLink> : undefined}
       />
-      <div className="kpis" style={{ ["--n" as string]: 3 }}>
-        <div className="kpi is-dark" title={formatRupiah(summary.outstandingTotal)}>
-          <label>Belum lunas</label>
-          <strong>{kpiAmount(summary.outstandingTotal)}</strong>
-          <small>{summary.outstandingCount > 0 ? `Sisa ${summary.outstandingCount} invoice` : "Semua invoice lunas"}</small>
-        </div>
-        <Link className="kpi" href={href({ status: "OVERDUE" })} title={formatRupiah(summary.overdueTotal)}>
-          <label>Invoice lewat jatuh tempo</label>
-          <strong>{kpiAmount(summary.overdueTotal)}</strong>
-          <small>{summary.overdueCount > 0 ? `${summary.overdueCount} invoice terlambat` : "Tidak ada invoice terlambat"}</small>
-        </Link>
-        <Link className="kpi lime" href={href({ status: "PAID" })} title={`${summary.paidThisMonth} invoice`}>
-          <label>Lunas bulan ini</label>
-          <strong>{summary.paidThisMonth}</strong>
-          <small>{summary.paidThisMonth > 0 ? "Invoice lunas bulan ini" : "Belum ada invoice lunas"}</small>
-        </Link>
+      <div className="tiles">
+        <StatusTile
+          status="warning"
+          icon={Receipt}
+          value={kpiAmount(summary.outstandingTotal)}
+          label={summary.outstandingCount > 0 ? `Belum lunas · ${summary.outstandingCount} invoice` : "Semua invoice lunas"}
+          href={href({ status: "UNPAID" })}
+          selected={status === "UNPAID"}
+        />
+        <StatusTile
+          status="danger"
+          icon={TriangleAlert}
+          value={kpiAmount(summary.overdueTotal)}
+          label={summary.overdueCount > 0 ? `Lewat jatuh tempo · ${summary.overdueCount} invoice` : "Tidak ada invoice terlambat"}
+          href={href({ status: "OVERDUE" })}
+          selected={status === "OVERDUE"}
+        />
+        <StatusTile
+          status="success"
+          icon={CircleCheck}
+          value={summary.paidThisMonth}
+          label={summary.paidThisMonth > 0 ? "Invoice lunas bulan ini" : "Belum ada invoice lunas"}
+          href={href({ status: "PAID" })}
+          selected={status === "PAID"}
+        />
       </div>
 
       <InvoiceToolbar query={query} customer={customer} from={from} to={to} />
-      <div className="chips" style={{ margin: "14px 0" }}>
+      <div className="chips" style={{ marginTop: 14, marginBottom: 14 }}>
         {STATUSES.map((value) => (
           <ChipLink key={value} href={href({ status: status === value ? null : value })} active={status === value}>
             {value === "OVERDUE" ? "Lewat jatuh tempo" : INVOICE_STATUS[value]?.label}

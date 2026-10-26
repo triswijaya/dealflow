@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { CalendarClock, ChevronRight, Clock, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ActivityTimeline } from "@/components/domain/activity-timeline";
@@ -6,8 +7,7 @@ import { Alert } from "@/components/ui/alert";
 import { Avatar, KeyValue } from "@/components/ui/misc";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { Card, CardHeading } from "@/components/ui/card";
-import { ChipLink } from "@/components/ui/misc";
+import { CardHeading } from "@/components/ui/card";
 import { formatDate, formatDateTime, formatRelative, formatRupiah, formatRupiahCompact } from "@/lib/format";
 import { DEAL_STAGE, INVOICE_STATUS, paymentMethodLabel } from "@/lib/labels";
 import { getPipelineMetrics } from "@/server/dashboard/dashboard";
@@ -39,7 +39,7 @@ export async function PipelineWidget() {
       const max = metrics.stages.reduce((largest, stage) => (BigInt(stage.value) > largest ? BigInt(stage.value) : largest), 0n);
       const negotiating = metrics.stages.find((stage) => stage.status === "NEGOTIATION");
       return (
-        <Card>
+        <section className="region">
           <CardHeading
             title="Perjalanan peluang"
             description="Nilai deal aktif di lima tahap penjualan"
@@ -68,11 +68,19 @@ export async function PipelineWidget() {
               return (
                 <Link key={stage.status} className="bar" href="/pipeline" title={`${DEAL_STAGE[stage.status].label}: ${stage.count} deal · ${formatRupiah(stage.value)}`}>
                   <b>{formatRupiahCompact(stage.value)}</b>
-                  <i style={{ height: `${height}%`, ["--mobile" as string]: `${height}%` }}>{stage.count}</i>
+                  <i style={{ height: `${height}%`, ["--mobile" as string]: `${height}%` }} />
                   <small>{DEAL_STAGE[stage.status].label}</small>
                 </Link>
               );
             })}
+          </div>
+          <div className="chart-axis" aria-hidden="true">
+            {metrics.stages.map((stage) => (
+              <span key={stage.status}>
+                {DEAL_STAGE[stage.status].label}
+                <small>{stage.count} deal</small>
+              </span>
+            ))}
           </div>
           {negotiating && negotiating.count > 0 ? (
             <Link className="chart-foot" href="/deals?stage=NEGOTIATION">
@@ -81,7 +89,7 @@ export async function PipelineWidget() {
           ) : (
             <span className="chart-foot">Belum ada peluang di tahap negosiasi.</span>
           )}
-        </Card>
+        </section>
       );
     },
   );
@@ -92,6 +100,9 @@ const AGENDA_TABS = [
   { key: "terlambat", tab: "OVERDUE", label: "Terlambat", count: "overdue" },
   { key: "mendatang", tab: "UPCOMING", label: "Mendatang", count: "upcoming" },
 ] as const;
+
+const AGENDA_GLYPH = { "hari-ini": Clock, terlambat: TriangleAlert, mendatang: CalendarClock } as const;
+const AGENDA_STATUS = { "hari-ini": "warning", terlambat: "danger", mendatang: "pending" } as const;
 
 export async function AgendaWidget({ agenda, timezone, today }: { agenda: string | undefined; timezone: string; today: string }) {
   const current = AGENDA_TABS.find((candidate) => candidate.key === agenda) ?? AGENDA_TABS[0];
@@ -106,7 +117,7 @@ export async function AgendaWidget({ agenda, timezone, today }: { agenda: string
       return { counts, rows: list.items };
     },
     ({ counts, rows }) => (
-      <Card className="dashboard-agenda">
+      <section className="region dashboard-agenda">
         <CardHeading
           title="Agenda follow-up"
           action={
@@ -115,17 +126,32 @@ export async function AgendaWidget({ agenda, timezone, today }: { agenda: string
             </ButtonLink>
           }
         />
-        <div>
-          <div className="chips">
-            {AGENDA_TABS.map((tab) => (
-              <ChipLink key={tab.key} href={tab.key === "hari-ini" ? "/dashboard" : `/dashboard?agenda=${tab.key}`} active={tab.key === current.key}>
-                {tab.label} ({counts[tab.count]})
-              </ChipLink>
-            ))}
-          </div>
+        <div className="tiles stacked" role="group" aria-label="Pilih agenda">
+          {AGENDA_TABS.map((tab) => {
+            const Glyph = AGENDA_GLYPH[tab.key];
+            const selected = tab.key === current.key;
+            return (
+              <Link
+                key={tab.key}
+                className="status-tile"
+                data-status={AGENDA_STATUS[tab.key]}
+                aria-current={selected ? "true" : undefined}
+                href={tab.key === "hari-ini" ? "/dashboard" : `/dashboard?agenda=${tab.key}`}
+              >
+                <span className="icon-chip">
+                  <Glyph aria-hidden="true" />
+                </span>
+                <span className="tile-text">
+                  <strong>{counts[tab.count]}</strong>
+                  <small>{tab.label}</small>
+                </span>
+                <ChevronRight className="chev" aria-hidden="true" />
+              </Link>
+            );
+          })}
         </div>
         {rows.length === 0 ? (
-          <p className="muted" style={{ margin: "16px 0 4px" }}>
+          <p className="muted" style={{ margin: "16px 0 4px", fontSize: 13 }}>
             {current.tab === "TODAY" ? "Tidak ada follow-up hari ini. Tetap produktif!" : current.tab === "OVERDUE" ? "Tidak ada follow-up yang terlambat." : "Belum ada follow-up mendatang."}
           </p>
         ) : (
@@ -136,7 +162,7 @@ export async function AgendaWidget({ agenda, timezone, today }: { agenda: string
             <Link href="/follow-ups?tab=terlambat">{counts.overdue} agenda perlu dijadwalkan ulang →</Link>
           </Alert>
         ) : null}
-      </Card>
+      </section>
     ),
   );
 }
@@ -146,7 +172,7 @@ export async function CloserWidget({ timezone }: { timezone: string }) {
     "Selangkah lebih dekat",
     async () => (await listDealRows({ headers: await headers(), pageSize: 1, sort: "lastActivityAt", direction: "desc", filters: { status: "NEGOTIATION" } })).items[0] ?? null,
     (deal) => (
-      <Card>
+      <section className="region">
         <CardHeading
           title="Selangkah lebih dekat"
           description="Deal negosiasi dengan aktivitas terbaru"
@@ -175,7 +201,7 @@ export async function CloserWidget({ timezone }: { timezone: string }) {
         ) : (
           <p className="muted">Belum ada peluang di tahap negosiasi. Peluang yang masuk negosiasi akan muncul di sini.</p>
         )}
-      </Card>
+      </section>
     ),
   );
 }
@@ -185,10 +211,10 @@ export async function FeedWidget({ timezone, title = "Kabar dari tim" }: { timez
     title,
     async () => listRecentActivities({ headers: await headers(), limit: 6 }),
     (events) => (
-      <Card>
+      <section className="region">
         <h2>{title}</h2>
         {events.length === 0 ? <p className="muted">Belum ada aktivitas. Kabar dari tim akan muncul di sini.</p> : <ActivityTimeline events={events} timezone={timezone} showDeal />}
-      </Card>
+      </section>
     ),
   );
 }
@@ -201,7 +227,7 @@ export async function ReadyToInvoiceWidget() {
     "Siap ditagih",
     async () => listInvoiceableDeals({ headers: await headers() }),
     (ready) => (
-      <Card>
+      <section className="region">
         <h2>Siap ditagih</h2>
         {ready.length === 0 ? (
           <div>
@@ -230,7 +256,7 @@ export async function ReadyToInvoiceWidget() {
             {ready.length > 4 ? <small>dan {ready.length - 4} deal lain.</small> : null}
           </>
         )}
-      </Card>
+      </section>
     ),
   );
 }
@@ -240,7 +266,7 @@ export async function NearestDueWidget() {
     "Jatuh tempo terdekat",
     async () => listNearestDueInvoices({ headers: await headers() }),
     (invoices) => (
-      <Card>
+      <section className="region">
         <CardHeading
           title="Jatuh tempo terdekat"
           action={
@@ -294,7 +320,7 @@ export async function NearestDueWidget() {
             </table>
           </div>
         )}
-      </Card>
+      </section>
     ),
   );
 }
@@ -304,7 +330,7 @@ export async function RecentPaymentsWidget() {
     "Pembayaran terbaru",
     async () => listRecentPayments({ headers: await headers() }),
     (payments) => (
-      <Card>
+      <section className="region">
         <h2>Pembayaran terbaru</h2>
         {payments.length === 0 ? (
           <p className="muted">Belum ada pembayaran tercatat.</p>
@@ -342,7 +368,7 @@ export async function RecentPaymentsWidget() {
             </table>
           </div>
         )}
-      </Card>
+      </section>
     ),
   );
 }

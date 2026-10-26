@@ -24,7 +24,7 @@ export function DealStepper({
   const currentIndex = steps.indexOf(status as DealStage);
 
   return (
-    <ol className="stepper" aria-label="Tahap deal" style={{ listStyle: "none", margin: 0, padding: "10px 0 22px" }}>
+    <ol className="stepper" aria-label="Tahap deal" tabIndex={0} style={{ listStyle: "none", marginTop: 0, marginBottom: 0, padding: "10px 0 22px" }}>
       {steps.map((stage, index) => {
         const done = index < currentIndex;
         const current = index === currentIndex;

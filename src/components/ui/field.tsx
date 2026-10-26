@@ -89,7 +89,7 @@ export function MoneyInput({ value, onValueChange, invalid, id, className, ...pr
     <div style={{ position: "relative" }}>
       <span
         aria-hidden="true"
-        style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--ds-text-secondary)" }}
+        style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }}
       >
         Rp
       </span>

@@ -7,7 +7,7 @@ import { ActivityTimeline } from "@/components/domain/activity-timeline";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { DetailHeader } from "@/components/ui/misc";
 import { formatDate, formatDateTime, formatPhone, formatQuantity, formatRupiah, daysUntil } from "@/lib/format";
 import { QUOTATION_STATUS } from "@/lib/labels";
 import { getQuotationDetail, listQuotationActivities } from "@/server/quotations/quotation-views";
@@ -47,15 +47,23 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
   return (
     <>
       <SetBreadcrumb trail={[quotation.quotationNumber]} />
-      <header className="pagehead">
-        <div>
-          <div className="eyebrow">Quotation</div>
-          <h1 className="doc-id">{quotation.quotationNumber}</h1>
-          <p>
+      <DetailHeader
+        backHref="/quotations"
+        backLabel="Kembali ke daftar quotation"
+        title={quotation.quotationNumber}
+        titleClassName="doc-id"
+        badge={
+          <>
+            <Badge tone={info?.tone}>{info?.label ?? quotation.status}</Badge>
+            {quotation.isLatest ? <Badge>Versi terbaru</Badge> : <Badge tone="outline">Versi lama</Badge>}
+          </>
+        }
+        description={
+          <>
             {quotation.dealTitle} · {quotation.customerName}
-          </p>
-        </div>
-        <div className="row actions">
+          </>
+        }
+        actions={
           <QuotationActions
             quotation={{
               id: quotation.id,
@@ -71,15 +79,10 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
               timezone,
             }}
           />
-        </div>
-      </header>
+        }
+      />
 
-      <div className="row" style={{ marginBottom: 14 }}>
-        <Badge tone={info?.tone}>{info?.label ?? quotation.status}</Badge>
-        {quotation.isLatest ? <Badge>Versi terbaru</Badge> : <Badge tone="outline">Versi lama</Badge>}
-      </div>
-
-      <div className="stack" style={{ gap: 12, marginBottom: 20 }}>
+      <div className="stack" style={{ gap: 8, marginBottom: 20 }}>
         {quotation.status === "ACCEPTED" ? (
           <Alert tone="success">
             Quotation diterima customer. Status deal tidak berubah otomatis; pindahkan deal secara manual bila sudah sepakat.{" "}
@@ -129,7 +132,7 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
           <dt>Berlaku sampai</dt>
           <dd>
             {urgent ? (
-              <span style={{ color: "var(--ds-warning-700)" }}>
+              <span style={{ color: "var(--status-warning-ink)" }}>
                 {formatDate(quotation.validUntil)} · {daysLeft === 0 ? "hari ini" : `${daysLeft} hari lagi`}
               </span>
             ) : (
@@ -151,7 +154,8 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
         </div>
       </dl>
 
-      <div className="cols split" style={{ marginTop: 20 }}>
+      <div className="bleed with-rail" style={{ marginTop: 24 }}>
+        <div className="rail-main">
         <article className="document">
           {draft ? (
             <div className="watermark" aria-hidden="true">
@@ -280,9 +284,10 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
             <span>Halaman 1 dari 1</span>
           </footer>
         </article>
-
-        <aside className="stack">
-          <Card>
+        </div>
+        <div className="rail-divider" />
+        <aside className="rail-side">
+          <section className="region">
             <h2>Riwayat versi</h2>
             {[...quotation.versions].reverse().map((version, index) => {
               const versionInfo = QUOTATION_STATUS[version.status];
@@ -302,11 +307,11 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
                 Lihat riwayat versi
               </ButtonLink>
             </div>
-          </Card>
-          <Card>
+          </section>
+          <section className="region">
             <h2>Aktivitas quotation</h2>
             <ActivityTimeline events={activities} timezone={timezone} customerName={quotation.customerName} dealTitle={quotation.dealTitle} />
-          </Card>
+          </section>
         </aside>
       </div>
     </>

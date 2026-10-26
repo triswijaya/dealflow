@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { CalendarDays } from "lucide-react";
-import Link from "next/link";
+import { Banknote, CalendarClock, CalendarDays, Handshake, Receipt, TriangleAlert, Trophy, type LucideIcon } from "lucide-react";
 import { Suspense, type ReactNode } from "react";
 import { isBuilt } from "@/components/app-shell/nav";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader, Skeleton } from "@/components/ui/misc";
+import { MetricCard, type Hue } from "@/components/ui/stat";
 import { formatDate, firstName, formatRupiah, formatRupiahCompact } from "@/lib/format";
 import { one } from "@/lib/url";
 import { getPipelineMetrics, getWonThisMonth } from "@/server/dashboard/dashboard";
@@ -33,14 +33,19 @@ async function safe<T>(read: () => Promise<T>): Promise<T | null> {
 
 type Kpi = { key: string; label: string; value: string; note: string; href: string; title?: string };
 
-function KpiTile({ kpi }: { kpi: Kpi }) {
-  return (
-    <Link className="kpi" href={kpi.href} title={kpi.title}>
-      <label>{kpi.label}</label>
-      <strong>{kpi.value}</strong>
-      <small>{kpi.note}</small>
-    </Link>
-  );
+// Each metric keeps its category colour everywhere: deals indigo, won mint, money owed butter, overdue coral, follow-ups violet.
+const METRIC_LOOK: Record<string, { icon: LucideIcon; hue: Hue }> = {
+  pipeline: { icon: Handshake, hue: "indigo" },
+  won: { icon: Trophy, hue: "mint" },
+  outstanding: { icon: Receipt, hue: "butter" },
+  overdue: { icon: TriangleAlert, hue: "coral" },
+  received: { icon: Banknote, hue: "mint" },
+  followups: { icon: CalendarClock, hue: "violet" },
+};
+
+function Metric({ kpi }: { kpi: Kpi }) {
+  const look = METRIC_LOOK[kpi.key];
+  return <MetricCard icon={look.icon} hue={look.hue} title={kpi.label} value={kpi.value} label={kpi.note} href={kpi.href} hint={kpi.title} />;
 }
 
 function Widget({ children }: { children: ReactNode }) {
@@ -159,67 +164,70 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         }
       />
 
-      <div className="kpis" style={{ ["--n" as string]: tiles.length }}>
+      <div className="metrics">
         {tiles.map((kpi) => (
-          <KpiTile key={kpi.key} kpi={kpi} />
+          <Metric key={kpi.key} kpi={kpi} />
         ))}
       </div>
 
       {fresh ? (
-        <div style={{ marginTop: 20 }}>
-          <Card>
-            <div className="eyebrow">Mulai dari sini</div>
-            <h2>Tiga langkah untuk memulai</h2>
-            <p className="muted" style={{ margin: "8px 0 18px", maxWidth: 520 }}>
-              Ruang kerja Anda masih kosong. Mulai dari customer pertama, lalu buat peluangnya, dan ajak tim bergabung.
-            </p>
-            <div className="row">
-              <ButtonLink href="/customers">Tambah customer pertama</ButtonLink>
-              <ButtonLink variant="secondary" href="/deals/new">
-                Buat deal pertama
+        <Card className="mt" style={{ marginTop: 24 }}>
+          <h2>Tiga langkah untuk memulai</h2>
+          <p className="muted" style={{ margin: "8px 0 18px", maxWidth: 520 }}>
+            Ruang kerja Anda masih kosong. Mulai dari customer pertama, lalu buat peluangnya, dan ajak tim bergabung.
+          </p>
+          <div className="row">
+            <ButtonLink href="/customers">Tambah customer pertama</ButtonLink>
+            <ButtonLink variant="secondary" href="/deals/new">
+              Buat deal pertama
+            </ButtonLink>
+            {(role === "OWNER" || role === "ADMIN") && isBuilt("/settings/members") ? (
+              <ButtonLink variant="tertiary" href="/settings/members">
+                Undang tim
               </ButtonLink>
-              {(role === "OWNER" || role === "ADMIN") && isBuilt("/settings/members") ? (
-                <ButtonLink variant="tertiary" href="/settings/members">
-                  Undang tim
-                </ButtonLink>
-              ) : null}
-            </div>
-          </Card>
-        </div>
+            ) : null}
+          </div>
+        </Card>
       ) : finance ? (
-        <div className="stack" style={{ marginTop: 20 }}>
-          <Widget>
-            <ReadyToInvoiceWidget />
-          </Widget>
-          <Widget>
-            <NearestDueWidget />
-          </Widget>
-          <Widget>
-            <RecentPaymentsWidget />
-          </Widget>
-          <Widget>
-            <FeedWidget timezone={timezone} />
-          </Widget>
-        </div>
-      ) : (
-        <>
-          <div className="cols split" style={{ marginTop: 20 }}>
+        <div className="bleed with-rail" style={{ marginTop: 24 }}>
+          <div className="rail-main">
             <Widget>
-              <PipelineWidget />
+              <NearestDueWidget />
             </Widget>
             <Widget>
-              <AgendaWidget agenda={one(agenda)} timezone={timezone} today={workspace.today} />
+              <RecentPaymentsWidget />
             </Widget>
           </div>
-          <div className="cols g2" style={{ marginTop: 20 }}>
+          <div className="rail-divider" />
+          <div className="rail-side">
             <Widget>
-              <CloserWidget timezone={timezone} />
+              <ReadyToInvoiceWidget />
             </Widget>
             <Widget>
               <FeedWidget timezone={timezone} />
             </Widget>
           </div>
-        </>
+        </div>
+      ) : (
+        <div className="bleed with-rail" style={{ marginTop: 24 }}>
+          <div className="rail-main">
+            <Widget>
+              <PipelineWidget />
+            </Widget>
+            <Widget>
+              <FeedWidget timezone={timezone} />
+            </Widget>
+          </div>
+          <div className="rail-divider" />
+          <div className="rail-side">
+            <Widget>
+              <AgendaWidget agenda={one(agenda)} timezone={timezone} today={workspace.today} />
+            </Widget>
+            <Widget>
+              <CloserWidget timezone={timezone} />
+            </Widget>
+          </div>
+        </div>
       )}
     </>
   );

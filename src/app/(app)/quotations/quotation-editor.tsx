@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { ConflictDialog } from "@/components/ui/conflict-dialog";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Field, Input, MoneyInput, Textarea } from "@/components/ui/field";
+import { DetailHeader } from "@/components/ui/misc";
 import { ItemsTable, addDays, normalizeQuantity, rowErrors, useDocumentCalculation, type Row } from "@/components/domain/document-items-editor";
 import { useToast } from "@/components/ui/toast";
 import { formatQuantity, formatRupiah } from "@/lib/format";
@@ -186,21 +187,16 @@ export function QuotationEditor({
 
   return (
     <>
-      <header className="pagehead">
-        <div>
-          <div className="eyebrow">Quotation</div>
-          <h1 className={quotation ? "doc-id" : undefined}>{heading}</h1>
-          <p>{dirty ? "Perubahan belum disimpan" : quotation ? "Semua perubahan tersimpan" : "Draf baru"}</p>
-        </div>
-        <div className="row actions">
-          <ButtonLink variant="tertiary" href={`/deals/${deal.id}`}>
-            ← Kembali ke deal
-          </ButtonLink>
-        </div>
-      </header>
-      <Badge>Draf</Badge>
+      <DetailHeader
+        backHref={`/deals/${deal.id}`}
+        backLabel="Kembali ke deal"
+        title={heading}
+        titleClassName={quotation ? "doc-id" : undefined}
+        badge={<Badge>Draf</Badge>}
+        description={dirty ? "Perubahan belum disimpan" : quotation ? "Semua perubahan tersimpan" : "Draf baru"}
+      />
 
-      <div className="cols split" style={{ marginTop: 20 }}>
+      <div className="cols split" style={{ marginTop: 24 }}>
         <div className="stack">
           <Card>
             <h2>Info dokumen</h2>

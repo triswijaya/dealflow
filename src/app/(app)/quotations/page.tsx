@@ -58,7 +58,7 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/quota
     <>
       <PageHeader title="Penawaran" description="Semua quotation dan revisinya." actions={<NewFromDealButton />} />
       <QuotationToolbar query={query} customer={customer} latestOnly={latestOnly} />
-      <div className="chips" style={{ margin: "14px 0" }}>
+      <div className="chips" style={{ marginTop: 14, marginBottom: 14 }}>
         {STATUSES.map((value) => (
           <ChipLink key={value} href={href({ status: status === value ? null : value })} active={status === value}>
             {QUOTATION_STATUS[value]?.label ?? value}
@@ -131,7 +131,7 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/quota
                     <td data-label="Berlaku sampai">
                       <div>
                         {soon ? (
-                          <span style={{ color: "var(--ds-warning-700)" }}>
+                          <span style={{ color: "var(--status-warning-ink)" }}>
                             {formatDate(row.validUntil)} · {days === 0 ? "hari ini" : `${days} hari lagi`}
                           </span>
                         ) : past ? (

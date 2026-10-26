@@ -1,20 +1,29 @@
 "use client";
 
-import { Clock, FileText } from "lucide-react";
+import { Check, Circle, CircleAlert, CircleDashed, Clock, FileText, Info, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/misc";
-import { Badge } from "@/components/ui/badge";
+import { Count } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuItem } from "@/components/ui/menu";
 import { useToast } from "@/components/ui/toast";
 import { formatRelative, formatRupiah } from "@/lib/format";
-import { DEAL_STAGE, NEXT_DEAL_STAGE, type ActiveDealStage, type Role } from "@/lib/labels";
+import { DEAL_STAGE, NEXT_DEAL_STAGE, type ActiveDealStage, type BadgeTone, type Role } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import type { DealFilters, PipelineCardDto, PipelineStageDto } from "@/server/deals/deal-views";
 import { loadMorePipelineAction } from "../deals/actions";
 import { DealTransitionDialog, type TransitionMode } from "../deals/transition-dialog";
 import { FollowUpFormDialog, WhatsAppDialog } from "../follow-ups/follow-up-dialogs";
+
+const STAGE_ICON = { neutral: Circle, outline: Circle, info: Info, brand: CircleDashed, success: Check, warning: CircleAlert, danger: X } as const;
+
+/** The lane's status glyph, in the family colour of its stage. */
+function StageGlyph({ tone }: { tone: BadgeTone }) {
+  const Glyph = STAGE_ICON[tone];
+  const family = tone === "neutral" || tone === "outline" ? "neutral" : tone === "brand" ? "pending" : tone;
+  return <Glyph className="stage-glyph" aria-hidden="true" style={{ ["--s-glyph" as string]: `var(--status-${family}-glyph)` }} />;
+}
 
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
@@ -101,9 +110,10 @@ export function PipelineBoard({
           return (
             <section key={stage.status} className={cn("column", mobileStage === stage.status && "is-mobile-active")} aria-label={DEAL_STAGE[stage.status].label}>
               <div className="column-head">
-                <div className="row between">
+                <div className="row">
+                  <StageGlyph tone={DEAL_STAGE[stage.status].tone} />
                   <strong>{DEAL_STAGE[stage.status].label}</strong>
-                  <Badge>{stage.count}</Badge>
+                  <Count>{stage.count}</Count>
                 </div>
                 <small>
                   {stage.count} deal · {formatRupiah(stage.totalValue)}
