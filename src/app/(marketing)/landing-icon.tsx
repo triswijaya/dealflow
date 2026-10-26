@@ -9,6 +9,7 @@ const ICONS = {
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  chevron: <path d="m9 6 6 6-6 6" />,
   briefcase: (
     <>
       <rect x="3" y="7" width="18" height="14" rx="2" />

@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Icon } from "./landing-icon";
+import { hanken } from "./landing-font";
 import { CompareSlider } from "./compare-slider";
 import { InvoiceDemo, KanbanDemo, QuotationDemo } from "./feature-demos";
 import { HeroStory } from "./hero-story";
-import { LANDING_ZOOM, useReveal, useScrollEffects, type CSSVars } from "./landing-hooks";
+import { useReveal, useScrollEffects, type CSSVars } from "./landing-hooks";
 import { PricingPlans } from "./pricing-plans";
 import { RoleSwitcher } from "./role-switcher";
 
@@ -14,7 +15,12 @@ const NAV_SECTIONS = ["produk", "tim", "harga", "faq"] as const;
 const NAV_LABELS: Record<(typeof NAV_SECTIONS)[number], string> = { produk: "Produk", tim: "Untuk tim", harga: "Harga", faq: "FAQ" };
 
 // What a typical team juggles today. Named the way people actually name these things.
-const SCATTERED = ["Grup WhatsApp sales", "Sheet \u201cPipeline 2026\u201d", "Penawaran_FINAL_v3(2).pdf", "Buku tagihan finance"];
+const SCATTERED = [
+  { label: "Grup WhatsApp sales", icon: "message" },
+  { label: "Sheet \u201cPipeline 2026\u201d", icon: "sheet" },
+  { label: "Penawaran_FINAL_v3(2).pdf", icon: "fileText" },
+  { label: "Buku tagihan finance", icon: "receipt" },
+] as const;
 
 const HERO_FACTS = [
   { value: "5 tahap", label: "pipeline siap pakai, tanpa setup" },
@@ -78,7 +84,7 @@ export function LandingPage() {
   }, [menuOpen]);
 
   return (
-    <div className="lp-root" ref={rootRef} style={{ zoom: LANDING_ZOOM }}>
+    <div className={`lp-root ${hanken.variable}`} ref={rootRef}>
         <a className="lp-skip" href="#konten">Lewati ke konten</a>
         <header className="lp-topnav">
           <div className="lp-container lp-navinner">
@@ -90,7 +96,7 @@ export function LandingPage() {
             </nav>
             <div className="lp-navactions">
               <Link className="lp-btn lp-secondary" href="/login">Masuk</Link>
-              <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
+              <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja</Link>
             </div>
             <button ref={menuButtonRef} type="button" className="lp-menu-toggle" aria-label={menuOpen ? "Tutup navigasi" : "Buka navigasi"} aria-expanded={menuOpen} aria-controls="mobile-menu" onClick={() => setMenuOpen((open) => !open)}>
               <Icon name="more" />
@@ -101,39 +107,41 @@ export function LandingPage() {
               <a key={id} href={`#${id}`}>{NAV_LABELS[id]}</a>
             ))}
             <Link href="/login">Masuk</Link>
-            <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
+            <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja</Link>
           </nav>
           <div className="lp-progress" ref={progressRef} aria-hidden="true" />
         </header>
         <main id="konten">
           <section className="lp-hero lp-container" id="beranda" ref={heroRef}>
-            <div className="lp-hero-grid">
-              <div className="lp-hero-text">
-                <p className="lp-kicker">Untuk tim sales dan finance bisnis B2B</p>
-                <h1>Dari chat pertama sampai <span className="lp-marked"><span className="lp-marked-text">uang masuk.</span></span></h1>
-                <p className="lp-hero-copy">Customer, penawaran, follow-up, dan tagihan di satu tempat. Sales tahu siapa yang harus dihubungi hari ini. Finance tahu siapa yang belum bayar.</p>
-                <div className="lp-row lp-hero-actions">
-                  <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
-                  <a className="lp-btn lp-tertiary" href="#produk">Lihat produknya</a>
-                </div>
-                <dl className="lp-hero-facts">
-                  {HERO_FACTS.map((fact) => (
-                    <div key={fact.value}>
-                      <dt>{fact.value}</dt>
-                      <dd>{fact.label}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-              <HeroStory />
+            <h1>Dari chat pertama sampai uang masuk.</h1>
+            <p className="lp-hero-copy">Customer, penawaran, follow-up, dan tagihan di satu tempat. Sales tahu siapa yang harus dihubungi hari ini. Finance tahu siapa yang belum bayar.</p>
+            <div className="lp-row lp-hero-actions">
+              <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja</Link>
+              <a className="lp-btn lp-secondary" href="#produk">Lihat produknya</a>
             </div>
+            <HeroStory />
+            <div className="lp-ticker">
+              <p><span className="lp-ticker-tag"><i />Untuk tim</span>Sales dan finance bisnis B2B, dari chat pertama sampai pembayaran terakhir.</p>
+              <a href="#produk">Lihat alurnya<Icon name="arrowRight" /></a>
+            </div>
+            <dl className="lp-hero-facts">
+              {HERO_FACTS.map((fact) => (
+                <div key={fact.value}>
+                  <dt>{fact.value}</dt>
+                  <dd>{fact.label}</dd>
+                </div>
+              ))}
+            </dl>
           </section>
 
           <section className="lp-scattered lp-container" aria-labelledby="scattered-title">
-            <p id="scattered-title">Yang selama ini tersebar di</p>
-            <ul>
+            <p id="scattered-title" className="lp-kicker">Yang selama ini tersebar di</p>
+            <ul className="lp-tiles">
               {SCATTERED.map((item) => (
-                <li key={item}>{item}</li>
+                <li key={item.label} className="lp-tile">
+                  <Icon name={item.icon} />
+                  <span>{item.label}</span>
+                </li>
               ))}
             </ul>
             <p className="lp-scattered-end">kini di satu ruang kerja.</p>
@@ -142,7 +150,7 @@ export function LandingPage() {
           <section className="lp-section lp-container" id="masalah">
             <div className="lp-intro lp-reveal">
               <p className="lp-kicker">Masalahnya</p>
-              <h2>Deal bisa hilang hanya karena satu follow-up terlewat.</h2>
+              <h2><span className="lp-dim">Deal bisa hilang</span> hanya karena satu follow-up terlewat.</h2>
               <p>Saat chat ada di WhatsApp, angka di spreadsheet, dan penawaran di folder, tidak ada yang melihat gambaran utuhnya. Geser untuk melihat bedanya.</p>
             </div>
             <div className="lp-reveal">
@@ -153,7 +161,7 @@ export function LandingPage() {
           <section className="lp-section lp-container" id="produk">
             <div className="lp-intro lp-reveal">
               <p className="lp-kicker">Produknya</p>
-              <h2>Tiga layar yang akan dibuka tim Anda setiap hari.</h2>
+              <h2><span className="lp-dim">Tiga layar</span> yang akan dibuka tim Anda setiap hari.</h2>
             </div>
             <div className="lp-features">
               {FEATURES.map((feature, index) => (
@@ -181,7 +189,7 @@ export function LandingPage() {
             <div className="lp-container lp-team-grid">
               <div className="lp-team-copy lp-reveal">
                 <p className="lp-kicker">Untuk seluruh tim</p>
-                <h2>Sales menutup deal, finance menagih, owner melihat semuanya.</h2>
+                <h2><span className="lp-dim">Sales menutup deal, finance menagih,</span> owner melihat semuanya.</h2>
                 <p>Owner, Admin, Sales, dan Finance bekerja di data yang sama, dengan akses sesuai tanggung jawabnya. Pilih peran di samping untuk melihat apa yang mereka buka.</p>
                 <ul className="lp-checklist">
                   <li><Icon name="check" /><span>Data perusahaan terpisah di ruang kerjanya sendiri.</span></li>
@@ -189,7 +197,7 @@ export function LandingPage() {
                   <li><Icon name="check" /><span>Quotation dan pesan WhatsApp tetap dikirim oleh tim Anda sendiri.</span></li>
                 </ul>
               </div>
-              <div className="lp-reveal" style={{ "--d": 1 } as CSSVars}>
+              <div className="lp-bento lp-reveal" style={{ "--d": 1 } as CSSVars}>
                 <RoleSwitcher />
               </div>
             </div>
@@ -199,7 +207,7 @@ export function LandingPage() {
             <div className="lp-container">
               <div className="lp-intro lp-intro-center lp-reveal">
                 <p className="lp-kicker">Harga</p>
-                <h2>Bayar per perusahaan, bukan per orang.</h2>
+                <h2><span className="lp-dim">Bayar per perusahaan,</span> bukan per orang.</h2>
                 <p>Semua paket berisi alur yang sama. Yang berbeda hanya jumlah anggota tim.</p>
               </div>
               <div className="lp-pricing-note">
@@ -266,11 +274,11 @@ export function LandingPage() {
           <section className="lp-final-cta" ref={endRef}>
             <div className="lp-container">
               <div className="lp-cta-box lp-reveal">
-              <h2>Rapikan pipeline Anda sebelum deal berikutnya terlewat.</h2>
+              <h2><span className="lp-dim">Rapikan pipeline Anda</span> sebelum deal berikutnya terlewat.</h2>
               <p>Buat ruang kerja, undang tim, lalu masukkan customer pertama Anda.</p>
               <div className="lp-row lp-cta-actions">
-                <Link className="lp-btn lp-lime" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
-                <Link className="lp-btn lp-ghost-light" href="/login">Sudah punya akun? Masuk</Link>
+                <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja</Link>
+                <Link className="lp-btn lp-secondary" href="/login">Sudah punya akun? Masuk</Link>
               </div>
               </div>
             </div>
@@ -304,7 +312,7 @@ export function LandingPage() {
           </div>
         </footer>
         <div className="lp-sticky-cta" ref={stickyRef}>
-          <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
+          <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja</Link>
         </div>
     </div>
   );
