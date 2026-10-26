@@ -21,38 +21,34 @@
   --df-warn-ink: #6B5200;
 }
 
-/* Design tokens for the app (.df): the "Crisp Neutral" system in the landing
-   page's palette. Warm cream neutrals carry 90% of the screen; one forest
-   green brand and saturated status colors carry meaning. Components use the
-   role tokens (bg/text/border/brand), not primitives. */
+/* Design tokens for the app (.df) and the landing page (.lp-root): the
+   "Crisp Neutral" system. Zinc neutrals carry 90% of the screen; one
+   saturated cobalt brand and saturated status colors carry meaning.
+   Components use the role tokens (bg/text/border/brand), not primitives. */
 :root {
-  /* Neutral primitives, warmed toward the landing page's cream. gray-500 is
-     the landing's muted text: 5.9:1 on gray-50, 7:1 on white. */
+  /* Neutral primitives. gray-500 is a touch darker than the reference
+     (#71717A) so secondary text stays above 4.5:1 on --ds-gray-50 too. */
   --ds-gray-0: #FFFFFF;
-  --ds-gray-25: #FAF9F5;
-  --ds-gray-50: #F6F5F0;
-  --ds-gray-100: #EFEEE7;
-  --ds-gray-200: #E3E1D9;
-  --ds-gray-300: #D2D0C6;
-  --ds-gray-400: #A3A398;
-  --ds-gray-500: #596056;
-  --ds-gray-600: #4A5249;
-  --ds-gray-700: #38403A;
-  --ds-gray-900: #16231C;
+  --ds-gray-25: #FAFAFB;
+  --ds-gray-50: #F6F6F8;
+  --ds-gray-100: #EFEFF2;
+  --ds-gray-200: #E6E6EB;
+  --ds-gray-300: #D4D4DB;
+  --ds-gray-400: #A1A1AA;
+  --ds-gray-500: #6A6A73;
+  --ds-gray-600: #52525B;
+  --ds-gray-700: #3F3F46;
+  --ds-gray-900: #18181B;
 
-  /* Brand primitives (forest green, from the landing page). Swap this block
-     to rebrand. 600 is the fill (buttons, steps); 500 is the readable green
-     for links and chart series (6:1 on white); 700 is the hover fill. */
-  --ds-brand-50: #EEF4EF;
-  --ds-brand-100: #E3EEE5;
-  --ds-brand-200: #C9DECE;
-  --ds-brand-300: #9FC1AB;
-  --ds-brand-500: #2F6E52;
-  --ds-brand-600: #163B2E;
-  --ds-brand-700: #224E3D;
-  --ds-brand-800: #0F2A20;
-  /* The landing's lime stays a single touch: the brand mark's pipeline bars. */
-  --ds-lime: #C6F135;
+  /* Brand primitives (cobalt). Swap this block to rebrand. 600 is 6:1 on white. */
+  --ds-brand-50: #EFF3FE;
+  --ds-brand-100: #E0E8FD;
+  --ds-brand-200: #C4D3FB;
+  --ds-brand-300: #9BB3F6;
+  --ds-brand-500: #3D67EB;
+  --ds-brand-600: #2754E6;
+  --ds-brand-700: #1E43C2;
+  --ds-brand-800: #1A389E;
 
   /* Semantic primitives: 50 tint background, 200 tint border, 600 fill, 700 text. */
   --ds-success-50: #ECFDF3;
@@ -67,10 +63,11 @@
   --ds-danger-200: #FECACA;
   --ds-danger-600: #E5383B;
   --ds-danger-700: #C81E1E;
-  --ds-info-50: #EFF6FF;
-  --ds-info-200: #BFDBFE;
-  --ds-info-600: #2563EB;
-  --ds-info-700: #1D4ED8;
+  /* Info is cyan, not blue, so it never reads as the cobalt brand. */
+  --ds-info-50: #ECFEFF;
+  --ds-info-200: #A5F3FC;
+  --ds-info-600: #0891B2;
+  --ds-info-700: #0E7490;
 
   /* Roles. */
   --ds-bg-app: var(--ds-gray-50);
@@ -87,11 +84,11 @@
   --ds-brand: var(--ds-brand-600);
   --ds-brand-hover: var(--ds-brand-700);
   --ds-brand-subtle: var(--ds-brand-100);
-  --ds-brand-text: var(--ds-brand-500);
+  --ds-brand-text: var(--ds-brand-600);
   --ds-focus-ring: 0 0 0 3px color-mix(in srgb, var(--ds-brand-600) 25%, transparent);
 
   /* Data viz. */
-  --ds-chart-1: var(--ds-brand-500);
+  --ds-chart-1: var(--ds-brand-600);
   --ds-chart-2: var(--ds-brand-200);
   --ds-chart-3: var(--ds-success-600);
   --ds-chart-4: var(--ds-warning-600);
