@@ -6,7 +6,7 @@ import { Icon } from "./landing-icon";
 import { CompareSlider } from "./compare-slider";
 import { InvoiceDemo, KanbanDemo, QuotationDemo } from "./feature-demos";
 import { HeroStory } from "./hero-story";
-import { LANDING_ZOOM, useReveal, useScrollEffects, type CSSVars } from "./landing-hooks";
+import { useReveal, useScrollEffects, type CSSVars } from "./landing-hooks";
 import { PricingPlans } from "./pricing-plans";
 import { RoleSwitcher } from "./role-switcher";
 
@@ -14,7 +14,12 @@ const NAV_SECTIONS = ["produk", "tim", "harga", "faq"] as const;
 const NAV_LABELS: Record<(typeof NAV_SECTIONS)[number], string> = { produk: "Produk", tim: "Untuk tim", harga: "Harga", faq: "FAQ" };
 
 // What a typical team juggles today. Named the way people actually name these things.
-const SCATTERED = ["Grup WhatsApp sales", "Sheet \u201cPipeline 2026\u201d", "Penawaran_FINAL_v3(2).pdf", "Buku tagihan finance"];
+const SCATTERED = [
+  { label: "Grup WhatsApp sales", icon: "message" },
+  { label: "Sheet \u201cPipeline 2026\u201d", icon: "sheet" },
+  { label: "Penawaran_FINAL_v3(2).pdf", icon: "fileText" },
+  { label: "Buku tagihan finance", icon: "receipt" },
+] as const;
 
 const HERO_FACTS = [
   { value: "5 tahap", label: "pipeline siap pakai, tanpa setup" },
@@ -78,7 +83,7 @@ export function LandingPage() {
   }, [menuOpen]);
 
   return (
-    <div className="lp-root" ref={rootRef} style={{ zoom: LANDING_ZOOM }}>
+    <div className="lp-root" ref={rootRef}>
         <a className="lp-skip" href="#konten">Lewati ke konten</a>
         <header className="lp-topnav">
           <div className="lp-container lp-navinner">
@@ -107,33 +112,32 @@ export function LandingPage() {
         </header>
         <main id="konten">
           <section className="lp-hero lp-container" id="beranda" ref={heroRef}>
-            <div className="lp-hero-grid">
-              <div className="lp-hero-text">
-                <p className="lp-kicker">Untuk tim sales dan finance bisnis B2B</p>
-                <h1>Dari chat pertama sampai <span className="lp-marked"><span className="lp-marked-text">uang masuk.</span></span></h1>
-                <p className="lp-hero-copy">Customer, penawaran, follow-up, dan tagihan di satu tempat. Sales tahu siapa yang harus dihubungi hari ini. Finance tahu siapa yang belum bayar.</p>
-                <div className="lp-row lp-hero-actions">
-                  <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
-                  <a className="lp-btn lp-tertiary" href="#produk">Lihat produknya</a>
-                </div>
-                <dl className="lp-hero-facts">
-                  {HERO_FACTS.map((fact) => (
-                    <div key={fact.value}>
-                      <dt>{fact.value}</dt>
-                      <dd>{fact.label}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-              <HeroStory />
+            <p className="lp-kicker">Untuk tim sales dan finance bisnis B2B</p>
+            <h1>Dari chat pertama sampai <span className="lp-hl">uang masuk.</span></h1>
+            <p className="lp-hero-copy">Customer, penawaran, follow-up, dan tagihan di satu tempat. Sales tahu siapa yang harus dihubungi hari ini. Finance tahu siapa yang belum bayar.</p>
+            <div className="lp-row lp-hero-actions">
+              <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
+              <a className="lp-btn lp-secondary" href="#produk">Lihat produknya</a>
             </div>
+            <HeroStory />
+            <dl className="lp-hero-facts">
+              {HERO_FACTS.map((fact) => (
+                <div key={fact.value}>
+                  <dt>{fact.value}</dt>
+                  <dd>{fact.label}</dd>
+                </div>
+              ))}
+            </dl>
           </section>
 
           <section className="lp-scattered lp-container" aria-labelledby="scattered-title">
-            <p id="scattered-title">Yang selama ini tersebar di</p>
-            <ul>
+            <p id="scattered-title" className="lp-kicker">Yang selama ini tersebar di</p>
+            <ul className="lp-tiles">
               {SCATTERED.map((item) => (
-                <li key={item}>{item}</li>
+                <li key={item.label} className="lp-tile">
+                  <Icon name={item.icon} />
+                  <span>{item.label}</span>
+                </li>
               ))}
             </ul>
             <p className="lp-scattered-end">kini di satu ruang kerja.</p>
@@ -189,7 +193,7 @@ export function LandingPage() {
                   <li><Icon name="check" /><span>Quotation dan pesan WhatsApp tetap dikirim oleh tim Anda sendiri.</span></li>
                 </ul>
               </div>
-              <div className="lp-reveal" style={{ "--d": 1 } as CSSVars}>
+              <div className="lp-bento lp-reveal" style={{ "--d": 1 } as CSSVars}>
                 <RoleSwitcher />
               </div>
             </div>
@@ -269,7 +273,7 @@ export function LandingPage() {
               <h2>Rapikan pipeline Anda sebelum deal berikutnya terlewat.</h2>
               <p>Buat ruang kerja, undang tim, lalu masukkan customer pertama Anda.</p>
               <div className="lp-row lp-cta-actions">
-                <Link className="lp-btn lp-lime" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
+                <Link className="lp-btn lp-light" href="/register">Buat ruang kerja<Icon name="arrowRight" /></Link>
                 <Link className="lp-btn lp-ghost-light" href="/login">Sudah punya akun? Masuk</Link>
               </div>
               </div>

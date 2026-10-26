@@ -3,9 +3,6 @@ import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, 
 /** Inline style that also accepts CSS custom properties, e.g. `{ "--pos": 50 }`. */
 export type CSSVars = CSSProperties & { [key: `--${string}`]: string | number };
 
-/** The landing page renders at this scale by default (a browser at 100% looks like 90%). */
-export const LANDING_ZOOM = 0.9;
-
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
 function subscribeReducedMotion(onChange: () => void) {

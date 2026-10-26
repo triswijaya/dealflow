@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth";
 import { LandingPage } from "./landing-page";
 import "./landing.css";
-import "./landing-motion.css";
 
 const title = "DealFlow · Dari peluang menjadi pembayaran";
 const description =
@@ -20,7 +19,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport = { themeColor: "#163B2E" };
+export const viewport = { themeColor: "#F7F6F5" };
 
 export default async function Home() {
   const session = await auth.api.getSession({ headers: await headers() });
