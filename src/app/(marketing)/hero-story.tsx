@@ -8,6 +8,7 @@ const STEP_MS = [2400, 2000, 2600, 2800];
 const HOLD_AFTER_PAID_MS = 3400;
 
 const STEPS = ["Customer", "Deal", "Quotation", "Menang", "Dibayar"] as const;
+const STEP_ICONS = ["users", "brand", "fileText", "trophy", "wallet"] as const;
 
 type Note = { id: string; icon: "users" | "brand" | "fileText" | "trophy" | "wallet"; title: string; body: string };
 
@@ -92,114 +93,132 @@ export function HeroStory() {
 
   return (
     <div className="lp-ws" ref={frameRef} role="group" aria-label="Ilustrasi alur dari percakapan WhatsApp sampai invoice lunas. Data contoh.">
-      <div className="lp-ws-bar">
-        <p className="lp-ws-crumb" aria-hidden="true">
-          <span className="lp-ws-mark">
-            <Icon name="brand" />
+      <div className="lp-win">
+        <div className="lp-win-bar">
+          <span className="lp-dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
           </span>
-          PT Maju Jaya
-          <i>/</i>
-          <b>CCTV Installation - Bekasi</b>
-        </p>
-        <button type="button" className="lp-st-play" aria-label={playing ? "Jeda demo" : "Putar demo"} aria-pressed={!playing} onClick={() => setPlaying((value) => !value)} hidden={reduced}>
-          <Icon name={playing ? "pause" : "play"} />
-        </button>
-      </div>
+          <p className="lp-win-title" aria-hidden="true">
+            <Icon name="brand" />
+            CCTV Installation - Bekasi
+            <span className="lp-pill-xs">Rp30 jt</span>
+          </p>
+          <button type="button" className="lp-st-play" aria-label={playing ? "Jeda demo" : "Putar demo"} aria-pressed={!playing} onClick={() => setPlaying((value) => !value)} hidden={reduced}>
+            <Icon name={playing ? "pause" : "play"} />
+          </button>
+        </div>
 
-      <div className="lp-ws-body">
-        <section className="lp-ws-pane" aria-hidden="true">
-          <p className="lp-ws-label">WhatsApp</p>
-          <div className="lp-chat-head">
-            <span className="lp-st-avatar">BS</span>
-            <div>
-              <strong>Budi · PT Maju Jaya</strong>
-              <small>{typing ? "sedang mengetik..." : "online"}</small>
+        <div className="lp-win-body">
+          <div className="lp-win-side">
+            <p className="lp-win-label">Alur deal</p>
+            <ol className="lp-steps">
+              {STEPS.map((label, i) => (
+                <li key={label}>
+                  <button
+                    type="button"
+                    className={i < shownStep ? "lp-step lp-done" : i === shownStep ? "lp-step lp-current" : "lp-step"}
+                    aria-current={i === shownStep ? "step" : undefined}
+                    onClick={() => goTo(i)}
+                  >
+                    <Icon name={STEP_ICONS[i]} />
+                    <span>{label}</span>
+                    <i className="lp-step-mark" />
+                  </button>
+                </li>
+              ))}
+            </ol>
+            <div className="lp-win-deals" aria-hidden="true">
+              <p className="lp-win-label">Deal lain</p>
+              <ul>
+                <li>Hotel Mega Kencana<i /></li>
+                <li>PT Bumi Karya<i /></li>
+                <li>Klinik Sehat Sentosa</li>
+              </ul>
             </div>
           </div>
-          <div className="lp-chat">
-            <div className="lp-st-bubble lp-st-in">
-              Pak, butuh CCTV 16 titik untuk gudang Bekasi. Bisa minta penawaran?
-              <small>09.12</small>
-            </div>
-            {shownStep >= 2 && (
-              <div className="lp-st-bubble lp-st-out">
-                <span className="lp-st-attach">
-                  <Icon name="fileText" />
-                  QUO-2026-0018 · R1.pdf
-                </span>
-                Terlampir revisi penawarannya ya Pak.
-                <small>14.03 ✓✓</small>
-              </div>
-            )}
-            {shownStep >= 3 && (
-              <div className="lp-st-bubble lp-st-in">
-                Sudah oke. Kami lanjut, tolong kirim invoice.
-                <small>10.24</small>
-              </div>
-            )}
-            {shownStep >= 4 && shownPayments >= 1 && (
-              <div className="lp-st-bubble lp-st-in">
-                Sudah kami transfer DP ya Pak.
-                <small>09.05</small>
-              </div>
-            )}
-            {typing && (
-              <div className="lp-st-typing">
-                <i />
-                <i />
-                <i />
-              </div>
-            )}
-          </div>
-        </section>
 
-        <section className="lp-ws-pane" aria-hidden="true">
-          <p className="lp-ws-label">Aktivitas DealFlow</p>
-          <ol className="lp-ws-notes">
-            {notes.map((note, index) => (
-              <li key={note.id} className="lp-note" style={{ opacity: 1 - index * 0.3 }}>
-                <span className={note.icon === "wallet" || note.icon === "trophy" ? "lp-note-icon lp-hot" : "lp-note-icon"}>
-                  <Icon name={note.icon} />
-                </span>
-                <div>
-                  <b>{note.title}</b>
-                  <small>{note.body}</small>
+          <div className="lp-win-main" aria-hidden="true">
+            <div className="lp-chat-head">
+              <span className="lp-st-avatar">BS</span>
+              <div>
+                <strong>Budi · PT Maju Jaya</strong>
+                <small>{typing ? "sedang mengetik..." : "WhatsApp · online"}</small>
+              </div>
+            </div>
+            <div className="lp-chat">
+              <div className="lp-st-bubble lp-st-in">
+                Pak, butuh CCTV 16 titik untuk gudang Bekasi. Bisa minta penawaran?
+                <small>09.12</small>
+              </div>
+              {shownStep >= 2 && (
+                <div className="lp-st-bubble lp-st-out">
+                  <span className="lp-st-attach">
+                    <Icon name="fileText" />
+                    QUO-2026-0018 · R1.pdf
+                  </span>
+                  Terlampir revisi penawarannya ya Pak.
+                  <small>14.03 ✓✓</small>
                 </div>
-                <em>baru saja</em>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section className={shownStep >= 3 ? "lp-ws-pane lp-ws-invoice lp-show" : "lp-ws-pane lp-ws-invoice"} aria-hidden="true">
-          <p className="lp-ws-label">Invoice</p>
-          <div className="lp-ws-inv-top">
-            <code>INV-2026-0042</code>
-            <span key={badge.text} className={`lp-bd lp-bd-${badge.tone} lp-st-bump`}>{badge.text}</span>
+              )}
+              {shownStep >= 3 && (
+                <div className="lp-st-bubble lp-st-in">
+                  Sudah oke. Kami lanjut, tolong kirim invoice.
+                  <small>10.24</small>
+                </div>
+              )}
+              {shownStep >= 4 && shownPayments >= 1 && (
+                <div className="lp-st-bubble lp-st-in">
+                  Sudah kami transfer DP ya Pak.
+                  <small>09.05</small>
+                </div>
+              )}
+              {typing && (
+                <div className="lp-st-typing">
+                  <i />
+                  <i />
+                  <i />
+                </div>
+              )}
+            </div>
+            <ol className="lp-ws-notes">
+              {notes.map((note, index) => (
+                <li key={note.id} className="lp-note" style={{ opacity: 1 - index * 0.28 }}>
+                  <Icon name={note.icon} />
+                  <span>
+                    <b>{note.title}</b> {note.body}
+                  </span>
+                  <Icon name="chevron" />
+                </li>
+              ))}
+            </ol>
           </div>
-          <div className="lp-ws-inv-amount">{formatRp(paidAmount)}</div>
-          <div className="lp-st-bar"><i style={{ transform: `scaleX(${shownPayments / 3})` }} /></div>
-          <small>{shownPayments} dari 3 pembayaran · Rp30.000.000</small>
-        </section>
+        </div>
       </div>
 
-      <div className="lp-ws-steps">
-        <ol>
-          {STEPS.map((label, i) => (
-            <li key={label}>
-              <button
-                type="button"
-                className={i < shownStep ? "lp-ph-step lp-done" : i === shownStep ? "lp-ph-step lp-current" : "lp-ph-step"}
-                aria-current={i === shownStep ? "step" : undefined}
-                onClick={() => goTo(i)}
-              >
-                <i />
-                {label}
-              </button>
-            </li>
-          ))}
-        </ol>
-      </div>
+      <aside className={shownStep >= 3 ? "lp-ws-invoice lp-show" : "lp-ws-invoice"} aria-hidden="true">
+        <p className="lp-ws-inv-meta">
+          <Icon name="receipt" />
+          <b>Invoice</b>
+          <span>· INV-2026-0042</span>
+        </p>
+        <div className="lp-ws-inv-amount">{formatRp(paidAmount)}</div>
+        <div className="lp-ws-inv-row">
+          <span className="lp-st-avatar">BS</span>
+          <span>Budi Santoso</span>
+          <span className="lp-pill-xs">PT Maju Jaya</span>
+          <span key={badge.text} className={`lp-bd lp-bd-${badge.tone} lp-st-bump`}>{badge.text}</span>
+        </div>
+        <div className="lp-ws-inv-panel">
+          <p>
+            <b>Pembayaran</b>
+            <span>{shownPayments}/3</span>
+          </p>
+          <div className="lp-st-bar"><i style={{ transform: `scaleX(${shownPayments / 3})` }} /></div>
+          <small>Total Rp30.000.000 · dicatat per transfer</small>
+        </div>
+      </aside>
     </div>
   );
 }
