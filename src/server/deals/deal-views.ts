@@ -8,6 +8,8 @@ import { activities, customers, deals, followUps, member, user } from "@/server/
 import { toIsoDto, toMoneyDto } from "@/server/shared/dto";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
+import { organizationDateString } from "@/server/shared/organization-date";
+import { dealSignals, type DealSignal } from "./deal-health";
 import { ACTIVE_STAGES, DEAL_STATUSES } from "./stages";
 
 // Read models for the deal screens. Mutations stay in deals.ts; this file
@@ -174,6 +176,8 @@ export type PipelineCardDto = {
   lastActivityAt: string;
   hasQuotation: boolean;
   followUpOverdue: boolean;
+  /** DEAL-09: computed when read. */
+  signals: DealSignal[];
   version: number;
 };
 
@@ -184,25 +188,37 @@ export type PipelineStageDto = {
   items: PipelineCardDto[];
 };
 
+type Clock = { timezone: string; today: string };
+
+/** Open tasks of a deal, and how many of them are dated before the organization's today (FUP-03). */
+function taskCounts(organizationId: string, timezone: string) {
+  const open = sql`${followUps.dealId} = ${deals.id} and ${followUps.organizationId} = ${organizationId} and ${followUps.completedAt} is null and ${followUps.cancelledAt} is null`;
+  const openTasks = sql<number>`(select count(*)::int from ${followUps} where ${open})`.mapWith(Number);
+  const overdueTasks = sql<number>`(select count(*)::int from ${followUps} where ${open} and ${followUps.followUpAt} < (date_trunc('day', now() AT TIME ZONE ${timezone}) AT TIME ZONE ${timezone}))`.mapWith(Number);
+  return { openTasks, overdueTasks };
+}
+
+function signalsOf(deal: typeof deals.$inferSelect, counts: { openTasks: number; overdueTasks: number }, clock: Clock): DealSignal[] {
+  return dealSignals({
+    status: deal.status,
+    onHoldUntil: deal.onHoldUntil,
+    stageEnteredOn: organizationDateString(clock.timezone, deal.stageEnteredAt),
+    expectedCloseDate: deal.expectedCloseDate,
+    ...counts,
+    today: clock.today,
+  });
+}
+
 function cardQuery(organizationId: string, timezone: string, where: SQL | undefined) {
-  // "Overdue" follows FUP-03: an open follow-up dated before today in the
-  // organization's own calendar.
-  const overdue = sql<boolean>`exists (
-    select 1 from ${followUps}
-    where ${followUps.dealId} = ${deals.id}
-      and ${followUps.organizationId} = ${organizationId}
-      and ${followUps.completedAt} is null
-      and ${followUps.followUpAt} < (date_trunc('day', now() AT TIME ZONE ${timezone}) AT TIME ZONE ${timezone})
-  )`;
   return db
-    .select({ deal: deals, customerName: customers.companyName, assignedToName: assignee.name, overdue })
+    .select({ deal: deals, customerName: customers.companyName, assignedToName: assignee.name, ...taskCounts(organizationId, timezone) })
     .from(deals)
     .innerJoin(customers, and(eq(customers.id, deals.customerId), eq(customers.organizationId, deals.organizationId)))
     .innerJoin(assignee, eq(assignee.id, deals.assignedToId))
     .where(where);
 }
 
-function toCard(row: Awaited<ReturnType<typeof cardQuery>>[number]): PipelineCardDto {
+function toCard(row: Awaited<ReturnType<typeof cardQuery>>[number], clock: Clock): PipelineCardDto {
   return {
     id: row.deal.id,
     title: row.deal.title,
@@ -213,7 +229,8 @@ function toCard(row: Awaited<ReturnType<typeof cardQuery>>[number]): PipelineCar
     assignedToName: row.assignedToName,
     lastActivityAt: toIsoDto(row.deal.lastActivityAt),
     hasQuotation: row.deal.hasQuotation,
-    followUpOverdue: Boolean(row.overdue),
+    followUpOverdue: row.overdueTasks > 0,
+    signals: signalsOf(row.deal, row, clock),
     version: row.deal.version,
   };
 }
@@ -234,7 +251,8 @@ async function pipelineActor(headers: Headers) {
  */
 export async function getPipelineBoard(params: { headers: Headers; filters?: Omit<DealFilters, "status" | "createdFrom" | "createdTo"> }) {
   const actor = await pipelineActor(params.headers);
-  const { timezone } = await organizationClock(actor.organizationId);
+  const clock = await organizationClock(actor.organizationId);
+  const { timezone } = clock;
   const filters = filterSchema.omit({ status: true, createdFrom: true, createdTo: true }).parse(params.filters ?? {});
   const common = [eq(deals.organizationId, actor.organizationId), isNull(deals.onHoldUntil), ...filterConditions(filters, timezone)];
 
@@ -255,7 +273,7 @@ export async function getPipelineBoard(params: { headers: Headers; filters?: Omi
         .orderBy(desc(deals.lastActivityAt), desc(deals.id))
         .limit(PIPELINE_COLUMN_LIMIT);
       const total = totals.find((row) => row.status === status);
-      return { status, count: total?.count ?? 0, totalValue: total?.total ?? "0", items: rows.map(toCard) };
+      return { status, count: total?.count ?? 0, totalValue: total?.total ?? "0", items: rows.map((row) => toCard(row, clock)) };
     }),
   );
   return { stages };
@@ -271,7 +289,8 @@ export async function listPipelineStageCards(params: {
   const actor = await pipelineActor(params.headers);
   const status = z.enum(ACTIVE_STAGES).parse(params.status);
   const offset = z.number().int().min(0).max(100_000).parse(params.offset);
-  const { timezone } = await organizationClock(actor.organizationId);
+  const clock = await organizationClock(actor.organizationId);
+  const { timezone } = clock;
   const filters = filterSchema.omit({ status: true, createdFrom: true, createdTo: true }).parse(params.filters ?? {});
   const rows = await cardQuery(
     actor.organizationId,
@@ -281,7 +300,7 @@ export async function listPipelineStageCards(params: {
     .orderBy(desc(deals.lastActivityAt), desc(deals.id))
     .limit(PIPELINE_COLUMN_LIMIT)
     .offset(offset);
-  return rows.map(toCard);
+  return rows.map((row) => toCard(row, clock));
 }
 
 // ---------------------------------------------------------------------------
@@ -326,6 +345,8 @@ export type DealDetailDto = {
   stageEnteredAt: Partial<Record<(typeof ALL_STAGES)[number], string>>;
   /** When the deal entered the stage it is in now (DEAL-03). */
   stageSince: string;
+  /** DEAL-09: computed when read. */
+  signals: DealSignal[];
 };
 
 /**
@@ -355,7 +376,7 @@ export async function getDealDetail(params: { headers: Headers; dealId: string }
         eq(activities.organizationId, actor.organizationId),
         eq(activities.dealId, row.deal.id),
         eq(activities.entityType, "deal"),
-        inArray(activities.eventType, ["stage_changed", "won", "lost"]),
+        inArray(activities.eventType, ["stage_changed", "won", "lost", "reopened"]),
       ),
     )
     .orderBy(asc(activities.createdAt), asc(activities.id));
@@ -374,6 +395,12 @@ export async function getDealDetail(params: { headers: Headers; dealId: string }
     const toStatus = stageOf(event, "toStatus");
     if (toStatus) stageEnteredAt[toStatus] ??= toIsoDto(event.createdAt);
   }
+
+  const clock = await organizationClock(actor.organizationId);
+  const [counts] = await db
+    .select(taskCounts(actor.organizationId, clock.timezone))
+    .from(deals)
+    .where(and(eq(deals.id, row.deal.id), eq(deals.organizationId, actor.organizationId)));
 
   const { deal, customer } = row;
   return {
@@ -411,6 +438,7 @@ export async function getDealDetail(params: { headers: Headers; dealId: string }
     },
     stageEnteredAt,
     stageSince: toIsoDto(deal.stageEnteredAt),
+    signals: signalsOf(deal, counts, clock),
   };
 }
 
@@ -572,4 +600,49 @@ export async function listRecentActivities(params: { headers: Headers; limit?: n
     dealTitle,
     customerName,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Deals that need attention (DEAL-09, RISK-01)
+
+export type AttentionDealDto = {
+  id: string;
+  title: string;
+  status: string;
+  estimatedValue: string;
+  customerName: string;
+  assignedToName: string;
+  onHoldUntil: string | null;
+  signals: DealSignal[];
+};
+
+/**
+ * Open deals with at least one health signal, largest value first. Sales,
+ * Owner and Admin see every open deal of the organization, as on the board.
+ *
+ * shortcut: reads every open deal and decides in code, which is fine for a few
+ * thousand; move the signal predicate into SQL when an organization has more.
+ */
+export async function listDealsNeedingAttention(params: { headers: Headers; limit?: number }): Promise<AttentionDealDto[]> {
+  const actor = await pipelineActor(params.headers);
+  const limit = z.number().int().min(1).max(200).default(50).parse(params.limit);
+  const clock = await organizationClock(actor.organizationId);
+
+  const rows = await cardQuery(actor.organizationId, clock.timezone, and(eq(deals.organizationId, actor.organizationId), inArray(deals.status, [...ACTIVE_STAGES])))
+    .orderBy(desc(deals.estimatedValue), desc(deals.id));
+
+  return rows
+    .map((row) => ({ row, signals: signalsOf(row.deal, row, clock) }))
+    .filter(({ signals }) => signals.length > 0)
+    .slice(0, limit)
+    .map(({ row, signals }) => ({
+      id: row.deal.id,
+      title: row.deal.title,
+      status: row.deal.status,
+      estimatedValue: toMoneyDto(row.deal.estimatedValue),
+      customerName: row.customerName,
+      assignedToName: row.assignedToName,
+      onHoldUntil: row.deal.onHoldUntil,
+      signals,
+    }));
 }

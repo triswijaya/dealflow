@@ -401,6 +401,9 @@ export const followUps = pgTable(
     // either way, never round-tripped through anything timezone-dependent.
     followUpAt: timestamp("follow_up_at", { withTimezone: true }).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    // FUP-02/FUP-04: a task that no longer matters (set when its deal closes).
+    // It is neither open nor done, and reopening the deal does not revive it.
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     // DATA-07: optimistic concurrency, same pattern as deals/customers.
     version: integer("version").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -425,7 +428,8 @@ export const followUps = pgTable(
     // are not yet completed.
     index("follow_ups_organizationId_followUpAt_idx")
       .on(table.organizationId, table.followUpAt)
-      .where(sql`${table.completedAt} IS NULL`),
+      .where(sql`${table.completedAt} IS NULL AND ${table.cancelledAt} IS NULL`),
+    check("follow_ups_not_done_and_cancelled_chk", sql`${table.completedAt} IS NULL OR ${table.cancelledAt} IS NULL`),
     // Per-deal listing (deal detail page, UX-01): cheap, and justified by
     // that real query pattern even though DATA-03 doesn't name it directly.
     index("follow_ups_organizationId_dealId_idx").on(table.organizationId, table.dealId),

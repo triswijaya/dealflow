@@ -34,7 +34,7 @@ const KNOWN_MESSAGES: [RegExp, string, string?][] = [
   [/Only the latest version/i, "Hanya versi terbaru yang dapat diubah statusnya."],
   [/expired and can no longer be sent or accepted/i, "Quotation sudah kedaluwarsa, jadi tidak dapat dikirim atau diterima. Perbarui tanggal berlaku."],
   [/cannot be sent while the deal is on hold/i, "Deal sedang ditahan. Lanjutkan deal sebelum quotation ditandai terkirim."],
-  [/cannot be sent on a lost deal/i, "Quotation tidak dapat dikirim pada deal yang sudah kalah."],
+  [/quotations are read-only/i, "Deal sudah kalah, jadi quotation-nya hanya bisa dibaca. Buka kembali deal untuk mengubahnya."],
   [/Cannot transition a quotation/i, "Status quotation tidak dapat diubah ke status tersebut."],
   [/must have at least one item/i, "Tambahkan minimal satu item.", "items"],
   [/Discount cannot exceed the subtotal/i, "Diskon tidak boleh melebihi subtotal.", "discount"],

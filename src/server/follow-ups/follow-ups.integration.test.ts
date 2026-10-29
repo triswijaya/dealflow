@@ -7,9 +7,9 @@ import { auth } from "@/server/auth/auth";
 import { inviteMember, acceptInvitation } from "@/server/auth/members";
 import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
-import { createDeal, transitionDeal } from "@/server/deals/deals";
+import { createDeal, reopenDeal, transitionDeal } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
-import { activities, deals } from "@/server/db/schema";
+import { activities, deals, followUps } from "@/server/db/schema";
 import { completeFollowUp, createFollowUp, getFollowUp, listActiveFollowUps, listFollowUps, updateFollowUp } from "./follow-ups";
 
 async function sessionCookieFor(email: string, password: string): Promise<string> {
@@ -167,26 +167,42 @@ describe("follow-ups", () => {
     ).rejects.toThrow(/WON or LOST/);
   });
 
-  it("still allows updating and completing a follow-up that pre-dates the deal becoming terminal (FUP-04)", async () => {
+  it("cancels the open tasks of a deal when it closes, keeps them on record, and does not revive them on reopen (FUP-04)", async () => {
     const { ownerCookie, dealId } = await setupOwnerWithDeal();
-    const created = await createFollowUp({ headers: new Headers({ cookie: ownerCookie }), input: followUpInput(dealId) });
+    const open = await createFollowUp({ headers: new Headers({ cookie: ownerCookie }), input: followUpInput(dealId) });
+    const done = await createFollowUp({ headers: new Headers({ cookie: ownerCookie }), input: followUpInput(dealId, { completedAt: new Date(Date.now() - 3_600_000).toISOString() }) });
     await advanceDealToLost(ownerCookie, dealId);
 
-    const updated = await updateFollowUp({
-      headers: new Headers({ cookie: ownerCookie }),
-      followUpId: created.id,
-      expectedVersion: created.version,
-      input: { followUpAt: daysFromNowIso(31) },
-    });
-    expect(updated.version).toBe(2);
+    const rows = await db.query.followUps.findMany({ where: eq(followUps.dealId, dealId) });
+    expect(rows.find((row) => row.id === open.id)!.cancelledAt).not.toBeNull();
+    expect(rows.find((row) => row.id === done.id)!.cancelledAt).toBeNull();
+    const lostEvent = await db.query.activities.findFirst({ where: and(eq(activities.dealId, dealId), eq(activities.eventType, "lost")) });
+    expect((lostEvent!.metadata as { cancelledTasks?: number }).cancelledTasks).toBe(1);
 
-    const completed = await completeFollowUp({
-      headers: new Headers({ cookie: ownerCookie }),
-      followUpId: created.id,
-      expectedVersion: updated.version,
-      input: {},
-    });
-    expect(completed.completedAt).not.toBeNull();
+    // A cancelled task is neither editable nor completable, and is not an active reminder.
+    await expect(
+      updateFollowUp({ headers: new Headers({ cookie: ownerCookie }), followUpId: open.id, expectedVersion: open.version + 1, input: { followUpAt: daysFromNowIso(31) } }),
+    ).rejects.toThrow(/cancelled/);
+    await expect(
+      completeFollowUp({ headers: new Headers({ cookie: ownerCookie }), followUpId: open.id, expectedVersion: open.version + 1, input: {} }),
+    ).rejects.toThrow(/cancelled/);
+
+    const deal = await db.query.deals.findFirst({ where: eq(deals.id, dealId) });
+    await reopenDeal({ headers: new Headers({ cookie: ownerCookie }), dealId, expectedVersion: deal!.version, input: { toStatus: "PROSPECT", reason: "Customer kembali" } });
+    const active = await listActiveFollowUps({ headers: new Headers({ cookie: ownerCookie }), dealId });
+    expect(active.items).toHaveLength(0);
+    expect((await db.query.followUps.findFirst({ where: eq(followUps.id, open.id) }))!.cancelledAt).not.toBeNull();
+  });
+
+  it("leaves tasks of other deals alone when a deal closes", async () => {
+    const { ownerCookie, dealId } = await setupOwnerWithDeal();
+    const other = await setupOwnerWithDeal();
+    const mine = await createFollowUp({ headers: new Headers({ cookie: ownerCookie }), input: followUpInput(dealId) });
+    const theirs = await createFollowUp({ headers: new Headers({ cookie: other.ownerCookie }), input: followUpInput(other.dealId) });
+    await advanceDealToLost(ownerCookie, dealId);
+
+    expect((await db.query.followUps.findFirst({ where: eq(followUps.id, mine.id) }))!.cancelledAt).not.toBeNull();
+    expect((await db.query.followUps.findFirst({ where: eq(followUps.id, theirs.id) }))!.cancelledAt).toBeNull();
   });
 
   it("changes note/schedule before completion, and logs 'rescheduled' only when the schedule actually changes (FUP-02/AUD-01)", async () => {

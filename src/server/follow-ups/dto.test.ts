@@ -10,6 +10,7 @@ function makeRow(overrides: Partial<Parameters<typeof toFollowUpDto>[0]> = {}) {
     note: "Kirim ulang penawaran",
     followUpAt: new Date("2026-03-10T02:00:00.000Z"),
     completedAt: null,
+    cancelledAt: null,
     version: 1,
     createdAt: new Date("2026-03-01T01:00:00.000Z"),
     updatedAt: new Date("2026-03-01T01:00:00.000Z"),

@@ -153,6 +153,9 @@ export async function updateFollowUp(params: {
   if (existing.completedAt !== null) {
     throw new APIError("BAD_REQUEST", { message: "Cannot edit a follow-up that is already completed" });
   }
+  if (existing.cancelledAt !== null) {
+    throw new APIError("BAD_REQUEST", { message: "Cannot edit a follow-up that was cancelled" });
+  }
 
   const scheduleChanged = existing.followUpAt.getTime() !== parsed.followUpAt.getTime();
 
@@ -231,6 +234,9 @@ export async function completeFollowUp(params: {
   }
   if (existing.completedAt !== null) {
     return toFollowUpDto(existing);
+  }
+  if (existing.cancelledAt !== null) {
+    throw new APIError("BAD_REQUEST", { message: "Cannot complete a follow-up that was cancelled" });
   }
 
   const completedAt = parsed.completedAt ?? new Date();
@@ -340,6 +346,7 @@ export async function listActiveFollowUps(params: { headers: Headers; dealId?: s
   const where = and(
     eq(followUps.organizationId, actor.organizationId),
     isNull(followUps.completedAt),
+    isNull(followUps.cancelledAt),
     ne(deals.status, "WON"),
     ne(deals.status, "LOST"),
     params.dealId ? eq(followUps.dealId, params.dealId) : undefined,

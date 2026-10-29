@@ -1,9 +1,9 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
-import { activities, customers, deals, member } from "@/server/db/schema";
+import { activities, customers, deals, followUps, member } from "@/server/db/schema";
 import { moneyAmountSchema } from "@/server/money/amount";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
@@ -373,6 +373,23 @@ export async function transitionDeal(params: {
       throw new APIError("CONFLICT", { message: "Deal was modified by someone else, reload and try again" });
     }
 
+    // FUP-04: closing the deal cancels its open tasks in the same transaction.
+    const cancelled =
+      parsed.toStatus === "WON" || parsed.toStatus === "LOST"
+        ? await tx
+            .update(followUps)
+            .set({ cancelledAt: now, updatedById: actor.userId, version: sql`${followUps.version} + 1` })
+            .where(
+              and(
+                eq(followUps.organizationId, actor.organizationId),
+                eq(followUps.dealId, params.dealId),
+                isNull(followUps.completedAt),
+                isNull(followUps.cancelledAt),
+              ),
+            )
+            .returning({ id: followUps.id })
+        : [];
+
     const eventType = parsed.toStatus === "WON" ? "won" : parsed.toStatus === "LOST" ? "lost" : "stage_changed";
     // AUD-01 ("simpan lost_at dan event alasan") / AUD-02: the reason is
     // part of the event, not just a column on the deal row. wonValue is
@@ -386,6 +403,7 @@ export async function transitionDeal(params: {
     } else if (parsed.note) {
       metadata.note = parsed.note;
     }
+    if (cancelled.length > 0) metadata.cancelledTasks = cancelled.length;
     await tx.insert(activities).values({
       organizationId: actor.organizationId,
       dealId: params.dealId,

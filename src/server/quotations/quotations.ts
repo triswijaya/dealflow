@@ -249,6 +249,7 @@ export async function updateQuotation(params: {
   }
 
   return db.transaction(async (tx) => {
+    await lockDealForQuotation(tx, actor.organizationId, existing.dealId);
     const [updated] = await tx
       .update(quotations)
       .set({
@@ -380,6 +381,25 @@ export async function listQuotations(params: {
 
 // API-05: this operation type scopes the idempotency key namespace.
 // Invoice/payment (M3) will add their own values into the same table.
+// QUO-11: once a deal is LOST its quotations are read-only. The deal row is
+// locked (FOR UPDATE) so a LOST transition racing an edit, a revision, SENT or
+// ACCEPTED cannot slip past this check; every caller takes the deal lock
+// before any quotation lock, so two of them can never wait on each other.
+async function lockDealForQuotation(tx: Pick<typeof db, "select">, organizationId: string, dealId: string) {
+  const [deal] = await tx
+    .select()
+    .from(deals)
+    .where(and(eq(deals.id, dealId), eq(deals.organizationId, organizationId)))
+    .for("update");
+  if (!deal) {
+    throw new APIError("NOT_FOUND", { message: "Deal not found" });
+  }
+  if (deal.status === "LOST") {
+    throw new APIError("BAD_REQUEST", { message: "The deal is lost, so its quotations are read-only" });
+  }
+  return deal;
+}
+
 const REVISE_QUOTATION_OPERATION = "QUOTATION_REVISION";
 
 const reviseQuotationInputSchema = z.object({
@@ -475,11 +495,12 @@ export async function reviseQuotation(params: { headers: Headers; input: unknown
 
     const sourceLookup = await tx.query.quotations.findFirst({
       where: and(eq(quotations.id, parsed.sourceQuotationId), eq(quotations.organizationId, actor.organizationId)),
-      columns: { familyId: true },
+      columns: { familyId: true, dealId: true },
     });
     if (!sourceLookup) {
       throw new APIError("NOT_FOUND", { message: "Quotation not found" });
     }
+    await lockDealForQuotation(tx, actor.organizationId, sourceLookup.dealId);
 
     // QUO-05: "satu transaksi mengunci family dan memastikan hanya satu
     // latest version." Lock the ORIGINAL row alone first -- a stable
@@ -690,24 +711,14 @@ export async function transitionQuotationStatus(params: {
     });
   }
 
-  if (parsed.toStatus === "SENT") {
-    // QUO-08: SENT is refused on a LOST deal and on a deal on hold. A plain read,
-    // not a lock -- the same pattern deals.ts uses for assertActiveAssignee/
-    // assertCustomerInOrganization, validating a related row without
-    // needing to hold it: the actual side effect below is itself guarded
-    // by a conditional UPDATE, not by trusting this read.
-    const deal = await db.query.deals.findFirst({
-      where: and(eq(deals.id, existing.dealId), eq(deals.organizationId, actor.organizationId)),
-    });
-    if (!deal || deal.status === "LOST") {
-      throw new APIError("BAD_REQUEST", { message: "A quotation cannot be sent on a lost deal" });
-    }
-    if (deal.onHoldUntil) {
+  return db.transaction(async (tx) => {
+    // QUO-08/QUO-09/QUO-11: the deal is checked under its lock, in the same
+    // transaction as the writes below (G-09, G-10), not in a read before it.
+    const deal = await lockDealForQuotation(tx, actor.organizationId, existing.dealId);
+    if (parsed.toStatus === "SENT" && deal.onHoldUntil) {
       throw new APIError("BAD_REQUEST", { message: "A quotation cannot be sent while the deal is on hold" });
     }
-  }
 
-  return db.transaction(async (tx) => {
     const now = new Date();
     const statusFields: Record<string, unknown> = {
       status: parsed.toStatus,
@@ -763,52 +774,45 @@ export async function transitionQuotationStatus(params: {
       throw new APIError("CONFLICT", { message: "Quotation was modified by someone else, reload and try again" });
     }
 
-    // QUO-08: PROSPECT -> PROPOSAL happens only on SENT, only if the deal is
-    // still PROSPECT, in the same transaction. The UPDATE's own
-    // WHERE status='PROSPECT' is the race guard: two concurrent SENT
-    // actions on different quotations of the same deal both attempt this,
-    // and only whichever commits first actually changes anything -- the
-    // second affects 0 rows and is simply skipped, not an error. An empty
-    // estimated value is filled with the quotation total.
+    // QUO-08/QUO-09: SENT moves a PROSPECT deal to PROPOSAL (and fills an empty
+    // estimated value with the quotation total); ACCEPTED moves PROPOSAL or
+    // NEGOTIATION to COMMITMENT and never to WON. Other stages, WON, and a deal
+    // on hold keep their stage. `deal` was read under the lock above, so the
+    // decision cannot go stale before the write.
     //
     // RISK-01/11.2: SENT/ACCEPTED/REJECTED are all meaningful activity
     // regardless of whether the stage itself also advances, so
-    // lastActivityAt/version bump on every branch below; the stage-change
-    // case folds that into its own guarded UPDATE instead of writing twice.
-    if (parsed.toStatus === "SENT") {
-      const [advancedDeal] = await tx
-        .update(deals)
-        .set({
-          status: "PROPOSAL",
-          stageEnteredAt: now,
-          estimatedValue: sql`CASE WHEN ${deals.estimatedValue} > 0 THEN ${deals.estimatedValue} ELSE ${updated.total} END`,
-          lastActivityAt: now,
-          version: sql`${deals.version} + 1`,
-        })
-        .where(and(eq(deals.id, existing.dealId), eq(deals.status, "PROSPECT")))
-        .returning();
-      if (advancedDeal) {
-        // AUD-01: "deal updated/stage changed" is a required minimum event.
-        await tx.insert(activities).values({
-          organizationId: actor.organizationId,
-          dealId: existing.dealId,
-          entityType: "deal",
-          eventType: "stage_changed",
-          actorId: actor.userId,
-          metadata: { fromStatus: "PROSPECT", toStatus: "PROPOSAL", reason: "quotation_sent" },
-          permissionCategory: "sales",
-        });
-      } else {
-        await tx
-          .update(deals)
-          .set({ lastActivityAt: now, version: sql`${deals.version} + 1` })
-          .where(eq(deals.id, existing.dealId));
-      }
-    } else {
-      await tx
-        .update(deals)
-        .set({ lastActivityAt: now, version: sql`${deals.version} + 1` })
-        .where(eq(deals.id, existing.dealId));
+    // lastActivityAt/version bump either way; the stage change folds that into
+    // its own UPDATE instead of writing twice.
+    const advance =
+      deal.onHoldUntil !== null
+        ? null
+        : parsed.toStatus === "SENT" && deal.status === "PROSPECT"
+          ? { to: "PROPOSAL", reason: "quotation_sent" }
+          : parsed.toStatus === "ACCEPTED" && (deal.status === "PROPOSAL" || deal.status === "NEGOTIATION")
+            ? { to: "COMMITMENT", reason: "quotation_accepted" }
+            : null;
+
+    await tx
+      .update(deals)
+      .set({
+        lastActivityAt: now,
+        version: sql`${deals.version} + 1`,
+        ...(advance ? { status: advance.to, stageEnteredAt: now } : {}),
+        ...(advance && parsed.toStatus === "SENT" && deal.estimatedValue <= 0n ? { estimatedValue: updated.total } : {}),
+      })
+      .where(eq(deals.id, existing.dealId));
+    if (advance) {
+      // AUD-01: "deal updated/stage changed" is a required minimum event.
+      await tx.insert(activities).values({
+        organizationId: actor.organizationId,
+        dealId: existing.dealId,
+        entityType: "deal",
+        eventType: "stage_changed",
+        actorId: actor.userId,
+        metadata: { fromStatus: deal.status, toStatus: advance.to, reason: advance.reason },
+        permissionCategory: "sales",
+      });
     }
 
     // AUD-01: "quotation ... SENT/ACCEPTED/REJECTED" is a required minimum

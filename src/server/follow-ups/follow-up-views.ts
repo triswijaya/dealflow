@@ -66,7 +66,7 @@ function dayBounds(timezone: string) {
 
 function tabCondition(tab: FollowUpTab, timezone: string): SQL {
   const { startToday, startTomorrow } = dayBounds(timezone);
-  const open = and(isNull(followUps.completedAt), notInArray(deals.status, ["WON", "LOST"]))!;
+  const open = and(isNull(followUps.completedAt), isNull(followUps.cancelledAt), notInArray(deals.status, ["WON", "LOST"]))!;
   switch (tab) {
     case "OVERDUE":
       return and(open, lt(followUps.followUpAt, startToday))!;
@@ -119,7 +119,7 @@ function baseQuery(organizationId: string, where: SQL | undefined) {
 
 function toRow(row: Awaited<ReturnType<typeof baseQuery>>[number], timezone: string, today: string): FollowUpRowDto {
   const { followUp, deal, customer } = row;
-  const open = followUp.completedAt === null && deal.status !== "WON" && deal.status !== "LOST";
+  const open = followUp.completedAt === null && followUp.cancelledAt === null && deal.status !== "WON" && deal.status !== "LOST";
   const lastContact = row.lastContact ? new Date(row.lastContact as unknown as string | Date) : null;
   return {
     id: followUp.id,

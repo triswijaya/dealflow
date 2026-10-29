@@ -44,6 +44,8 @@ function describe(event: ActivityDto, ctx: { customerName?: string; dealTitle?: 
     case "deal.stage_changed":
       return meta.reason === "quotation_sent" ? (
         <>memindahkan deal ke {stage(meta.toStatus)} karena quotation ditandai terkirim</>
+      ) : meta.reason === "quotation_accepted" ? (
+        <>memindahkan deal ke {stage(meta.toStatus)} karena quotation diterima</>
       ) : (
         <>memindahkan deal dari {stage(meta.fromStatus)} ke {stage(meta.toStatus)}</>
       );

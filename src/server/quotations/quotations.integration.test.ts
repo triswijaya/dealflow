@@ -7,7 +7,7 @@ import { auth } from "@/server/auth/auth";
 import { inviteMember, acceptInvitation } from "@/server/auth/members";
 import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
-import { createDeal, transitionDeal, updateDeal } from "@/server/deals/deals";
+import { createDeal, putDealOnHold, reopenDeal, transitionDeal, updateDeal } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
 import { activities, customers, deals, organizationSettings, quotations } from "@/server/db/schema";
 import { organizationDateString } from "@/server/shared/organization-date";
@@ -900,7 +900,103 @@ describe("quotations", () => {
           expectedEditVersion: created.editVersion,
           toStatus: "SENT",
         }),
-      ).rejects.toThrow(/lost deal/);
+      ).rejects.toThrow(/read-only/);
+    });
+
+    describe("deal rules (QUO-09, QUO-11)", () => {
+      const lose = async (ownerCookie: string, dealId: string) => {
+        const deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+        await transitionDeal({ headers: new Headers({ cookie: ownerCookie }), dealId, expectedVersion: deal!.version, input: { toStatus: "LOST", lostReason: "NO_RESPONSE" } });
+      };
+      const dealOf = (dealId: string) => db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
+      const accept = (ownerCookie: string, quotation: { id: string; editVersion: number }) =>
+        transitionQuotationStatus({ headers: new Headers({ cookie: ownerCookie }), quotationId: quotation.id, expectedEditVersion: quotation.editVersion, toStatus: "ACCEPTED" });
+
+      it("moves a PROPOSAL deal to COMMITMENT when its quotation is accepted, and never to WON", async () => {
+        const { ownerCookie, dealId } = await setupOwnerWithDeal();
+        const sent = await sendQuotation(ownerCookie, dealId, { validUntil: FUTURE_VALID_UNTIL });
+        expect((await dealOf(dealId))!.status).toBe("PROPOSAL");
+
+        await accept(ownerCookie, sent);
+        const after = await dealOf(dealId);
+        expect(after!.status).toBe("COMMITMENT");
+        expect(after!.stageEnteredAt.getTime()).toBeGreaterThan(after!.createdAt.getTime());
+        const log = await db.query.activities.findMany({ where: eq(activities.dealId, dealId) });
+        expect(log.filter((event) => event.eventType === "stage_changed").map((event) => event.metadata)).toContainEqual({
+          fromStatus: "PROPOSAL",
+          toStatus: "COMMITMENT",
+          reason: "quotation_accepted",
+        });
+      });
+
+      it("moves a NEGOTIATION deal to COMMITMENT, but leaves a COMMITMENT, WON or held deal where it is", async () => {
+        const negotiating = await setupOwnerWithDeal();
+        const sent = await sendQuotation(negotiating.ownerCookie, negotiating.dealId, { validUntil: FUTURE_VALID_UNTIL });
+        const deal = await dealOf(negotiating.dealId);
+        await transitionDeal({ headers: new Headers({ cookie: negotiating.ownerCookie }), dealId: negotiating.dealId, expectedVersion: deal!.version, input: { toStatus: "NEGOTIATION" } });
+        await accept(negotiating.ownerCookie, sent);
+        expect((await dealOf(negotiating.dealId))!.status).toBe("COMMITMENT");
+
+        const won = await setupOwnerWithDeal();
+        const wonSent = await sendQuotation(won.ownerCookie, won.dealId, { validUntil: FUTURE_VALID_UNTIL });
+        const wonDeal = await dealOf(won.dealId);
+        await transitionDeal({ headers: new Headers({ cookie: won.ownerCookie }), dealId: won.dealId, expectedVersion: wonDeal!.version, input: { toStatus: "WON" } });
+        await accept(won.ownerCookie, wonSent);
+        expect((await dealOf(won.dealId))!.status).toBe("WON");
+
+        const held = await setupOwnerWithDeal();
+        const heldSent = await sendQuotation(held.ownerCookie, held.dealId, { validUntil: FUTURE_VALID_UNTIL });
+        const heldDeal = await dealOf(held.dealId);
+        await putDealOnHold({ headers: new Headers({ cookie: held.ownerCookie }), dealId: held.dealId, expectedVersion: heldDeal!.version, input: { reason: "Tunggu", reviewDate: "2099-01-01" } });
+        await accept(held.ownerCookie, heldSent);
+        expect((await dealOf(held.dealId))!.status).toBe("PROPOSAL");
+      });
+
+      it("does not move the deal when a quotation is rejected", async () => {
+        const { ownerCookie, dealId } = await setupOwnerWithDeal();
+        const sent = await sendQuotation(ownerCookie, dealId, { validUntil: FUTURE_VALID_UNTIL });
+        await transitionQuotationStatus({ headers: new Headers({ cookie: ownerCookie }), quotationId: sent.id, expectedEditVersion: sent.editVersion, toStatus: "REJECTED" });
+        expect((await dealOf(dealId))!.status).toBe("PROPOSAL");
+      });
+
+      it("makes every quotation action read-only once the deal is LOST, then writable again after reopen", async () => {
+        const { ownerCookie, dealId } = await setupOwnerWithDeal();
+        const headers = new Headers({ cookie: ownerCookie });
+        const draftQuotation = await createQuotation({ headers, input: quotationInput(dealId, { validUntil: FUTURE_VALID_UNTIL }) });
+        const sent = await sendQuotation(ownerCookie, dealId, { validUntil: FUTURE_VALID_UNTIL });
+        await lose(ownerCookie, dealId);
+
+        const readOnly = /read-only/;
+        await expect(
+          updateQuotation({ headers, quotationId: draftQuotation.id, expectedEditVersion: draftQuotation.editVersion, input: quotationInput(dealId, { notes: "ubah" }) }),
+        ).rejects.toThrow(readOnly);
+        await expect(
+          reviseQuotation({ headers, input: { sourceQuotationId: sent.id, expectedLatestQuotationId: sent.id, idempotencyKey: crypto.randomUUID() } }),
+        ).rejects.toThrow(readOnly);
+        await expect(accept(ownerCookie, sent)).rejects.toThrow(readOnly);
+        await expect(
+          transitionQuotationStatus({ headers, quotationId: sent.id, expectedEditVersion: sent.editVersion, toStatus: "REJECTED" }),
+        ).rejects.toThrow(readOnly);
+        expect((await db.query.quotations.findFirst({ where: eq(quotations.id, sent.id) }))!.status).toBe("SENT");
+
+        const lost = await dealOf(dealId);
+        await reopenDeal({ headers, dealId, expectedVersion: lost!.version, input: { toStatus: "NEGOTIATION", reason: "Customer kembali" } });
+        expect((await accept(ownerCookie, sent)).status).toBe("ACCEPTED");
+        expect((await dealOf(dealId))!.status).toBe("COMMITMENT");
+      });
+
+      it("keeps revising allowed on a WON deal (QUO-07)", async () => {
+        const { ownerCookie, dealId } = await setupOwnerWithDeal();
+        const sent = await sendQuotation(ownerCookie, dealId, { validUntil: FUTURE_VALID_UNTIL });
+        const deal = await dealOf(dealId);
+        await transitionDeal({ headers: new Headers({ cookie: ownerCookie }), dealId, expectedVersion: deal!.version, input: { toStatus: "WON" } });
+
+        const revised = await reviseQuotation({
+          headers: new Headers({ cookie: ownerCookie }),
+          input: { sourceQuotationId: sent.id, expectedLatestQuotationId: sent.id, idempotencyKey: crypto.randomUUID() },
+        });
+        expect(revised.revisionNumber).toBe(2);
+      });
     });
 
     it("rejects SENT on an already-expired draft, without a warning bypass (QUO-10)", async () => {
