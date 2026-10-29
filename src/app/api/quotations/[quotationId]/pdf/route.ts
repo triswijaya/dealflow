@@ -1,6 +1,7 @@
 import { APIError } from "better-auth/api";
 import { renderQuotationPdf } from "@/server/pdf/quotation-document";
 import { getQuotationForPdf } from "@/server/quotations/quotations";
+import { getRequestId, logger } from "@/server/shared/logger";
 
 // PDF-04: server-generated only (QT-YYYY-NNNNN[-Rn]), never user input --
 // this replace() is cheap defense-in-depth, not something ever expected to
@@ -64,7 +65,7 @@ export async function GET(request: Request, ctx: RouteContext<"/api/quotations/[
       return Response.json({ code: error.status, message }, { status: error.statusCode });
     }
     // API-02: never leak internals (stack trace, SQL) to the client.
-    console.error("Unexpected error rendering quotation PDF", error);
+    logger.error("quotation_pdf.failed", { requestId: getRequestId(request), error });
     return Response.json({ code: "INTERNAL_SERVER_ERROR", message: "Failed to render PDF" }, { status: 500 });
   }
 }

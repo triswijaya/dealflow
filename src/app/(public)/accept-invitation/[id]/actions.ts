@@ -7,6 +7,7 @@ import type { ActionResult } from "@/lib/action-result";
 import { auth } from "@/server/auth/auth";
 import { getInvitationPreview } from "@/server/auth/invitation-preview";
 import { acceptInvitation } from "@/server/auth/members";
+import { assertRateLimit, clientIp } from "@/server/security/rate-limit";
 import { db } from "@/server/db/client";
 import { user } from "@/server/db/schema";
 import { runAction } from "@/server/shared/action";
@@ -30,6 +31,12 @@ export async function acceptInvitationAction(input: { invitationId: string }): P
  */
 export async function acceptInvitationAsNewUserAction(input: { invitationId: string; name: string; password: string }): Promise<ActionResult> {
   return runAction(async () => {
+    // SEC-02: this creates an account without any prior session, so it is limited
+    // per client and per invitation (a link is no reason to allow endless tries).
+    await assertRateLimit([
+      { key: `accept-invitation:ip:${clientIp(await headers())}`, rule: { max: 10, windowSeconds: 60 * 60 } },
+      { key: `accept-invitation:invitation:${input.invitationId}`, rule: { max: 10, windowSeconds: 60 * 60 } },
+    ]);
     const preview = await getInvitationPreview(input.invitationId);
     if (preview.state !== "valid") throw new APIError("BAD_REQUEST", { message: "Invitation is not available" });
     if (preview.hasAccount) throw new APIError("BAD_REQUEST", { message: "Account already exists" });

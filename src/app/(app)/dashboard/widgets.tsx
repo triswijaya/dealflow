@@ -11,6 +11,7 @@ import { CardHeading } from "@/components/ui/card";
 import { formatDate, formatDateTime, formatRelative, formatRupiah, formatRupiahCompact } from "@/lib/format";
 import { DEAL_STAGE, INVOICE_STATUS, paymentMethodLabel } from "@/lib/labels";
 import { getPipelineMetrics } from "@/server/dashboard/dashboard";
+import { logger } from "@/server/shared/logger";
 import { listDealRows, listRecentActivities } from "@/server/deals/deal-views";
 import { getFollowUpCounts, listFollowUpRows } from "@/server/follow-ups/follow-up-views";
 import { listInvoiceableDeals, listNearestDueInvoices, listRecentPayments } from "@/server/invoices/invoice-views";
@@ -26,7 +27,7 @@ async function guard<T>(title: string, read: () => Promise<T>, render: (value: T
   } catch (error) {
     // Redirects and not-found are control flow, not failures.
     if (error && typeof error === "object" && "digest" in error) throw error;
-    console.error(`Dashboard widget "${title}" failed`, error);
+    logger.error("dashboard.widget_failed", { widget: title, error });
     return <WidgetError title={title} />;
   }
 }

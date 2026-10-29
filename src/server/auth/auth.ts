@@ -11,6 +11,7 @@ import { sendEmail } from "@/server/email/send-email";
 import { env } from "@/server/env";
 import { ac, roles } from "@/lib/auth-permissions";
 import { findActiveMembership, findCurrentMembership } from "./current-membership";
+import { betterAuthRateLimitStorage } from "@/server/security/rate-limit";
 
 // Organization endpoints a person needs precisely because they have no usable
 // membership: answering an invitation. Better Auth itself checks the invitation
@@ -48,6 +49,19 @@ async function targetOrganizationId(ctx: OrganizationRequest): Promise<string | 
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
+  // SEC-02: Better Auth limits its own HTTP endpoints (sign-in, sign-up, ...) in
+  // production only, and by default in the memory of one instance. Keep the
+  // counters in Postgres so every Vercel instance shares them. Calls made
+  // straight through auth.api from a Server Action bypass this limiter, which is
+  // why those actions call assertRateLimit themselves.
+  rateLimit: {
+    customStorage: betterAuthRateLimitStorage,
+    customRules: {
+      "/request-password-reset": { window: 15 * 60, max: 5 },
+      "/reset-password": { window: 15 * 60, max: 10 },
+      "/send-verification-email": { window: 15 * 60, max: 5 },
+    },
+  },
   database: drizzleAdapter(db, {
     provider: "pg",
   }),

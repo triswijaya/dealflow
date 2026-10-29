@@ -1,8 +1,9 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { registerOwner } from "@/server/auth/register-owner";
+import { clientIp, consumeRateLimits } from "@/server/security/rate-limit";
 
 export type RegisterState = {
   error: string | null;
@@ -35,6 +36,17 @@ export async function registerOwnerAction(
   }
   if (password.length < MIN_PASSWORD_LENGTH) {
     return { error: `Password minimal ${MIN_PASSWORD_LENGTH} karakter.` };
+  }
+
+  // SEC-02: registering with an email that already exists signs in with the given
+  // password, so this action is also a password-guessing surface. Limit per client
+  // and per address; the answer names neither an account nor which limit was hit.
+  const decision = await consumeRateLimits([
+    { key: `register:ip:${clientIp(await headers())}`, rule: { max: 10, windowSeconds: 60 * 60 } },
+    { key: `register:email:${email.toLowerCase()}`, rule: { max: 5, windowSeconds: 60 * 60 } },
+  ]);
+  if (!decision.allowed) {
+    return { error: "Terlalu banyak percobaan. Coba lagi dalam beberapa menit." };
   }
 
   // If provisioning stops after the account exists, /onboarding finishes the

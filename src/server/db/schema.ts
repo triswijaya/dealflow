@@ -854,6 +854,20 @@ export const auditEvents = pgTable(
   (table) => [index("audit_events_organizationId_createdAt_idx").on(table.organizationId, table.createdAt)],
 );
 
+// Infrastructure table (v2.0, SEC-02), not a business table: it carries no
+// organization_id because limits are per client (IP, email, invitation), often
+// before anyone is signed in. `key` is a hash, so no IP or email is stored in
+// the clear. Rows are cleaned up opportunistically by server/security/rate-limit.ts.
+export const rateLimitBuckets = pgTable(
+  "rate_limit_buckets",
+  {
+    key: text("key").primaryKey(),
+    count: integer("count").notNull(),
+    windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("rate_limit_buckets_windowStartedAt_idx").on(table.windowStartedAt)],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),

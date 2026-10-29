@@ -2,6 +2,7 @@ import { APIError } from "better-auth/api";
 import { unstable_rethrow } from "next/navigation";
 import { ZodError } from "zod";
 import type { ActionError, ActionResult } from "@/lib/action-result";
+import { logger } from "./logger";
 
 // Service errors are written in English for developers and tests; the UI
 // language is Indonesian (§3). This table is the single place that turns
@@ -108,7 +109,7 @@ export function toActionError(error: unknown): ActionError {
     return translate(String(error.status), message);
   }
   // API-02/SEC-08: never leak internals to the client.
-  console.error("Unexpected server action error", error);
+  logger.error("action.unexpected", { error });
   return { code: "INTERNAL_SERVER_ERROR", message: GENERIC };
 }
 

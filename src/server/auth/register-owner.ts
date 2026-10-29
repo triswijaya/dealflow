@@ -3,6 +3,7 @@ import { auth } from "./auth";
 import { findActiveMembership } from "./current-membership";
 import { recordAudit } from "@/server/audit/audit";
 import { db } from "@/server/db/client";
+import { logger } from "@/server/shared/logger";
 import { organization, organizationSettings, user } from "@/server/db/schema";
 
 export interface RegisterOwnerInput {
@@ -116,7 +117,7 @@ export async function registerOwner(input: RegisterOwnerInput): Promise<Register
     // the app offers a resend.
     await auth.api
       .sendVerificationEmail({ body: { email: input.email, callbackURL: "/verify-email?verified=1" } })
-      .catch((error) => console.error("Could not send the verification email", error));
+      .catch((error) => logger.warn("register.verification_email_failed", { error }));
   }
 
   const organizationId = await provisionOrganization({ userId, companyName: input.companyName });

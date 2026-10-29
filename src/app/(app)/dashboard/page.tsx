@@ -11,6 +11,7 @@ import { one } from "@/lib/url";
 import { getPipelineMetrics, getWonThisMonth } from "@/server/dashboard/dashboard";
 import { countTodayCustomers, getFollowUpCounts } from "@/server/follow-ups/follow-up-views";
 import { getInvoiceSummary, getReceivedThisMonth } from "@/server/invoices/invoice-views";
+import { logger } from "@/server/shared/logger";
 import { requireWorkspace } from "../workspace";
 import { AgendaWidget, CloserWidget, FeedWidget, NearestDueWidget, PipelineWidget, ReadyToInvoiceWidget, RecentPaymentsWidget } from "./widgets";
 
@@ -25,7 +26,7 @@ async function safe<T>(read: () => Promise<T>): Promise<T | null> {
     return await read();
   } catch (error) {
     if (error && typeof error === "object" && "digest" in error) throw error;
-    console.error("Dashboard metric failed", error);
+    logger.error("dashboard.metric_failed", { error });
     return null;
   }
 }

@@ -134,6 +134,13 @@
       "when": 1793248077118,
       "tag": "0018_audit_events_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793250820192,
+      "tag": "0019_rate_limit_buckets",
+      "breakpoints": true
     }
   ]
 }
