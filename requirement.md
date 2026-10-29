@@ -1,6 +1,6 @@
 # DealFlow: Final Product & Engineering Requirements
 
-Versi: 1.2 · Tanggal: 26 September 2026 (revisi terakhir dari 1.1, 20 September 2026; lihat §23 untuk ringkasan perubahan) · Bahasa produk MVP: Bahasa Indonesia
+Versi: 2.0 · Tanggal: 29 Oktober 2026 (revisi dari 1.2, 26 September 2026; keputusan arsitektur ada di `docs/adr/0001` sampai `0004` dan ringkasannya di §23) · Bahasa produk MVP: Bahasa Indonesia
 
 Status: baseline requirement untuk implementasi dan release MVP. Dokumen ini menetapkan apa yang harus dibangun; dokumen ini bukan laporan bahwa aplikasi sudah dibangun atau diuji.
 
@@ -25,9 +25,9 @@ Dasarnya adalah seluruh 47 bagian PRD asal DealFlow, disatukan dengan keputusan 
 DealFlow adalah aplikasi **sales-to-cash** untuk bisnis B2B yang masih mengelola calon customer, quotation, follow-up, invoice, dan pembayaran melalui WhatsApp, spreadsheet, dan dokumen terpisah.
 
 ```text
-Customer → Lead / Deal → Quotation → Follow-up / Negotiation
-                                             ├→ LOST
-                                             └→ WON → Invoice → Payment
+Customer → Deal → Quotation → Follow-up / Negotiation
+                                       ├→ LOST
+                                       └→ WON (Pesanan) → Termin → Invoice → Receipt / Settlement
 ```
 
 User harus dapat mengetahui calon customer, deal yang berjalan, nilai deal, quotation yang dikirim, jadwal follow-up, hasil WON/LOST, invoice belum lunas, dan uang outstanding dalam satu aplikasi. Visibility utama: **Lead → Deal → Quotation → Revenue**.
@@ -40,13 +40,15 @@ MVP mencakup register/login/logout, organisasi terisolasi, tiga kelompok role, c
 
 **SaaS-ready** berarti aplikasi aman digunakan oleh beberapa organisasi melalui satu deployment dengan onboarding, otorisasi, monitoring, backup, dan proses release yang jelas. Subscription billing, paket harga, trial berbayar, metering, dan payment gateway bukan syarat MVP.
 
+**Cakupan v2.0:** pipeline berbasis kondisi dengan on hold dan reopen (ADR-0001); pesanan dengan bukti komitmen, amandemen, dan rencana termin, serta banyak invoice per pesanan dengan void (ADR-0002); receipt, settlement, dan koreksi uang append-only (ADR-0003); kontak customer; tugas penagihan; email transaksional lewat outbox (ADR-0004); laporan aging dan ekspor CSV. Aturan yang substansinya tetap memakai ID yang sama dengan versi 1.2; aturan baru memakai ID baru.
+
 ### 2.3 Di luar MVP
 
 Jangan menambahkan inventory, accounting ledger, payroll, HRIS, POS, tax reporting, bank reconciliation, payment gateway, WhatsApp Business API, email automation platform, complex workflow builder, AI chatbot, MCP server, native mobile app, marketplace, multi-currency, multi-language, atau complex approval workflow ke MVP.
 
 **Microservices, Redis, Kafka, Kubernetes, dan Elasticsearch secara eksplisit di luar MVP.** Backend NestJS/Express terpisah, message broker, BullMQ, event bus terdistribusi, dan sistem search terpisah juga tidak diperlukan. Penambahan kelak harus menjawab kebutuhan terukur melalui ADR, termasuk alternatif sederhana, biaya operasi, failure mode, dan rencana migrasi. Jumlah fitur atau nilai portfolio bukan alasan teknis yang cukup.
 
-Drag-and-drop pipeline, Money at Risk, dan PDF invoice adalah peningkatan opsional. PDF quotation tetap wajib. Reminder MVP dihitung saat membaca data; tidak membutuhkan queue atau background worker.
+Drag-and-drop pipeline adalah peningkatan opsional. PDF quotation dan PDF invoice wajib. Status turunan (overdue, expired, bucket reminder, aging, kesehatan deal) dihitung saat membaca data. Satu-satunya pemrosesan latar adalah transactional outbox di PostgreSQL yang disapu Vercel Cron untuk side effect setelah commit, yaitu email (ADR-0004); tabel antrian itu bukan message broker dan bukan platform email automation.
 
 ### 2.4 Prinsip produk
 
@@ -64,20 +66,20 @@ PRD asal belum menetapkan semua detail berikut. Default ini dipilih agar impleme
 |---|---|
 | Mata uang | Hanya IDR; unit pencatatan aplikasi Rp1, tanpa pecahan rupiah. Ini pilihan precision produk, bukan pernyataan tentang standar mata uang internasional. |
 | Bahasa dan waktu | UI Bahasa Indonesia; timezone organisasi `Asia/Jakarta` untuk MVP; instant disimpan UTC, tanggal bisnis disimpan sebagai `date`. |
-| Organisasi | Setiap user hanya memiliki satu membership organisasi aktif pada MVP; organization switcher dan keanggotaan multi-organisasi ditunda. |
+| Organisasi | Setiap user hanya memiliki satu membership organisasi **aktif**; membership yang dinonaktifkan tidak menghalangi user bergabung ke organisasi lain. Organization switcher dan keanggotaan multi-organisasi ditunda. |
 | Role | Tiga kelompok bisnis: Owner/Admin, Sales, Finance. Nilai teknis `OWNER` dan `ADMIN` boleh dibedakan untuk melindungi owner terakhir; tidak menambah kelompok operasional baru. |
 | Visibilitas Sales | Sales bekerja kolaboratif pada customer, deal, quotation, dan follow-up dalam organisasinya. `assigned_to` adalah penanggung jawab/filter, bukan batas tenant atau aturan own-record-only. |
-| Visibilitas Finance | Customer dapat dibaca; detail deal hanya jika WON; quotation hanya yang terkait WON untuk sumber invoice; invoice dan payment seluruh organisasi dapat dibaca. |
-| Transisi deal | Alur maju berurutan; LOST dari semua status aktif. QUOTATION adalah tahap pipeline, bukan kewajiban memiliki dokumen quotation. WON tetap mungkin tanpa quotation. |
-| Nilai WON | `estimated_value` harus lebih besar dari nol; nilai pada saat WON dibekukan sebagai `won_value` dan tanggalnya sebagai `won_at`. |
-| Invoice per deal | Satu invoice per deal pada MVP, mengikuti model Deal → Invoice pada PRD. Split/milestone invoicing ditunda. |
+| Visibilitas Finance | Customer dapat dibaca; detail deal hanya jika WON; quotation beserta PDF-nya hanya yang terkait deal WON; pesanan, invoice, receipt, dan settlement seluruh organisasi dapat dibaca. |
+| Transisi deal | Stage aktif `PROSPECT`, `PROPOSAL`, `NEGOTIATION`, `COMMITMENT`; perpindahan antar stage aktif bebas (maju, lompat, mundur) dan tercatat; WON dan LOST dari stage aktif mana pun; on hold adalah overlay, bukan stage (§7.3, ADR-0001). |
+| Nilai WON | WON hanya melalui pesanan dengan bukti komitmen. `won_value` adalah nilai pesanan pertama dan dibekukan bersama `won_at`; pesanan berikutnya dan amandemen dihitung sebagai bookings, tidak mengubah `won_value` (§10.1, ADR-0002). |
+| Invoice per deal | Satu deal punya nol atau lebih pesanan; satu pesanan punya satu atau lebih termin; satu termin punya paling banyak satu invoice non-void (§10, ADR-0002). |
 | Perubahan customer deal | Customer deal dapat diganti selama aktif dan belum mempunyai quotation; setelah dokumen terkait ada, hubungan customer dikunci. Perubahan informasi master customer tetap diperbolehkan. |
 | Discount dan tax | Nominal rupiah tingkat dokumen, default nol. Input persentase, pajak per item, dan diskon bertingkat ditunda. |
 | Quantity | Positif, maksimal tiga angka desimal; nominal unit price tetap integer rupiah. Pembulatan dijelaskan di §13. |
-| Overpayment | Pembayaran baru melebihi outstanding ditolak; formula PAID menggunakan `paid_amount >= total` sebagai pertahanan untuk data legacy/import kelak. |
-| Dokumen final | Quotation terkirim dan versi yang sudah direvisi immutable untuk konten komersial; invoice tersimpan langsung menjadi dokumen issued dan immutable. |
-| Koreksi finansial | Tidak ada edit/delete payment, credit note, refund, atau void invoice pada MVP. UI memberi review sebelum konfirmasi; koreksi insiden mengikuti prosedur terbatas di §18. |
-| Pengiriman | SENT dicatat manual setelah user mengirim quotation di luar aplikasi. Membuka WhatsApp atau mengunduh PDF bukan bukti pengiriman. |
+| Overpayment | Receipt boleh melebihi invoice; sisanya menjadi kredit customer. Settlement tidak pernah melebihi sisa invoice maupun sisa receipt (§10.4, ADR-0003). |
+| Dokumen final | Quotation terkirim dan versi yang sudah direvisi immutable untuk konten komersial; invoice tersimpan langsung menjadi dokumen issued dan immutable, dikoreksi lewat void dan invoice pengganti, bukan edit. |
+| Koreksi finansial | Tidak ada edit atau delete pada record finansial. Koreksi memakai void invoice, reversal settlement dan receipt, refund, reopen deal, dan amandemen pesanan; semuanya append-only, beralasan, dan diaudit. Credit note ditunda (§20.4). |
+| Pengiriman | SENT dicatat manual setelah user mengirim quotation di luar aplikasi. Membuka WhatsApp atau mengunduh PDF bukan bukti pengiriman. Email dokumen dari sistem adalah aksi eksplisit; statusnya hanya status outbox (diminta, terkirim ke penyedia, gagal), bukan bukti dibaca, dan tidak menggantikan pencatatan SENT. |
 | Account service | Email verifikasi, recovery password, dan undangan organisasi adalah fungsi akun untuk production readiness; tidak memperluas scope menjadi email automation bisnis. |
 
 ## 4. Stack produksi yang ditetapkan
@@ -146,21 +148,28 @@ src/
     customers/
     deals/
     quotations/
-    follow-ups/
+    follow-ups/            # task deal dan task penagihan (tabel `tasks`)
     whatsapp/
-    invoices/              # invoice dan payment (satu modul finance, bukan dua terpisah)
+    orders/                # pesanan, amandemen, termin
+    invoices/              # invoice, void, PDF invoice
+    receivables/           # receipt, settlement, refund, aging
     money/                 # amount/quantity/calculation, dipakai bersama quotation dan invoice
     pdf/                   # rendering quotation PDF
     shared/                # clock organisasi, snapshot builder, contract item dokumen bersama
     db/                    # client, schema, tenant context
-    email/                 # adapter email akun
+    email/                 # adapter email (dipanggil handler outbox)
+    outbox/                # antrian side effect dan penyapu cron
+    audit/                 # audit organisasi
+    reports/               # metrik, aging, ekspor CSV
+    dashboard/
+    search/
   lib/                     # auth-permissions dan pure shared utilities lain
 drizzle/                   # reviewed migrations
 tests/                     # integration fixtures dan E2E
 docs/adr/                  # keputusan arsitektur
 ```
 
-Struktur di atas diperbarui 20 September 2026 mengikuti implementasi nyata: setiap modul bisnis hidup langsung di bawah `server/`, bukan pada `modules/` terpisah seperti draft awal. Aturan substansinya (ARCH-02) tidak berubah -- ini murni koreksi lokasi folder, bukan keputusan arsitektur baru. `dashboard/` dan `activities/` sengaja tidak dicantumkan karena keduanya belum dibangun sebagai modul (M4); tambahkan mengikuti pola yang sama begitu ditulis.
+Struktur di atas mengikuti implementasi nyata (diperbarui 20 September dan 29 Oktober 2026): setiap modul bisnis hidup langsung di bawah `server/`. Aturan substansinya (ARCH-02) tidak berubah. Read model per modul berada di `*-views.ts` pada modul masing-masing; `dashboard/` dan `search/` menggabungkannya.
 
 Di dalam modul, pisahkan schema validasi, domain/service, repository, type/DTO, komponen UI, dan tests. Nama file dapat mengikuti konvensi repository, tetapi business logic tidak boleh terkumpul di page atau route handler.
 
@@ -172,7 +181,7 @@ Di dalam modul, pisahkan schema validasi, domain/service, repository, type/DTO, 
 
 `ARCH-05`: Tidak ada shared cache lintas tenant untuk data privat.
 
-`ARCH-06`: Hindari ketergantungan pada state proses, file lokal persisten, timer di memory, atau pekerjaan yang dilanjutkan setelah response. Database adalah state durable; reminder dan overdue dihitung dari data saat dibaca. PDF dapat dirender on-demand tanpa object storage MVP.
+`ARCH-06`: Hindari ketergantungan pada state proses, file lokal persisten, timer di memory, atau pekerjaan yang dilanjutkan setelah response. Database adalah state durable; reminder, overdue, aging, dan kesehatan deal dihitung dari data saat dibaca. Side effect setelah commit memakai outbox (ADR-0004). PDF dapat dirender on-demand; lampiran bukti memakai object storage privat (ATT-01).
 
 ## 6. Authentication, organization, dan authorization
 
@@ -202,18 +211,28 @@ Semua izin berikut terbatas pada organisasi user. `Tidak` berarti ditolak pada s
 | Membuat/mengubah customer | Ya | Ya | Tidak |
 | Membaca deal/pipeline | Semua | Semua | Hanya deal WON |
 | Membuat/mengubah deal aktif | Ya | Ya | Tidak |
-| Mengubah status, WON/LOST | Ya | Ya | Tidak |
+| Mengubah stage aktif, on hold/resume, LOST, reopen LOST | Ya | Ya | Tidak |
+| Konfirmasi WON dan membuat pesanan dari deal | Ya | Ya | Tidak |
+| Reopen deal WON | Ya | Tidak | Tidak |
 | Menetapkan/mengubah assigned sales | Ya | Saat membuat: diri sendiri; setelah itu Tidak | Tidak |
 | Membuat/mengubah quotation draft, revisi, status, PDF | Ya | Ya | Tidak |
 | Membaca quotation/PDF sebagai sumber invoice | Ya | Ya | Hanya terkait deal WON |
-| Membuat/mengubah/menyelesaikan follow-up | Ya | Ya | Tidak |
+| Membuat/mengubah/menyelesaikan task deal (follow-up) | Ya | Ya | Tidak |
+| Membuat/mengubah/menyelesaikan task penagihan dan janji bayar | Ya | Membaca | Ya |
 | Membuka WhatsApp customer | Ya | Ya | Ya, pada customer yang dapat dibaca |
-| Membuat/membaca invoice | Ya | Tidak | Ya |
-| Mencatat/membaca payment | Ya | Tidak | Ya |
+| Pesanan langsung (tanpa deal) | Ya | Ya, tanpa invoice dan uang | Ya |
+| Membaca pesanan | Ya | Ya | Ya |
+| Amandemen pesanan, ubah rencana termin, tandai milestone | Ya | Ya | Ya |
+| Membuat/membaca invoice, void invoice | Ya | Tidak | Ya |
+| Mencatat receipt, settlement, reversal, refund; identifikasi receipt | Ya | Tidak | Ya |
+| Write-off di atas batas settings | Ya | Tidak | Tidak |
 | Dashboard perusahaan lengkap | Ya | Tidak | Tidak |
 | Dashboard sales: pipeline, won, follow-up | Ya | Ya | Tidak |
 | Dashboard finance: outstanding, overdue | Ya | Tidak | Ya |
+| Laporan uang (aging, kas diterima) dan ekspor CSV | Ya | Tidak | Ya |
+| Laporan pipeline dan bookings | Ya | Ya | Bookings saja |
 | Mengelola settings dan user | Ya, dengan batas owner | Tidak | Tidak |
+| Membaca audit log organisasi; memindahkan deal dan task antar anggota | Ya | Tidak | Tidak |
 | Melihat activity timeline | Semua | Event sales | Event finance dan konteks WON |
 
 `RBAC-01`: Default deny. Permission bernama jelas, misalnya `customer.write`, `deal.transition`, `quotation.revise`, `invoice.create`, `payment.record`, `member.manage`. Role adalah bundle permission; jangan menyebarkan kondisi role ad hoc di seluruh aplikasi.
@@ -222,7 +241,7 @@ Semua izin berikut terbatas pada organisasi user. `Tidak` berarti ditolak pada s
 
 `RBAC-03`: Assigned sales harus membership aktif ber-role Sales atau Owner/Admin pada tenant yang sama. Owner/Admin menangani reassignment jika Sales dinonaktifkan. Record dan atribusi historis tidak dihapus.
 
-`RBAC-04`: Setelah WON, user yang memiliki `invoice.create` mendapat action Create Invoice; Sales melihat hasil WON dan keterangan bahwa Finance/Admin dapat membuat invoice. Kewajiban action sesudah WON tidak memberikan izin finance kepada Sales.
+`RBAC-04`: Setelah WON, termin yang `READY` muncul pada antrian "Siap ditagih" bagi user yang memiliki `invoice.create`; Sales melihat hasil WON dan keterangan bahwa Finance/Admin menerbitkan invoice. Kewajiban tindakan sesudah WON tidak memberikan izin finance kepada Sales.
 
 ### 6.3 Tenant isolation
 
@@ -230,7 +249,7 @@ Semua izin berikut terbatas pada organisasi user. `Tidak` berarti ditolak pada s
 
 `TENANT-02`: Organization aktif ditentukan dari session dan membership valid pada server. Parameter tenant dari URL/body tidak dipercaya tanpa verifikasi membership. Setiap SELECT, UPDATE, DELETE, aggregate, search, PDF, dan export harus memiliki scope tenant.
 
-`TENANT-03`: Relasi customer→deal→quotation→invoice→payment harus konsisten tenant. Gunakan unique `(organization_id, id)` dan composite foreign key untuk hubungan bisnis; verifikasi service tetap wajib. ID global yang sulit ditebak tidak menggantikan authorization.
+`TENANT-03`: Relasi customer→deal→quotation, customer→pesanan→termin→invoice→settlement←receipt harus konsisten tenant. Gunakan unique `(organization_id, id)` dan composite foreign key untuk hubungan bisnis; verifikasi service tetap wajib. ID global yang sulit ditebak tidak menggantikan authorization.
 
 `TENANT-04`: Akses ID tenant lain menghasilkan not-found tanpa bocoran nama, nomor dokumen, total, atau keberadaan record. Endpoint list tidak boleh membocorkan count tenant lain. Cache, log, dan error response juga harus diuji.
 
@@ -245,9 +264,8 @@ Semua izin berikut terbatas pada organisasi user. `Tidak` berarti ditolak pada s
 | Field | Ketentuan |
 |---|---|
 | Company / Customer Name | Wajib, trim, 1-200 karakter |
-| Contact Person | Wajib, 1-150 karakter |
-| Phone / WhatsApp | Wajib; simpan input dan bentuk internasional ternormalisasi |
-| Email | Opsional; validasi format jika diisi |
+| Tax ID (NPWP) | Opsional; 15 atau 16 digit bila diisi; tidak pernah menjadi syarat membuat customer, deal, atau quotation |
+| Kontak | Minimal satu kontak, lihat CUS-04 |
 | Address | Opsional, maksimal 2.000 karakter |
 | Notes | Opsional, plain text, maksimal 5.000 karakter |
 
@@ -257,41 +275,55 @@ Contoh data: PT Maju Jaya, Budi Santoso, `08123456789`, `budi@example.com`. Nomo
 
 `CUS-03`: Mengubah customer tidak mengubah snapshot quotation terkirim atau invoice terdahulu. Tidak ada hard delete customer berelasi melalui UI/API MVP. Pengarsipan customer adalah opsional dan tidak boleh menghilangkan histori.
 
+`CUS-04`: Kontak adalah orang pada customer: nama wajib (1-150 karakter), telepon dan/atau email (minimal salah satu), peran bebas (PIC, finance, direktur; maksimal 100 karakter), dan tepat satu kontak utama per customer. Telepon disimpan mentah dan ternormalisasi seperti aturan di atas; email divalidasi. Membuat customer dapat sekaligus membuat kontak utama dalam satu operasi, sehingga prospek dari WhatsApp cukup nama dan nomor. Deal dapat menunjuk satu kontak (`contact_id`) sebagai PIC; WhatsApp memakai kontak deal, lalu kontak utama. Peringatan duplikat mencocokkan nama customer, telepon dan email semua kontak, dan NPWP; tidak menolak otomatis. Mengubah kontak tidak mengubah snapshot dokumen terdahulu; snapshot dokumen baru mengisi `contactPerson` dan `phone` dari kontak yang dipakai.
+
 ### 7.2 Deal dan informasi wajib
 
-`DEAL-01`: Deal wajib memiliki `id`, `organization_id`, `customer_id`, `title`, `description`, `estimated_value`, `status`, `assigned_to`, `created_by`, `created_at`, dan `updated_at`. Field description tersedia tetapi boleh kosong. Field opsional: `expected_close_date`, `lost_reason` sebelum LOST, dan `notes`.
+`DEAL-01`: Deal wajib memiliki `id`, `organization_id`, `customer_id`, `title`, `description`, `status`, `assigned_to`, `created_by`, `created_at`, dan `updated_at`. `estimated_value` wajib pada PROPOSAL, NEGOTIATION, dan COMMITMENT, dan boleh kosong pada PROSPECT. Field description tersedia tetapi boleh kosong. Field opsional: `expected_close_date`, `contact_id`, `lost_reason` sebelum LOST, dan `notes`.
 
-Tambahkan `won_at`, `won_value`, `lost_at`, `lost_note`, `last_activity_at`, dan `version` untuk laporan, audit, dan concurrent edit. Judul 1-200 karakter; description/notes maksimal 5.000 karakter; estimated value tidak negatif dan wajib positif saat WON.
+Tambahkan `stage_entered_at`, `on_hold_until`, `on_hold_reason`, `won_at`, `won_value`, `lost_at`, `lost_note`, `last_activity_at`, dan `version` untuk laporan, audit, dan concurrent edit. Judul 1-200 karakter; description/notes maksimal 5.000 karakter; estimated value tidak negatif dan, bila diisi pada stage setelah PROSPECT, wajib positif.
 
-`DEAL-02`: Deal baru default `NEW`, terhubung ke customer satu tenant dan assigned sales aktif. Contoh: PT Maju Jaya → CCTV Installation - Bekasi → Rp30.000.000 → Andi.
+`DEAL-02`: Deal baru default `PROSPECT` (stage awal boleh dipilih sampai COMMITMENT, misalnya untuk repeat order), terhubung ke customer satu tenant dan assigned sales aktif. Contoh: PT Maju Jaya → CCTV Installation - Bekasi → Rp30.000.000 → Andi.
 
 `customer_id` deal aktif hanya dapat diganti sebelum quotation pertama dibuat. Create quotation dan perubahan customer mengunci/memeriksa deal yang sama agar tidak terjadi race. Sesudah quotation ada, user dapat memperbarui master contact customer tetapi tidak memindahkan deal/dokumen ke customer lain melalui edit umum.
 
-### 7.3 Status dan transisi
+### 7.3 Stage, on hold, dan transisi
 
-Status persis: `NEW`, `CONTACTED`, `QUALIFIED`, `QUOTATION`, `NEGOTIATION`, `WON`, `LOST` (tujuh status: lima aktif, dua terminal).
+Stage aktif: `PROSPECT` (Gali kebutuhan), `PROPOSAL` (Penawaran dikirim), `NEGOTIATION` (Negosiasi), `COMMITMENT` (Menunggu komitmen). Hasil akhir: `WON` dan `LOST`. Stage menjelaskan posisi peluang, bukan aktivitas yang sudah dilakukan; survei, demo, telepon, dan email adalah task, bukan stage.
 
-`DEAL-08`: QUALIFIED berarti kebutuhan customer sudah jelas dan peluang dinilai layak masuk ke tahap penawaran. Untuk MVP, sales menandai Qualified secara manual berdasarkan judgment sendiri; tidak ada field tambahan, checklist wajib, scoring, atau approval manager untuk mencapai tahap ini.
-
-| Dari | Ke yang diizinkan | Syarat |
+| Stage | Arti | Data wajib |
 |---|---|---|
-| NEW | CONTACTED | Customer dan assigned sales valid |
-| CONTACTED | QUALIFIED | User menandai kebutuhan customer sudah jelas dan layak ditawari; keputusan manual sales, tanpa syarat tambahan (DEAL-08) |
-| QUALIFIED | QUOTATION | Tahap penawaran dimulai; dokumen quotation boleh belum ada |
-| QUOTATION | NEGOTIATION | User mencatat perpindahan tahap |
-| NEGOTIATION | WON | Customer ada, value > 0; quotation tidak wajib |
-| NEW / CONTACTED / QUALIFIED / QUOTATION / NEGOTIATION | LOST | Lost reason wajib |
-| WON / LOST | Tidak ada transisi keluar pada MVP | Reopen/deal reversal ditunda |
+| PROSPECT | Kebutuhan atau scope belum cukup jelas untuk penawaran spesifik | Customer, assigned sales |
+| PROPOSAL | Harga, scope, dan ketentuan spesifik sudah disampaikan (PDF, WhatsApp, atau lisan yang dicatat) | `estimated_value > 0` |
+| NEGOTIATION | Ada perubahan atau keberatan komersial yang belum selesai | `estimated_value > 0` |
+| COMMITMENT | Ketentuan utama disetujui; PO, kontrak, atau pembayaran belum ada | `estimated_value > 0` |
+| WON | Pesanan pertama tercatat dengan bukti komitmen | Satu pesanan dibuat di transaksi yang sama (§10.1) |
+| LOST | Peluang ditutup | Alasan |
 
-`DEAL-03`: Server menolak transisi mundur/lompatan yang tidak ada di tabel. Request mengulang status yang sama tidak menghasilkan event baru. UI menyediakan tombol/select tahap yang dapat digunakan tanpa drag-and-drop.
+`DEAL-03`: Perpindahan antar stage aktif bebas: maju, melompati stage yang tidak relevan, atau mundur bila kondisi transaksi berubah. Setiap perpindahan menulis event `stage_changed` (dari, ke, aktor, catatan opsional) dan menyetel `stage_entered_at` dalam transaksi yang sama. Mengulang stage yang sama tidak menghasilkan event baru. Data wajib stage tujuan berlaku. Perpindahan stage ditolak selama deal on hold. UI menyediakan tombol atau select tanpa drag-and-drop.
 
-`DEAL-04`: WON menyimpan `won_at` dan `won_value` sekali dalam transaksi yang sama dengan status dan activity. Deal tanpa quotation tetap bisa melalui tahap QUALIFIED, QUOTATION, dan NEGOTIATION lalu WON. Jangan menambahkan syarat quotation ACCEPTED, PDF, atau payment untuk memenangkan deal.
+| Dari | Ke | Aturan |
+|---|---|---|
+| (baru) | stage aktif mana pun | Stage awal dipilih saat membuat deal |
+| stage aktif | stage aktif lain | DEAL-03 |
+| stage aktif atau on hold | WON | Lewat pembuatan pesanan (`confirmWon`, §10.1); menghapus on hold |
+| stage aktif atau on hold | LOST | Alasan wajib; menghapus on hold; task terbuka dibatalkan |
+| stage aktif | on hold | Alasan dan tanggal tinjau ulang (>= hari ini); stage tidak berubah |
+| on hold | stage aktif yang sama | Resume: menghapus `on_hold_until` dan `on_hold_reason` |
+| LOST | stage aktif | Reopen: alasan wajib; Owner/Admin atau assigned sales |
+| WON | stage aktif | Reopen: alasan wajib; hanya Owner/Admin; hanya bila tidak ada invoice non-void pada pesanan deal; pesanan deal dibatalkan dalam transaksi yang sama |
 
-`DEAL-05`: LOST harus memiliki salah satu alasan: `PRICE_TOO_HIGH`, `LOST_TO_COMPETITOR`, `NO_RESPONSE`, `PROJECT_CANCELLED`, `BUDGET_UNAVAILABLE`, `OTHER`. Label ditampilkan dalam Bahasa Indonesia. Catatan tambahan opsional, termasuk untuk OTHER. Simpan `lost_at` dan event alasan.
+`DEAL-04`: WON dilakukan lewat `confirmWon`, bukan sekadar mengganti status. Aksi ini membuat pesanan pertama beserta bukti komitmen dan rencana termin (default satu termin 100% `ON_ORDER`), menyimpan `won_at` dan `won_value` (= nilai pesanan) sekali, membekukan quotation sumber bila dipilih, membatalkan task terbuka, dan menulis activity, semuanya dalam satu transaksi. Bukti komitmen yang dapat dipilih: PO, kontrak, konfirmasi tertulis, atau pembayaran. Deal tanpa quotation tetap bisa WON. Quotation ACCEPTED bukan syarat dan bukan bukti. Pesanan tambahan untuk deal yang sudah WON dibuat lewat `addOrderToDeal` (§10.1) tanpa mengubah deal.
 
-`DEAL-06`: Setelah terminal, value/customer/assignment historis tidak boleh berubah melalui edit umum; note lanjutan dapat ditambahkan sebagai activity. Pengubahan data historis merupakan koreksi eksplisit yang diaudit, bukan reopen tersembunyi.
+`DEAL-05`: LOST harus memiliki salah satu alasan: `PRICE_TOO_HIGH`, `LOST_TO_COMPETITOR`, `BUDGET_UNAVAILABLE`, `NO_NEED`, `NO_RESPONSE`, `PROJECT_CANCELLED`, `OTHER`. Label ditampilkan dalam Bahasa Indonesia. Catatan tambahan opsional. Simpan `lost_at` dan event alasan. Tidak ada LOST otomatis karena tidak dibalas.
 
-`DEAL-07`: Pipeline menampilkan active deals dikelompokkan pada 5 kolom aktif -- NEW, CONTACTED, QUALIFIED, QUOTATION, NEGOTIATION -- beserta customer, judul, nilai, dan assigned sales. WON/LOST tetap dapat dilihat melalui daftar/filter historis, bukan sebagai kolom pipeline aktif. Empty state, loading, pagination, dan error tersedia.
+`DEAL-06`: Pada deal WON/LOST, nilai, customer, dan penugasan historis tidak berubah lewat edit umum. Catatan dapat ditambahkan sebagai activity pada deal mana pun, termasuk yang tertutup. Koreksi memakai reopen (diaudit) atau amandemen pesanan, bukan penyuntingan diam-diam. Pembatalan setelah WON dilakukan dengan reopen lalu LOST `PROJECT_CANCELLED`; jejak kemenangan tetap ada di timeline.
+
+`DEAL-07`: Pipeline menampilkan deal aktif yang tidak on hold dalam empat kolom stage beserta customer, judul, nilai, dan assigned sales. Deal on hold, WON, dan LOST tersedia melalui filter dan daftar, bukan kolom. Empty state, loading, pagination, dan error tersedia.
+
+`DEAL-08`: PROSPECT bukan peluang pendapatan: tidak dihitung dalam nilai pipeline (§11.1). Tidak ada tombol Qualified, checklist, atau scoring. Satu-satunya syarat meninggalkan PROSPECT adalah data wajib stage tujuan.
+
+`DEAL-09`: Kesehatan deal dihitung saat baca (tanpa kolom) untuk deal terbuka yang tidak on hold: `NO_NEXT_STEP` (tidak ada task terbuka), `TASK_OVERDUE` (ada task terbuka sebelum hari ini), `STALE` (umur stage melebihi 14/14/21/30 hari untuk PROSPECT/PROPOSAL/NEGOTIATION/COMMITMENT), dan `PAST_CLOSE_DATE` (`expected_close_date` sebelum hari ini). Untuk deal on hold: `HOLD_REVIEW_DUE` (`on_hold_until` <= hari ini). Ambang adalah konstanta kode. Next action tidak diwajibkan saat menulis; ketiadaannya adalah sinyal. Ini menggantikan Money at Risk.
 
 ## 8. Quotation, snapshot, revisi, dan PDF
 
@@ -327,7 +359,7 @@ Counter per `(organization_id, document_type, year)` bertambah secara atomik dal
 
 `QUO-06`: Saat revisi dibuat, bekukan snapshot lengkap versi sumber jika belum frozen, serta latest draft yang akan menjadi versi lama jika revisi mengambil sumber historical version. Pembekuan masing-masing memakai kontennya sendiri; jangan menyalin isi sumber ke versi lain. Simpan `frozen_at` dan perubahan latest marker dalam transaksi family yang sama. Semua versi lama menjadi read-only untuk konten dan keputusan manual. Jangan menambah enum status SUPERSEDED; tampilkan label metadata "versi lama". Hanya versi terbaru dapat diedit/dikirim/diterima/ditolak, dan pengeditan konten tetap tunduk pada frozen state. Revisi tidak otomatis mengubah status lama menjadi REJECTED.
 
-`QUO-07`: Quotation ACCEPTED atau yang sudah dipakai invoice tetap dapat menjadi sumber revisi **baru**. Status persetujuan dan snapshot versi lama tidak berubah; invoice tetap menunjuk versi sumber semula. Revisi tersebut tidak membuka kembali deal, tidak mengubah won value, dan tidak menerbitkan invoice kedua. Revisi pada deal WON diperbolehkan untuk histori penawaran, dengan keterangan bahwa invoice issued tidak ikut berubah.
+`QUO-07`: Quotation ACCEPTED atau yang sudah dipakai invoice tetap dapat menjadi sumber revisi **baru**. Status persetujuan dan snapshot versi lama tidak berubah; invoice tetap menunjuk versi sumber semula. Revisi tersebut tidak membuka kembali deal, tidak mengubah won value, dan tidak mengubah pesanan atau invoice yang sudah ada. Revisi pada deal WON diperbolehkan untuk histori penawaran, dengan keterangan bahwa invoice issued tidak ikut berubah.
 
 ### 8.3 Status quotation
 
@@ -335,18 +367,20 @@ Status persis: `DRAFT`, `SENT`, `ACCEPTED`, `REJECTED`, `EXPIRED`.
 
 | Dari | Ke | Aturan |
 |---|---|---|
-| DRAFT | SENT | Versi terbaru, belum kedaluwarsa, field lengkap, deal minimal QUALIFIED (bukan NEW/CONTACTED/LOST) |
+| DRAFT | SENT | Versi terbaru, belum kedaluwarsa, field lengkap, deal bukan LOST dan tidak on hold |
 | SENT | ACCEPTED | Versi terbaru, belum kedaluwarsa; dicatat manual oleh user berwenang |
 | SENT | REJECTED | Versi terbaru, dicatat manual |
 | SENT | EXPIRED | Tanggal organisasi hari ini > valid_until dan belum ACCEPTED/REJECTED |
 | REJECTED / EXPIRED | DRAFT baru | Melalui revisi/new quotation, bukan edit status record lama |
 | ACCEPTED | Tidak ada perubahan | Konten dan hasil keputusan final pada MVP |
 
-`QUO-08`: SENT dilarang pada deal NEW, CONTACTED, dan LOST -- deal harus sudah QUALIFIED sebelum quotation dapat dikirim. Draft quotation sendiri tetap boleh disiapkan pada deal NEW atau CONTACTED mengikuti aturan pembuatan draft di QUO-01; hanya pengiriman (SENT) yang menunggu QUALIFIED. SENT menyimpan `sent_at`; snapshot company/customer/items/terms dan `frozen_at` diisi hanya jika belum frozen. Draft yang sudah dibekukan sebagai source invoice mempertahankan snapshot semula saat SENT. Jika deal masih QUALIFIED, aksi SENT juga memindahkan deal ke QUOTATION dalam transaksi yang sama. Pada QUOTATION/NEGOTIATION/WON tahap tidak berubah. Download PDF sendiri tidak mengubah status.
+`QUO-08`: SENT dilarang pada deal LOST dan pada deal on hold; pada stage aktif mana pun (termasuk PROSPECT) dan pada WON SENT diperbolehkan. Draft boleh disiapkan pada deal aktif mana pun. SENT menyimpan `sent_at`; snapshot company/customer/items/terms dan `frozen_at` diisi hanya jika belum frozen. Draft yang sudah dibekukan sebagai source invoice mempertahankan snapshot semula saat SENT. Dalam transaksi yang sama, bila deal PROSPECT maka dipindah ke PROPOSAL, dan bila `estimated_value` deal kosong atau nol maka diisi total quotation; pada stage lain tahap tidak berubah. Pemeriksaan status deal dilakukan di dalam transaksi dengan lock pada deal. Download PDF sendiri tidak mengubah status.
 
-`QUO-09`: ACCEPTED dan REJECTED menyimpan timestamp/actor. ACCEPTED tidak otomatis membuat deal WON; REJECTED/EXPIRED tidak otomatis membuat deal LOST. User tetap mengambil keputusan deal sesuai §7.
+`QUO-09`: ACCEPTED dan REJECTED menyimpan timestamp/actor. ACCEPTED memindahkan deal PROPOSAL atau NEGOTIATION ke COMMITMENT dalam transaksi yang sama dan tidak pernah membuatnya WON. REJECTED dan EXPIRED tidak mengubah stage dan tidak membuat deal LOST. Deal WON atau LOST tidak berubah. User tetap mengambil keputusan WON/LOST sesuai §7.
 
 `QUO-10`: Expiry menggunakan tanggal organisasi: tepat pada valid_until quotation belum expired. Draft lewat valid_until tetap draft dengan peringatan dan tidak bisa SENT sampai tanggal diperbaiki. Effective status SENT yang lewat batas adalah EXPIRED pada setiap read dan diperiksa kembali di dalam transaksi acceptance. Materialisasi EXPIRED/event boleh dilakukan secara idempotent; cron bukan syarat akurasi.
+
+`QUO-11`: Pada deal LOST, quotation read-only: edit draft, revisi, SENT, ACCEPTED, dan REJECTED ditolak. Pada deal WON revisi dan SENT tetap diperbolehkan sesuai QUO-07. Quotation baru hanya dibuat dari deal aktif. Pembuatan quotation memakai idempotency key (API-05).
 
 ### 8.4 PDF dan snapshot
 
@@ -360,13 +394,13 @@ Status persis: `DRAFT`, `SENT`, `ACCEPTED`, `REJECTED`, `EXPIRED`.
 
 ## 9. Follow-up dan WhatsApp
 
-`FUP-01`: Sales/Owner/Admin dapat membuat follow-up dengan `deal_id`, `type`, `note`, `follow_up_at`, `completed_at`, dan `created_by`, ditambah tenant dan timestamps. Type: `CALL`, `WHATSAPP`, `EMAIL`, `MEETING`, `OTHER`. Note boleh kosong, maksimal 5.000 karakter; jadwal wajib.
+`FUP-01`: Sales/Owner/Admin dapat membuat task deal (follow-up) dengan `deal_id`, `type`, `note`, `follow_up_at`, `completed_at`, dan `created_by`, ditambah tenant dan timestamps. Finance/Owner/Admin dapat membuat task penagihan dengan `invoice_id` sebagai ganti `deal_id`; tepat satu subjek per task (CHECK di database). Type: `CALL`, `WHATSAPP`, `EMAIL`, `MEETING`, `VISIT`, `OTHER`, dan `PROMISE_TO_PAY` (hanya untuk invoice; waktu = tanggal janji bayar). Note boleh kosong, maksimal 5.000 karakter; jadwal wajib.
 
-`FUP-02`: User dapat mengubah jadwal/note sebelum selesai, menandai selesai, dan mencatat interaksi yang sudah terjadi dengan `completed_at`. Penyelesaian ulang idempotent. Reschedule menyimpan histori; perubahan waktu tidak menghapus event sebelumnya.
+`FUP-02`: User dapat mengubah jadwal/note sebelum selesai, menandai selesai, dan mencatat interaksi yang sudah terjadi dengan `completed_at`. Penyelesaian ulang idempotent. Reschedule menyimpan histori; perubahan waktu tidak menghapus event sebelumnya. Task yang tidak lagi relevan dapat dibatalkan (`cancelled_at`, alasan opsional) dan keluar dari semua daftar aktif; task yang sudah selesai tidak dapat dibatalkan.
 
-`FUP-03`: Dashboard membagi follow-up belum selesai pada deal aktif menurut tanggal lokal organisasi: **Today** = hari ini, **Overdue** = sebelum hari ini, **Upcoming** = setelah hari ini. Semua bucket mutually exclusive; filter lanjutan dapat menampilkan jam yang sudah lewat hari ini. Completed follow-up dikecualikan.
+`FUP-03`: Dashboard membagi follow-up belum selesai pada deal aktif menurut tanggal lokal organisasi: **Today** = hari ini, **Overdue** = sebelum hari ini, **Upcoming** = setelah hari ini. Semua bucket mutually exclusive; filter lanjutan dapat menampilkan jam yang sudah lewat hari ini. Completed dan cancelled follow-up dikecualikan. Task penagihan terbuka pada invoice yang belum lunas dibagi dengan cara yang sama.
 
-`FUP-04`: Pada WON/LOST, reminder deal tidak muncul sebagai pekerjaan aktif; record follow-up lama tetap tersedia dan tidak otomatis dianggap completed. Pembuatan reminder sales baru untuk terminal deal ditolak pada MVP.
+`FUP-04`: Pada WON/LOST, task terbuka pada deal itu dibatalkan (`cancelled_at`) dalam transaksi yang sama dengan penutupan deal; record lama tetap tersedia dan tidak dianggap completed. Reopen tidak menghidupkan kembali task yang dibatalkan. Pembuatan task sales baru untuk deal WON/LOST ditolak. Task penagihan pada invoice tidak bergantung pada status deal.
 
 `WA-01`: Open WhatsApp menghasilkan deep-link ke `https://wa.me/{international_digits}?text={encoded_message}` dari nomor customer yang sudah dinormalisasi. Template default:
 
@@ -385,69 +419,110 @@ Terima kasih.
 
 `WA-03`: Nomor kosong/tidak valid menghasilkan error yang dapat diperbaiki; message di-URL-encode. Aplikasi hanya membuka WhatsApp, tidak mengirim otomatis, tidak menandai quotation SENT, dan tidak mengklaim delivered/read. Catat follow-up completed hanya saat user mengonfirmasi aktivitas terjadi. Klik deep-link boleh dicatat sebagai event `whatsapp.opened`, dengan makna yang berbeda.
 
+`WA-04`: Finance dapat membuka WhatsApp dari invoice dengan template penagihan (nomor invoice, sisa tagihan, jatuh tempo) ke kontak yang dipilih; WA-01 sampai WA-03 berlaku sama.
+
 `FUP-05`: Tampilan reminder menampilkan customer/deal, nilai deal, jadwal, last contact jika ada, action Open Deal, dan WhatsApp. "Last contact" berarti interaksi completed, bukan waktu halaman dibuka atau jadwal dibuat.
 
-## 10. Invoice dan payment
+`TASK-01`: Antrian kerja diturunkan dari data, bukan disimpan: **Siap ditagih** (termin `READY` tanpa invoice non-void), **Penagihan** (invoice OVERDUE atau jatuh tempo dalam 7 hari tanpa task terbuka, dan janji bayar yang lewat), **Uang belum dialokasikan** (receipt dengan sisa > 0, termasuk tanpa customer), dan **Tinjau ulang** (deal on hold yang tanggal tinjaunya lewat). Antrian hanya berkurang bila tindakan domainnya tersimpan.
 
-### 10.1 Pembuatan invoice
+## 10. Pesanan, termin, invoice, receipt, dan settlement
 
-`INV-01`: Finance/Owner/Admin hanya dapat membuat invoice untuk deal WON. `customer_id` wajib sama dengan deal, dan `quotation_id` opsional. Deal tanpa quotation harus tetap bisa dibuat invoice dengan input item manual.
+Rantai domain: Deal -> Pesanan -> Termin -> Invoice -> Settlement <- Receipt (ADR-0002, ADR-0003). Pesanan adalah komitmen, termin adalah rencana tagih, invoice adalah klaim, receipt adalah uang yang masuk, settlement adalah pelunasan klaim. Kelimanya tidak berbagi satu status.
 
-`INV-02`: Jika quotation tersedia, user dapat memilih versi spesifik sebagai source. UI merekomendasikan versi ACCEPTED; jika tidak ada, pilih versi relevan dengan label status dan review eksplisit. Jangan mewajibkan quotation ACCEPTED karena PRD tidak mensyaratkannya. Copy customer snapshot, items, unit price, discount, tax, notes/terms yang relevan; simpan source quotation ID.
+### 10.1 Pesanan dan termin
 
-`INV-03`: User dapat meninjau/mengubah isi salinan sebelum menerbitkan invoice. Perubahan tidak mengedit quotation. Saat submit, backend menghitung kembali total dan menyimpan snapshot final; sesudah itu invoice/item immutable. Quotation draft yang dipakai invoice dibekukan sebagai source.
+`ORD-01`: Pesanan adalah komitmen pembelian, bukan invoice dan bukan uang. Nomor `SO-YYYY-XXXXX` memakai aturan §8.2 dengan counter tersendiri. Field: `customer_id`, `deal_id` opsional, `contact_id` opsional, `title`, `scope`, `commitment_type` (`PURCHASE_ORDER`, `CONTRACT`, `WRITTEN_CONFIRMATION`, `PAYMENT`, `LEGACY`), `commitment_ref` opsional (nomor PO atau kontrak), `commitment_date`, `original_value` (> 0), `source_quotation_id` opsional (dari deal yang sama), `cancelled_at`, dan metadata audit. `LEGACY` hanya untuk data migrasi dan tidak dapat dipilih pengguna.
 
-Invoice creation mengunci source quotation, memeriksa expected source edit version dari preview, lalu melakukan snapshot/freeze dan version bump dalam transaksi. Quotation edit/revision harus memakai lock/recheck yang kompatibel. Source yang berubah sejak preview menghasilkan conflict untuk review ulang; proses invoice tidak boleh membekukan data sambil edit paralel masih berhasil menimpanya. Snapshot yang sudah frozen tidak dibekukan ulang dari master data terbaru.
+`ORD-02`: Pesanan dibuat lewat tiga operasi. `confirmWon` membuat pesanan pertama dari deal dan memindahkan deal ke WON (DEAL-04). `addOrderToDeal` membuat pesanan berikutnya untuk deal yang sudah WON, customer wajib sama, deal tidak berubah. `createDirectOrder` membuat pesanan tanpa deal untuk pembeli langsung atau repeat order; pengguna berizin boleh sekaligus menerbitkan invoice termin pertama dan mencatat pembayaran dalam satu submit, tanpa membuat deal sintetis.
+
+`ORD-03`: Amandemen mencatat delta nilai bertanda (kerja tambah atau kurang) dengan alasan, referensi adendum, dan tanggal; append-only. Nilai berjalan = `original_value` + jumlah delta dan tidak boleh kurang dari total invoice non-void pesanan itu. Amandemen wajib menyeimbangkan termin dalam transaksi yang sama.
+
+`ORD-04`: Pesanan dapat dibatalkan (`cancelled_at`, alasan) hanya bila tidak ada invoice non-void; termin yang tersisa ikut batal. Uang muka yang sudah masuk tetap ada sebagai receipt (kredit customer) dan dapat di-refund.
+
+`ORD-05`: Status pesanan diturunkan saat baca: `CANCELLED`, `CLOSED` (seluruh termin ditagih dan semua invoice lunas), `FULLY_BILLED` (seluruh termin ditagih), `ACTIVE`.
+
+`BIL-01`: Termin (`billing_items`) adalah bagian nilai pesanan yang akan ditagih: `label` (DP 30%, Termin 2 setelah BAST, Retensi 5%), `amount` (> 0), `trigger` (`ON_ORDER`, `ON_DATE` dengan `due_on`, `ON_MILESTONE`), `is_retention`, `milestone_done_at`, `milestone_ref` (misalnya nomor BAST), dan `cancelled_at`. Pesanan baru selalu punya minimal satu termin; default satu termin 100% `ON_ORDER`.
+
+`BIL-02`: Invariant: jumlah termin yang tidak batal sama dengan nilai berjalan pesanan. Termin yang belum punya invoice non-void boleh dipecah, digabung, atau diubah jumlah dan pemicunya (`rebalanceBillingItems`) selama jumlah total tetap sama, dengan alasan. Termin yang sudah punya invoice non-void terkunci.
+
+`BIL-03`: Status termin diturunkan: `PLANNED` (pemicu belum terpenuhi: tanggal belum tiba atau milestone belum selesai), `READY` (pemicu terpenuhi, belum ada invoice non-void), `INVOICED` (ada invoice non-void), `CANCELLED`. Void invoice mengembalikan termin ke `READY`. Retensi tidak pernah overdue sebelum ditagih dan dilaporkan terpisah sebagai retensi tertahan. Kontrak berulang dimodelkan sebagai termin `ON_DATE` per periode, dibuat manual.
+
+### 10.2 Invoice
+
+`INV-01`: Finance/Owner/Admin hanya dapat menerbitkan invoice untuk termin berstatus `READY`. `customer_id` sama dengan pesanan; `quotation_id` opsional, harus dari deal pesanan yang sama, dan bukan REJECTED. Pesanan tanpa quotation tetap dapat ditagih dengan item manual.
+
+`INV-02`: Jika quotation tersedia, user dapat memilih versi spesifik sebagai source. UI merekomendasikan versi ACCEPTED; jika tidak ada, pilih versi relevan dengan label status dan review eksplisit. Jangan mewajibkan quotation ACCEPTED. Copy customer snapshot, items, unit price, discount, tax, notes/terms yang relevan; simpan source quotation ID. Finance hanya dapat membaca isi quotation milik deal WON.
+
+`INV-03`: User dapat meninjau/mengubah isi salinan sebelum menerbitkan invoice. Perubahan tidak mengedit quotation. Saat submit, backend menghitung kembali total dan menyimpan snapshot final; sesudah itu invoice/item immutable. **Total invoice wajib sama persis dengan jumlah termin.** Untuk menagih sebagian, pecah termin lebih dulu (BIL-02); untuk menagih lebih besar, buat amandemen (ORD-03). Quotation draft yang dipakai invoice dibekukan sebagai source.
+
+Invoice creation mengunci pesanan, termin, dan source quotation, memeriksa expected source edit version dari preview, lalu melakukan snapshot/freeze dan version bump dalam transaksi. Quotation edit/revision harus memakai lock/recheck yang kompatibel. Source yang berubah sejak preview menghasilkan conflict untuk review ulang; proses invoice tidak boleh membekukan data sambil edit paralel masih berhasil menimpanya. Snapshot yang sudah frozen tidak dibekukan ulang dari master data terbaru.
 
 | Field invoice | Ketentuan |
 |---|---|
 | invoice_number | Otomatis `INV-YYYY-XXXXX`, contoh `INV-2026-00001`; policy nomor sama dengan §8.2 |
-| organization_id, customer_id, deal_id | Wajib dan tenant konsisten |
+| organization_id, customer_id, order_id, billing_item_id | Wajib dan tenant konsisten |
+| deal_id | Opsional; ada bila pesanan berasal dari deal |
 | quotation_id | Opsional, versi tertentu dari deal yang sama |
 | issue_date, due_date | Wajib; due_date >= issue_date |
 | items | Minimal satu, field/precision sama dengan quotation items |
-| subtotal, discount, tax, total | Dihitung server; total > 0 |
+| subtotal, discount, tax, total | Dihitung server; total > 0 dan sama dengan jumlah termin |
 | notes, terms | Opsional plain text; disalin dari quotation source jika ada (INV-02), dapat diubah user sebelum diterbitkan (INV-03) |
-| status | Effective status menurut §10.2 |
-| paid_amount, remaining_amount | Nilai turunan: dihitung ulang dari data payment pada setiap read, bukan kolom yang wajib di-cache (lihat §14.1 "cached ... jika dipakai"); bukan input user |
+| status | Effective status menurut §10.3 |
+| settled_amount, remaining_amount | Nilai turunan: dihitung ulang dari settlement pada setiap read, bukan kolom tersimpan; bukan input user |
+| voided_at, voided_by, void_reason, replaces_invoice_id | Diisi oleh void (INV-08) dan invoice pengganti |
 | seller_snapshot, customer_snapshot, currency | Snapshot wajib; currency IDR |
 | created_at, updated_at, created_by | Metadata audit |
 
-`INV-04`: Nomor, invoice, items, source reference, dan event `invoice.created` tersimpan dalam satu transaksi. Unique `(organization_id, deal_id)` mencegah dua invoice untuk satu deal. Double-click/retry harus mengembalikan invoice yang sama; source/field tidak boleh diam-diam diganti pada retry.
+`INV-04`: Nomor, invoice, items, source reference, dan event `invoice.created` tersimpan dalam satu transaksi di bawah lock pesanan dan termin. Paling banyak satu invoice non-void per termin (unique parsial pada `billing_item_id WHERE voided_at IS NULL`). Double-click/retry harus mengembalikan invoice yang sama. Fingerprint idempotensi mencakup seluruh payload ternormalisasi (termin, source, tanggal, item, diskon, pajak, catatan, syarat); key sama dengan isi berbeda menghasilkan conflict.
 
-`INV-05`: Halaman invoice menampilkan customer/deal/source, item, total, paid, remaining, due date, status, dan riwayat payment. Invoice PDF MAY ditambahkan setelah quotation PDF dan core payment lolos.
+`INV-05`: Halaman invoice menampilkan customer/pesanan/termin/source, item, total, settled, remaining, due date, status, dan riwayat receipt dan settlement. PDF invoice wajib, memakai modul PDF yang sama dengan quotation; invoice yang di-void diberi penanda VOID.
 
-### 10.2 Status dan saldo invoice
+`INV-08`: Void invoice (Owner/Admin/Finance) memerlukan alasan dan hanya bila tidak ada settlement aktif (reverse dulu; uangnya kembali menjadi sisa receipt). Void menyetel `voided_at`, `voided_by`, `void_reason`, mengembalikan termin ke `READY`, menulis audit, dan tidak mengubah isi invoice. Nomor tidak dipakai ulang. Invoice pengganti menunjuk invoice asal lewat `replaces_invoice_id`. Invoice komersial bukan Faktur Pajak; DealFlow tidak menghitung tarif pajak dan tidak mengklaim compliance pajak.
 
-Status tampilan persis: `UNPAID`, `PARTIALLY_PAID`, `PAID`, `OVERDUE`.
+### 10.3 Status dan saldo invoice
+
+Status tampilan persis: `UNPAID`, `PARTIALLY_PAID`, `PAID`, `OVERDUE`, `VOID`.
 
 ```text
-paid_amount      = sum(payment.amount yang tercatat valid)
-remaining_amount = max(invoice.total - paid_amount, 0)
+settled_amount   = sum(settlement aktif ke invoice)   [semua jenis, §10.4]
+remaining_amount = max(invoice.total - settled_amount, 0)
 
-Jika paid_amount >= total:                       PAID
+Jika voided_at terisi:                           VOID
+Jika settled_amount >= total:                    PAID
 Jika belum lunas dan today_org > due_date:       OVERDUE
-Jika 0 < paid_amount < total:                    PARTIALLY_PAID
-Selain itu:                                     UNPAID
+Jika 0 < settled_amount < total:                 PARTIALLY_PAID
+Selain itu:                                      UNPAID
 ```
 
-`INV-06`: PAID memiliki prioritas tertinggi. OVERDUE mengalahkan UNPAID/PARTIALLY_PAID sesudah due date; pada due date sendiri belum overdue. Invoice overdue yang baru dibayar sebagian tetap OVERDUE, dengan rincian pembayaran parsial tetap terlihat. Saat lunas langsung PAID.
+`INV-06`: VOID memiliki prioritas tertinggi, lalu PAID. OVERDUE mengalahkan UNPAID/PARTIALLY_PAID sesudah due date; pada due date sendiri belum overdue. Invoice overdue yang baru dibayar sebagian tetap OVERDUE, dengan rincian pembayaran parsial tetap terlihat. Saat lunas langsung PAID, dan periode overdue sebelumnya tetap ada di histori.
 
-`INV-07`: Effective status dihitung konsisten saat read/search/filter/dashboard, berdasarkan tanggal organisasi dan payment. Jika status/paid_amount disimpan sebagai cache, transaksi payment memperbaruinya dan read tetap menerapkan expiry tanggal. Kebenaran tidak boleh tergantung cron berjalan tepat tengah malam.
+`INV-07`: Effective status dihitung konsisten saat read/search/filter/dashboard, berdasarkan tanggal organisasi dan settlement. Kebenaran tidak boleh tergantung cron berjalan tepat tengah malam, dan status tidak disimpan.
 
-### 10.3 Pencatatan pembayaran manual
+### 10.4 Receipt, settlement, dan refund
 
-`PAY-01`: Finance/Owner/Admin dapat mencatat payment: `invoice_id`, `amount`, `payment_date`, `payment_method`, `reference`, `note`, `created_by`, tenant, dan timestamps. Method: `BANK_TRANSFER`, `CASH`, `OTHER`. Reference/note opsional; panjang maksimum masing-masing 200/5.000 karakter.
+`RCP-01`: Receipt mencatat uang yang benar-benar masuk: `amount` (integer rupiah > 0), `received_on` (tanggal bisnis, tidak setelah hari ini), `method` (`BANK_TRANSFER`, `CASH`, `OTHER`), `reference` (maksimal 200 karakter), `note` (maksimal 5.000 karakter), dan `customer_id` opsional. Receipt tanpa customer berarti transfer yang belum dikenali. Receipt tidak diedit dan tidak dihapus. Receipt boleh dicatat sebelum invoice ada (uang muka).
 
-`PAY-02`: Amount wajib integer rupiah > 0 dan <= outstanding terkini. Payment date adalah tanggal bisnis, tidak sebelum issue_date dan tidak sesudah hari ini; backdate valid di antaranya. `created_at` tetap waktu pencatatan aktual. Pembayaran pada invoice PAID ditolak.
+`RCP-02`: Identifikasi (`identifyReceipt`): Finance/Owner/Admin menetapkan customer untuk receipt yang belum punya customer, dengan catatan dasar pengenalan; diaudit. Receipt tanpa customer tidak dapat dialokasikan atau di-refund. Salah identifikasi diperbaiki dengan reverse seluruh settlement-nya lalu identifikasi ulang (diaudit).
 
-`PAY-03`: Dalam satu transaksi: validasi akses → lock invoice row → cek replay idempotency → hitung saldo terbaru dan validasi amount baru → insert payment → perbarui aggregate pembayaran jika disimpan → catat activity → commit. Jika salah satu gagal, semuanya rollback. Replay valid mengembalikan hasil awal sebelum pemeriksaan invoice PAID/outstanding; retry pelunasan tidak boleh gagal hanya karena invoice sekarang sudah PAID. Lock dan pemeriksaan saldo harus melindungi dua Finance yang submit bersamaan.
+`SET-01`: Settlement melunasi satu invoice. `kind` salah satu dari `RECEIPT` (wajib `receipt_id`; customer receipt sama dengan customer invoice), `WITHHOLDING` (potongan pajak oleh customer; `reference` wajib berisi nomor bukti potong), atau `WRITE_OFF` (selisih kecil seperti biaya transfer; `note` wajib; nominal dibatasi `write_off_limit` pada settings, di atas batas hanya Owner/Admin). Hanya settlement `RECEIPT` mengurangi sisa receipt, dan hanya receipt yang dihitung sebagai kas diterima.
 
-`PAY-04`: Pencatatan payment memiliki idempotency key unik per tenant dan operasi. Key yang sama dengan payload sama mengembalikan hasil awal tanpa duplikasi; key sama dengan payload berbeda menghasilkan conflict. Reference bank bukan satu-satunya deduplication key karena satu transfer dapat mempunyai kebutuhan bisnis berbeda kelak.
+`SET-02`: Invariant: sisa receipt = amount - settlement `RECEIPT` aktif - refund >= 0; sisa invoice = total - settlement aktif (semua jenis) >= 0. Dijaga di dalam transaksi dengan lock berurutan deal, pesanan, termin, invoice, receipt (beberapa baris sejenis dikunci menurut id), dan diperiksa ulang oleh `pnpm reconcile`. `allocateReceipt` membagi satu receipt ke satu atau banyak invoice customer yang sama, dan satu invoice dapat menerima banyak receipt.
 
-`PAY-05`: Form menampilkan invoice, amount, date, method, dan remaining setelah payment untuk review sebelum simpan. Payment tersimpan tidak dapat diedit/dihapus di MVP; tidak ada automatic payment gateway, refund, credit balance, atau bank reconciliation.
+`PAY-01`: Jalur umum "Catat pembayaran" dari invoice membuat receipt dan settlement `RECEIPT` dalam satu transaksi: `invoice_id`, `amount`, `payment_date`, `method`, `reference`, `note`, dan idempotency key. Pada jalur ini `amount` <= sisa invoice. Kelebihan bayar dicatat lewat `recordReceipt` lalu dialokasikan sebagian; sisanya menjadi kredit customer.
 
-Contoh acceptance: invoice Rp30.000.000 → payment Rp10.000.000 → paid Rp10.000.000, remaining Rp20.000.000, PARTIALLY_PAID jika belum lewat due date → payment Rp20.000.000 → remaining Rp0, PAID. Sesudah refresh, dashboard dan detail menunjukkan angka sama.
+`PAY-02`: Amount wajib integer rupiah > 0 dan <= sisa invoice terkini. Payment date adalah tanggal bisnis, tidak sebelum issue_date dan tidak sesudah hari ini; backdate valid di antaranya. `created_at` tetap waktu pencatatan aktual. Pembayaran pada invoice PAID atau VOID ditolak.
+
+`PAY-03`: Dalam satu transaksi: validasi akses -> lock invoice (dan receipt bila ada) -> cek replay idempotency -> hitung sisa terbaru dan validasi amount baru -> insert receipt dan settlement -> catat activity -> commit. Jika salah satu gagal, semuanya rollback. Replay valid mengembalikan hasil awal sebelum pemeriksaan PAID/sisa; retry pelunasan tidak boleh gagal hanya karena invoice sekarang sudah PAID. Lock dan pemeriksaan sisa harus melindungi dua Finance yang submit bersamaan.
+
+`PAY-04`: Setiap operasi uang (pembayaran, receipt, alokasi, identifikasi, reversal, refund, void, write-off) memiliki idempotency key unik per tenant dan operasi. Key yang sama dengan payload sama mengembalikan hasil awal tanpa duplikasi; key sama dengan payload berbeda menghasilkan conflict. Reference bank bukan satu-satunya deduplication key.
+
+`PAY-05`: Form menampilkan invoice, amount, date, method, dan sisa setelah pembayaran untuk review sebelum simpan. Record tersimpan tidak dapat diedit/dihapus; koreksi memakai RCP-04. Tidak ada payment gateway atau bank reconciliation otomatis.
+
+`RCP-04`: Koreksi uang: `reverseSettlement` (salah alokasi), `reverseReceipt` (transfer gagal atau salah catat; hanya bila tidak punya settlement aktif), dan `recordRefund` (uang dikembalikan; tidak melebihi sisa receipt). Semuanya wajib beralasan, append-only (`reversed_at`, `reversed_by`, `reversal_reason`), dan menulis audit event. Tidak ada update atau delete.
+
+`RCP-05`: Kredit customer = jumlah sisa receipt aktif customer; bukan pendapatan tambahan. Kas diterima = receipt aktif dikurangi refund; settlement `WITHHOLDING` dan `WRITE_OFF` bukan kas.
+
+Contoh acceptance: invoice Rp30.000.000 -> payment Rp10.000.000 -> settled Rp10.000.000, remaining Rp20.000.000, PARTIALLY_PAID jika belum lewat due date -> payment Rp20.000.000 -> remaining Rp0, PAID. Sesudah refresh, dashboard dan detail menunjukkan angka sama. Contoh potongan pajak: invoice Rp10.000.000, customer transfer Rp9.800.000 dan menyerahkan bukti potong Rp200.000 -> receipt Rp9.800.000 + settlement `WITHHOLDING` Rp200.000 -> PAID, kas diterima Rp9.800.000.
 
 ## 11. Dashboard, activity timeline, dan audit
 
@@ -457,33 +532,38 @@ Contoh acceptance: invoice Rp30.000.000 → payment Rp10.000.000 → paid Rp10.0
 
 | Metrik | Definisi yang wajib dipakai |
 |---|---|
-| Sales Pipeline Value | Sum `estimated_value` dari NEW, CONTACTED, QUALIFIED, QUOTATION, NEGOTIATION |
-| Won Revenue / Won This Month | Sum `won_value` untuk deal dengan `won_at` pada bulan kalender berjalan di timezone organisasi |
-| Outstanding Invoice | Sum `remaining_amount` semua invoice belum lunas, termasuk overdue dan partial |
+| Prospek | Jumlah deal PROSPECT terbuka yang tidak on hold |
+| Sales Pipeline Value | Sum `estimated_value` deal PROPOSAL, NEGOTIATION, COMMITMENT yang tidak on hold, ditampilkan per stage; deal on hold dilaporkan terpisah |
+| Bookings | Sum `original_value` pesanan dengan `commitment_date` pada periode ditambah delta amandemen bertanggal pada periode, tanpa pesanan batal; pesanan langsung termasuk; nilai deal tidak dihitung lagi |
+| Won This Month | Sum `won_value` untuk deal dengan `won_at` pada bulan kalender berjalan di timezone organisasi |
+| Win rate dan siklus penjualan | WON / (WON + LOST) pada periode penutupan; median hari dari dibuat sampai WON |
+| Siap ditagih | Sum termin `READY`; retensi tertahan dilaporkan terpisah |
+| Ditagih | Sum total invoice non-void dengan `issue_date` pada periode |
+| Outstanding Invoice (piutang) | Sum `remaining_amount` semua invoice non-void yang belum lunas, termasuk overdue dan partial |
+| Overdue Invoice dan aging | Jumlah dan sum sisa invoice OVERDUE, dikelompokkan: belum jatuh tempo, 1-30, 31-60, 61-90, lebih dari 90 hari lewat |
+| Kas diterima | Sum receipt aktif menurut `received_on` dikurangi refund; settlement `WITHHOLDING` dan `WRITE_OFF` tidak dihitung |
+| Kredit customer | Sum sisa receipt aktif |
 | Follow-up Today | Jumlah customer unik yang memiliki follow-up belum selesai hari ini pada deal aktif; tampilkan jumlah task juga jika berbeda |
-| Overdue Invoice | Jumlah invoice belum lunas dengan today_org > due_date, dan sum remaining-nya |
 
-Won Revenue adalah nilai deal yang dimenangkan, bukan cash received atau laporan accounting revenue recognition. Invoice total dapat berbeda dari deal estimate/won value; UI tidak boleh menyamakan ketiganya atau menjumlahkannya sebagai satu metrik.
+Won Revenue adalah nilai deal yang dimenangkan; Bookings adalah komitmen pesanan; Ditagih adalah klaim; Kas diterima adalah uang masuk. Keempatnya tidak boleh disamakan atau dijumlahkan sebagai satu metrik, dan tidak ada yang merupakan accounting revenue recognition. Tidak ada probabilitas atau weighted forecast. Cakupan metrik mengikuti §6.2 dan ditegakkan di service, bukan hanya di halaman. Ekspor CSV (invoice, receipt, settlement per periode) tersedia untuk Owner/Admin/Finance.
 
 `DASH-02`: Metrik ter-update sesudah commit customer/deal/quotation/invoice/payment terkait. Gunakan agregasi database yang tidak menggandakan nilai akibat join item/payment. Data kosong ditampilkan sebagai nol dan empty state yang membantu, bukan angka demo di production.
 
 `DASH-03`: Widget menyediakan drill-down ke daftar terfilter dengan scope role yang sama. Perhitungan bulan menggunakan interval half-open awal bulan sampai awal bulan berikutnya dalam timezone organisasi, dikonversi ke UTC untuk `won_at`.
 
-### 11.2 Money at Risk: opsional
+### 11.2 Kesehatan deal
 
-`RISK-01`: MAY menampilkan deal aktif dengan last meaningful activity lebih dari tujuh hari lalu: `status NOT IN (WON, LOST)` dan `now - last_activity_at > 7 hari`. Jika belum ada activity, gunakan `created_at`. Tepat tujuh hari belum termasuk. Tampilkan customer/deal, nilai, dan usia inactivity.
-
-Last meaningful activity meliputi follow-up completed, quotation dibuat/dikirim/direvisi/keputusan, dan perubahan tahap deal. Page view, klik WhatsApp tanpa konfirmasi, edit note kosmetik, serta auto-expiry tidak mereset inactivity. Money at Risk bukan acceptance blocker core MVP.
+`RISK-01`: Digantikan oleh DEAL-09 (sinyal kesehatan deal yang dihitung saat baca). Daftar "perlu perhatian" menampilkan deal terbuka dengan sedikitnya satu sinyal, diurutkan menurut nilai. Page view, klik WhatsApp tanpa konfirmasi, dan edit kosmetik tidak mengubah sinyal.
 
 ### 11.3 Timeline dan audit
 
-`AUD-01`: Setiap deal memiliki timeline berurutan stabil menurut timestamp dan ID. Event bisnis minimum: customer/deal created, deal updated/stage changed, quotation created/revised/SENT/ACCEPTED/REJECTED, follow-up created/rescheduled/completed, WON, LOST, invoice created, payment recorded. Event memuat actor, timestamp, jenis, entity ID, dan ringkasan aman.
+`AUD-01`: Setiap deal memiliki timeline berurutan stabil menurut timestamp dan ID. Event bisnis minimum: customer/deal created, deal updated/stage changed, quotation created/revised/SENT/ACCEPTED/REJECTED, follow-up created/rescheduled/completed, WON, LOST, invoice created/voided, receipt recorded/identified/reversed, settlement recorded/reversed, refund recorded, deal on hold/resume/reopen, order created/amended/cancelled, dan billing item rebalanced. Pesanan langsung memiliki timeline sendiri berdasarkan `order_id`. Event memuat actor, timestamp, jenis, entity ID, dan ringkasan aman.
 
 `AUD-02`: Core record mempunyai `created_at`, `updated_at`, `created_by`; tambahkan `updated_by` jika mutable. Event append-only cukup `created_at` dan actor. Event otomatis dapat memiliki actor sistem yang eksplisit. Untuk perubahan penting simpan nilai sebelum/sesudah atau metadata perubahan yang diperlukan, tanpa password/token.
 
 `AUD-03`: Activity bisnis dan mutasi sumber disimpan atomik. Sentry/log aplikasi tidak menggantikan audit data bisnis. Duplicate request tidak boleh menghasilkan dua activity untuk satu aksi yang sama.
 
-`AUD-04`: Histori tidak dapat diedit/dihapus dari UI/API umum. Event finance pada timeline disembunyikan dari Sales sesuai permission; invoice total/payment detail tidak boleh bocor melalui ringkasan, count, atau payload activity. Perubahan role, deactivation, settings, serta koreksi insiden disimpan pada audit organisasi dengan akses Owner/Admin.
+`AUD-04`: Histori tidak dapat diedit/dihapus dari UI/API umum. Event finance pada timeline disembunyikan dari Sales sesuai permission; invoice total/payment detail tidak boleh bocor melalui ringkasan, count, atau payload activity. Perubahan role, deactivation, settings, serta koreksi insiden disimpan pada audit organisasi dengan akses Owner/Admin; audit organisasi (`audit_events`) juga mencatat perubahan anggota, undangan, settings, customer dan kontak, reopen, void, reversal, refund, write-off, identifikasi receipt, ubah rencana termin, dan pemindahan massal.
 
 ## 12. Search, filter, dan pengalaman pengguna
 
@@ -518,8 +598,8 @@ q_scaled             = quantity × 1000, diparse secara exact
 item_subtotal        = HALF_UP(q_scaled × unit_price / 1000) ke Rp1
 document_subtotal    = sum(item_subtotal)
 document_total       = document_subtotal - discount_amount + tax_amount
-paid_amount          = sum(payments.amount)
-remaining_amount     = max(document_total - paid_amount, 0)
+settled_amount       = sum(settlement aktif)
+remaining_amount     = max(document_total - settled_amount, 0)
 ```
 
 `MONEY-03`: Pembulatan HALF_UP dilakukan sekali per item; jumlahkan subtotal item yang sudah dibulatkan. Discount dan tax merupakan nominal integer tingkat dokumen, bukan persen. Invoice hasil copy memakai aturan sama. Backend menyimpan input item, hasil hitung, dan versi aturan kalkulasi `calculation_version = 1` pada snapshot final.
@@ -543,15 +623,17 @@ Contoh exact rounding: quantity `0.333` × unit price Rp1.001 = Rp333,333 → su
 ```text
 Organization ── Membership ── User (Better Auth identity)
    ├─ Settings
-   ├─ Customers ── Deals
-   │                ├─ Quotations ── QuotationItems
-   │                │     └─ revision family / previous revision
-   │                ├─ FollowUps
-   │                ├─ Activities
-   │                └─ Invoice ── InvoiceItems
-   │                       └─ Payments
+   ├─ Customers ── Contacts
+   │     └─ Deals ── Quotations ── QuotationItems
+   │           │        └─ revision family / previous revision
+   │           ├─ Tasks (follow-up), Activities
+   │           └─ Orders (juga tanpa deal) ── OrderAmendments
+   │                 └─ BillingItems (termin) ── Invoices ── InvoiceItems
+   │                                                └─ Settlements ── Receipts ── Refunds
+   │                                                     (Receipts milik Customer)
+   ├─ Tasks penagihan (pada invoice)
    ├─ DocumentCounters
-   └─ AuditEvents / IdempotencyRecords
+   └─ AuditEvents / IdempotencyRecords / OutboxEvents / Attachments / RateLimitBuckets
 ```
 
 Nama SQL snake_case dan TypeScript camelCase diperbolehkan. Daftar berikut adalah kontrak logical schema, bukan perintah menyalin schema auth secara manual.
@@ -563,32 +645,43 @@ Nama SQL snake_case dan TypeScript camelCase diperbolehkan. Daftar berikut adala
 | `memberships` | Organization/user, role, active/deactivated; unique membership pair dan maksimal satu active org/user |
 | `invitations` | Organization, email, role, expiry, state, inviter sesuai plugin dan aturan aplikasi |
 | `organization_settings` | Unique organization, alamat/contact, currency, timezone, default terms |
-| `customers` | Tenant, company name, contact, phone raw/normalized, email/address/notes, audit fields |
-| `deals` | Tenant/customer, title, description, estimated value, enum status, assignment, expected close date, lost reason/note, won/lost timestamps, frozen won value, last activity, version, audit fields |
+| `customers` | Tenant, company name, tax ID opsional, address/notes, audit fields |
+| `contacts` | Tenant/customer, name, phone raw/normalized, email, role, is_primary (satu per customer), audit fields |
+| `deals` | Tenant/customer, contact opsional, title, description, estimated value opsional, enum stage (CHECK), on-hold until/reason, stage_entered_at, assignment, expected close date, lost reason/note, won/lost timestamps, frozen won value, last activity, version, audit fields |
 | `quotations` | Tenant/deal/customer, number, family/revision/previous ID, latest marker, dates, status/timestamps, totals, snapshot/frozen_at, calculation version, edit version, audit fields |
 | `quotation_items` | Tenant/quotation, description, quantity, unit, unit price, subtotal, sort order |
-| `follow_ups` | Tenant/deal, type, note, scheduled/completed timestamps, creator, audit fields |
-| `activities` | Tenant/deal, entity/type, actor, timestamp, metadata, permission category, operation ID |
-| `invoices` | Tenant/deal/customer/optional quotation, unique number, dates, totals, snapshots, calculation version, cached paid/status jika dipakai, audit fields |
+| `follow_ups` (tasks) | Tenant, tepat satu dari deal atau invoice, type, note, scheduled/completed/cancelled timestamps, creator, audit fields |
+| `activities` | Tenant, deal dan/atau pesanan (minimal satu; `deal_id` nullable untuk pesanan langsung), entity/type, actor, timestamp, metadata, permission category, operation ID |
+| `orders` | Tenant/customer, deal opsional, contact opsional, number, commitment type/ref/date, original value, source quotation opsional, cancelled fields, audit fields |
+| `order_amendments` | Tenant/order, delta bertanda, alasan, referensi, tanggal; append-only |
+| `billing_items` | Tenant/order, label, amount, trigger, due_on, is_retention, milestone done/ref, cancelled_at |
+| `invoices` | Tenant/order/billing_item/customer, deal dan quotation opsional, unique number, dates, totals, snapshots, calculation version, void fields, replaces_invoice_id, audit fields |
 | `invoice_items` | Tenant/invoice, description, quantity, unit, unit price, subtotal, sort order |
-| `payments` | Tenant/invoice, amount, date, method, reference, note, creator/timestamps, idempotency key |
+| `receipts` | Tenant, customer opsional, amount, received_on, method, reference, note, reversal fields, creator/timestamps |
+| `settlements` | Tenant/invoice, kind (RECEIPT, WITHHOLDING, WRITE_OFF), receipt_id (wajib untuk RECEIPT), amount, reference/note, reversal fields, idempotency key |
+| `refunds` | Tenant/receipt, amount, refunded_on, reference, alasan, creator/timestamps |
 | `document_counters` | Unique tenant/type/year, next sequence; jenis quotation original dan invoice terpisah |
 | `audit_events` | Tenant, actor/system, event, target, timestamp, redacted change metadata; append-only |
 | `idempotency_records` | Tenant/operation/key unique, request fingerprint, result entity ID, timestamps; hasil finansial durable |
+| `outbox_events` | Tenant, type, payload, dedupe_key unik per tenant, status, attempts, next_attempt_at, locked_until, last_error (kategori) |
+| `rate_limit_buckets` | Key, window, count, expiry |
+| `attachments` | Tenant, entity, storage key, hash, media type, size, uploader (ATT-01) |
 
 `DATA-01`: Gunakan UUID untuk business IDs; auth ID mengikuti dukungan versi library. Semua kolom mandatory memakai NOT NULL. FKs menjaga keberadaan parent dan tenant; index FK/query penting ditambahkan secara eksplisit.
 
-`DATA-02`: Unique constraints minimum: nomor quotation/invoice per tenant, family+revision index, paling banyak satu latest version per family, satu invoice per tenant/deal, item sort order per parent, counter tenant/type/year, dan operation idempotency key. Revision source, quotation source invoice, dan customer harus berasal dari deal yang benar, bukan hanya tenant yang sama.
+`DATA-02`: Unique constraints minimum: nomor quotation/pesanan/invoice per tenant, family+revision index, paling banyak satu latest version per family, paling banyak satu invoice non-void per termin (unique parsial `WHERE voided_at IS NULL`), satu kontak utama per customer, item sort order per parent, counter tenant/type/year, `dedupe_key` outbox per tenant, dan operation idempotency key. Revision source, quotation source invoice/pesanan, dan customer harus berasal dari deal yang benar, bukan hanya tenant yang sama. CHECK minimum: jumlah dan tanggal uang, enum stage/alasan/jenis komitmen/jenis settlement, task tepat satu subjek, settlement `RECEIPT` wajib punya receipt.
 
-`DATA-03`: Index minimum mengikuti query: customer name/phone sesuai pola search; deals `(organization_id,status)`, assignment, customer, created_at, won_at; follow-ups tenant+follow_up_at untuk yang belum selesai; quotations tenant+deal/number; invoices tenant+customer/due_date; payments tenant+invoice; activities tenant+deal+created_at. Validasi penggunaan index melalui query plan pada dataset uji sebelum menambah index mahal.
+`DATA-03`: Index minimum mengikuti query: customer name/phone sesuai pola search; deals `(organization_id,status)`, assignment, customer, created_at, won_at; follow-ups tenant+follow_up_at untuk yang belum selesai; quotations tenant+deal/number; invoices tenant+customer/due_date; receipts tenant+customer+received_on; settlements tenant+invoice dan tenant+receipt; billing_items tenant+order; outbox tenant+status+next_attempt_at; activities tenant+deal+created_at. Validasi penggunaan index melalui query plan pada dataset uji sebelum menambah index mahal.
 
 `DATA-04`: Semua instant memakai `timestamptz` UTC; tanggal issue/valid-until/due/payment memakai `date`. Clock service/domain dapat diinjeksi di tests. Jangan memakai timezone komputer browser untuk perhitungan overdue atau bulan revenue.
 
 `DATA-05`: Foreign key deletion untuk record bisnis berelasi menggunakan RESTRICT secara default. Jangan cascade-delete invoice, payment, atau audit saat user/customer dinonaktifkan. Child draft yang belum final dapat diganti dalam transaksi edit; histori final tidak boleh hilang.
 
-`DATA-06`: Transaksi wajib untuk provisioning organisasi/membership, document numbering+create, revision+items+freeze source, SENT+stage update, WON/LOST+activity, invoice+items+source freeze, dan payment+balance+activity. External email/Sentry dilakukan sesudah commit; kegagalan monitoring tidak membatalkan transaksi bisnis yang sudah sah.
+`DATA-06`: Transaksi wajib untuk provisioning organisasi/membership, document numbering+create, revision+items+freeze source, SENT+stage update, WON/LOST+activity, invoice+items+source freeze, dan payment+balance+activity. External email/Sentry dilakukan sesudah commit; kegagalan monitoring tidak membatalkan transaksi bisnis yang sudah sah. Tambahan v2: `confirmWon` (deal WON + pesanan + termin), invoice + item + status termin, receipt + settlement, reversal/refund, dan baris outbox bersama mutasi pemicunya.
 
 `DATA-07`: Concurrent update memakai version check atau row locking yang tepat. Balas conflict dengan instruksi reload/review, bukan overwrite. Deadlock/serialization retry harus terbatas, aman diulang, dan tidak menggandakan event/nomor/payment.
+
+`ATT-01`: Lampiran (bukti PO/kontrak pada pesanan, bukti transfer pada receipt) disimpan di bucket privat Supabase Storage dengan key `org/<organization_id>/<entity>/<id>/<uuid>`, metadata di tabel `attachments` (tenant, entity, hash, media type, ukuran, uploader). Tipe dan ukuran dibatasi (maksimal 10 MiB per file), akses hanya lewat URL bertanda tangan berumur pendek setelah cek tenant dan izin, dan tidak ada cascade-delete dari record finansial.
 
 ## 15. Kontrak server dan error handling
 
@@ -600,23 +693,27 @@ Kontrak logical berikut wajib tersedia melalui Server Action atau Route Handler;
 |---|---|---|
 | create/update customer | Field customer; ID/version saat update | Customer DTO |
 | create/update deal | Customer, title, value, assignment, optional fields | Deal DTO |
-| transition deal | Deal ID, expected version, target status, lost reason jika perlu | Deal + status committed |
+| transition deal | Deal ID, expected version, target stage, lost reason atau data on hold/reopen jika perlu | Deal + stage committed |
 | create/edit quotation | Deal, dates, lines, nominal discount/tax, notes/terms | Quotation + total server |
 | revise quotation | Source version ID, expected family version, idempotency key | New DRAFT version |
 | change quotation status | Exact quotation ID, expected version, target status | Quotation + optional deal transition |
 | download quotation PDF | Exact version ID | Authorized PDF stream |
 | create/update/complete follow-up | Deal, type, schedule, note, version | Follow-up DTO |
-| create invoice | WON deal, optional exact quotation ID, dates, reviewed items, idempotency key | Immutable invoice DTO |
-| record payment | Invoice, amount string, business date, method, reference/note, idempotency key | Payment + latest invoice balance |
+| confirm WON / add order to deal / direct order | Deal atau customer, bukti komitmen, nilai, rencana termin, idempotency key | Pesanan + termin |
+| amend order / rebalance termin / milestone | Pesanan, delta atau rencana termin, alasan, expected version | Pesanan + termin |
+| issue invoice | Termin READY, optional exact quotation ID, dates, reviewed items (total = termin), idempotency key | Immutable invoice DTO |
+| void invoice | Invoice, alasan, idempotency key | Invoice VOID |
+| record payment | Invoice, amount string, business date, method, reference/note, idempotency key | Receipt + settlement + latest invoice balance |
+| record receipt / allocate / identify / reverse / refund | Receipt atau settlement, amount string, invoice(s), alasan, idempotency key | Receipt/settlement DTO + saldo |
 | list/search/dashboard | Validated filters/page/sort | Scoped DTOs + bounded pagination metadata |
 
 `API-02`: Error shape logical: `{ code, message, fieldErrors?, requestId? }`. Untuk HTTP gunakan 400 invalid request, 401 unauthenticated, 403 permission denied pada resource tenant sendiri, 404 missing/cross-tenant, 409 version/idempotency/business-state conflict, 429 rate limited, dan 500 generic unexpected error. Server Actions boleh menggunakan typed result union dengan code yang sama. Jangan mengembalikan stack trace atau internal SQL.
 
 `API-03`: Error field yang diketahui ditampilkan langsung; error unexpected dilaporkan ke Sentry dengan request ID. User memperoleh retry hanya untuk operasi yang aman diulang. Setelah timeout submit payment, UI mempertahankan idempotency key dan dapat memuat hasil invoice sebelum menawarkan submit baru.
 
-`API-04`: Batas request harus eksplisit: maksimal 200 item, panjang teks sesuai modul, pagination maksimum 100, dan body bisnis maksimal 1 MiB. Uploaded files tidak diterima pada MVP. Kebutuhan batas lebih besar harus dibuktikan dengan fixture dan uji rendering/performance.
+`API-04`: Batas request harus eksplisit: maksimal 200 item, panjang teks sesuai modul, pagination maksimum 100, dan body bisnis maksimal 1 MiB. Lampiran mengikuti ATT-01 (maksimal 10 MiB per file, tipe dibatasi). Kebutuhan batas lebih besar harus dibuktikan dengan fixture dan uji rendering/performance.
 
-`API-05`: Semua create action yang rentan retry menggunakan operation key atau unique invariant yang sesuai; khusus invoice/payment/revision wajib idempotent. Identitas unik key adalah `(organization_id, operation_type, idempotency_key)`. Entity ID dan normalized payload fingerprint disimpan sebagai data pembanding, bukan bagian unique key. Reuse key lintas invoice atau payload berbeda ditolak, termasuk pada concurrent requests.
+`API-05`: Semua create action yang rentan retry menggunakan operation key atau unique invariant yang sesuai; khusus create quotation, revisi, pesanan, invoice, void, receipt, payment, alokasi, reversal, dan refund wajib idempotent. Identitas unik key adalah `(organization_id, operation_type, idempotency_key)`. Entity ID dan fingerprint dari seluruh payload ternormalisasi (bukan subset field) disimpan sebagai data pembanding, bukan bagian unique key. Reuse key lintas invoice atau payload berbeda ditolak, termasuk pada concurrent requests.
 
 ## 16. Security dan privasi
 
@@ -660,7 +757,7 @@ Kontrak logical berikut wajib tersedia melalui Server Action atau Route Handler;
 
 `OBS-04`: Runtime tidak boleh memerlukan writable persistent filesystem. External email akun dikirim sesudah commit; jika gagal, user dapat resend dengan rate limit dan tanpa membuat akun/invitation duplikat. Untuk reminder email masa depan, gunakan job/outbox durable PostgreSQL dan pemrosesan bounded hanya saat fitur itu disetujui.
 
-`OBS-05`: Scheduled job bukan dependency MVP. Jika kelak memakai Vercel Cron, endpoint wajib secret-protected, idempotent, aman dari overlap, mempunyai persisted progress dan retry policy. Overdue tetap benar saat cron gagal. [Pengelolaan Vercel Cron](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
+`OBS-05`: Satu-satunya scheduled job adalah penyapu outbox (ADR-0004) melalui Vercel Cron. Endpoint wajib secret-protected, idempotent, aman dari overlap (`FOR UPDATE SKIP LOCKED`), mempunyai persisted progress dan retry policy dengan batas percobaan. Status turunan (overdue, expired, aging) tetap benar saat cron gagal. [Pengelolaan Vercel Cron](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
 
 ## 18. Local development, CI/CD, dan deployment
 
@@ -739,7 +836,7 @@ Jangan menggunakan satu database atau auth secret bersama untuk production dan P
 
 `OPS-03`: Runbook rollback membedakan rollback aplikasi dari rollback schema. Vercel rollback tidak membatalkan migrasi DB. Gunakan versi aplikasi yang kompatibel atau forward-fix; destructive restore memerlukan penilaian kehilangan data dan prosedur operator yang terdokumentasi.
 
-`OPS-04`: Jika salah input pada record finansial immutable, hentikan mutasi terkait dan gunakan prosedur koreksi operator yang terbatas: identifikasi record/tenant, simpan bukti before/after, alasan dan pelaksana, backup, script satu kali yang direview dan transactional, lalu rekonsiliasi invoice/payment/dashboard serta audit koreksi. Tidak ada endpoint tersembunyi untuk bypass rule. Workflow correction self-service yang lebih lengkap masuk post-MVP.
+`OPS-04`: Jika salah input pada record finansial immutable, hentikan mutasi terkait dan gunakan prosedur koreksi operator yang terbatas: identifikasi record/tenant, simpan bukti before/after, alasan dan pelaksana, backup, script satu kali yang direview dan transactional, lalu rekonsiliasi invoice/payment/dashboard serta audit koreksi. Tidak ada endpoint tersembunyi untuk bypass rule. Koreksi yang tercakup v2 (void invoice, reversal, refund, reopen, amandemen) dilakukan lewat aplikasi, bukan prosedur ini; prosedur operator hanya untuk kasus di luar itu.
 
 ## 19. Strategi pengujian dan acceptance scenarios
 
@@ -755,49 +852,64 @@ Jangan menggunakan satu database atau auth secret bersama untuk production dan P
 |---|---|---|
 | AT-01 | Register owner, onboarding, verify, login, logout, recovery; akun tanpa membership tidak dapat membuka data bisnis | AUTH-01-06 |
 | AT-02 | Create customer dengan field wajib; invalid phone/email dan missing required field ditolak; one customer punya beberapa deal | CUS-01-03, DEAL-01 |
-| AT-03 | NEW→CONTACTED→QUALIFIED→QUOTATION→NEGOTIATION→WON; setiap transisi ilegal ditolak tanpa mutasi, termasuk CONTACTED→QUOTATION langsung | DEAL-03-04, DEAL-08 |
-| AT-04 | LOST dari masing-masing lima tahap aktif memerlukan alasan; WON/LOST tidak bisa reopen; value nol tidak dapat WON | DEAL-03-06 |
-| AT-05 | WON tanpa quotation lalu invoice item manual sampai PAID tetap berhasil | DEAL-04, INV-01, PAY-01-05 |
+| AT-03 | Perpindahan bebas antar PROSPECT/PROPOSAL/NEGOTIATION/COMMITMENT (maju, lompat, mundur) tercatat dengan event; stage tujuan tanpa data wajib ditolak tanpa mutasi; on hold menolak perpindahan stage sampai resume | DEAL-03, DEAL-08 |
+| AT-04 | LOST dari setiap stage aktif memerlukan alasan; WON hanya lewat pesanan dengan bukti komitmen dan nilai > 0; reopen LOST oleh pemilik atau Owner/Admin; reopen WON hanya Owner/Admin dan ditolak bila ada invoice non-void | DEAL-03-06 |
+| AT-05 | WON tanpa quotation lalu invoice termin dengan item manual sampai PAID tetap berhasil | DEAL-04, INV-01, PAY-01-05 |
 | AT-06 | Kalkulasi banyak item, quantity pecahan, HALF_UP, free line, nominal discount/tax, batas maksimum; total client palsu diabaikan/ditolak | QUO-02-03, MONEY-01-07 |
 | AT-07 | Nomor original/revision/invoice unik pada create concurrent, retry, tenant berbeda, pergantian tahun, dan overflow lima digit | QUO-04-06, INV-04, DATA-02 |
 | AT-08 | Revisi SENT/ACCEPTED/invoice-linked menghasilkan record baru; merevisi R0 saat R1 draft terbaru membekukan R1 sebelum membuat R2; perubahan master atau later SENT tidak mengubah snapshot/PDF/invoice frozen | QUO-05-08, PDF-02, INV-03 |
-| AT-09 | Download PDF tidak menandai SENT; SENT dari NEW/CONTACTED/LOST ditolak; SENT dari QUALIFIED memindahkan tahap ke QUOTATION secara atomik; ACCEPTED tidak otomatis WON; expired tidak dapat diterima | QUO-08-10 |
+| AT-09 | Download PDF tidak menandai SENT; SENT pada deal LOST atau on hold ditolak; SENT pada PROSPECT memindahkan ke PROPOSAL dan mengisi nilai kosong secara atomik; ACCEPTED memajukan ke COMMITMENT dan tidak pernah WON; expired tidak dapat diterima | QUO-08-11 |
 | AT-10 | PDF 1/20/200 item dan deskripsi panjang tidak terpotong; versi/total cocok; tenant lain tidak dapat download | PDF-01-04 |
 | AT-11 | WhatsApp nomor ternormalisasi, message editable/encoded, template tanpa quotation, invalid phone; membuka link tidak mencatat delivery/completion | WA-01-03 |
 | AT-12 | Reminder Today/Overdue/Upcoming tepat pada midnight; completed/terminal deal tidak muncul aktif; last contact tidak berubah oleh page view | FUP-01-05 |
-| AT-13 | Finance membuat invoice hanya dari WON, copy exact source version, tanpa quotation, dan retry mengembalikan invoice sama | INV-01-05 |
-| AT-14 | Rp30 juta dibayar Rp10 juta lalu Rp20 juta; status/saldo tepat; amount negatif/nol/overpay/future date ditolak | PAY-01-05, INV-06 |
+| AT-13 | Finance menerbitkan invoice hanya dari termin READY dengan total sama dengan termin, copy exact source version, tanpa quotation, dan retry mengembalikan invoice sama | INV-01-05, BIL-01-03 |
+| AT-14 | Rp30 juta dibayar Rp10 juta lalu Rp20 juta; status/saldo tepat; amount negatif/nol/melebihi sisa/future date ditolak | PAY-01-05, INV-06 |
 | AT-15 | Payment final di-retry dengan key sama tetap berhasil sekali; key sama payload berbeda conflict; dua payment concurrent tidak melebihi saldo | PAY-03-04, API-05 |
 | AT-16 | Paksa failure sesudah insert payment/sebelum activity; payment, saldo, dan activity semuanya rollback | DATA-06, PAY-03 |
-| AT-17 | UNPAID/PARTIALLY_PAID/PAID/OVERDUE sesuai urutan, due today belum overdue, paid late tetap PAID; status/filter benar tanpa cron | INV-06-07 |
-| AT-18 | Dashboard pipeline/won-month/outstanding/overdue/customer-count cocok fixture; multiple items/payments tidak menggandakan sum; rollover bulan benar | DASH-01-03 |
+| AT-17 | VOID/PAID/OVERDUE/PARTIALLY_PAID/UNPAID sesuai urutan, due today belum overdue, paid late tetap PAID; status/filter benar tanpa cron | INV-06-07 |
+| AT-18 | Dashboard pipeline (tanpa PROSPECT), bookings, won-month, ditagih, piutang, aging, kas diterima, dan customer-count cocok fixture; multiple items/settlements tidak menggandakan sum; rollover bulan benar | DASH-01-03 |
 | AT-19 | Sales memanggil payment/member endpoint manual ditolak; Finance mencoba active deal/quotation edit ditolak; last owner tidak dapat dihapus | RBAC-01-04 |
 | AT-20 | Tenant A mencoba ID tenant B pada list/detail/update/source/item/PDF/search/dashboard/activity: tanpa read leak, write, atau count leak | TENANT-01-05, SEC-09 |
 | AT-21 | Session lama setelah role downgrade/deactivation/password reset ditolak; request tanpa session dan CSRF/origin invalid ditolak; tokenized auth callback valid tetap bekerja | AUTH-03/06, SEC-03 |
 | AT-22 | Concurrent edit draft/deal dan invoice source freeze tidak menimpa diam-diam; customer deal terkunci setelah quotation; source customer/deal lain ditolak walaupun tenant sama | QUO-03, INV-03, DEAL-02, DATA-02/07 |
 | AT-23 | Fresh migrations, upgrade migrations, seed guard, preview config, build, Sentry browser/server smoke, dan restore drill berhasil | DEV-01-03, CI-01-05, OPS-01-03 |
 | AT-24 | Mobile 360px: pipeline→customer→follow-up→WhatsApp usable; keyboard form/dialog dan error state berfungsi | UX-01-06 |
-| AT-25 | Jika Money at Risk dibuat: >7 hari masuk, tepat 7 hari tidak, WON/LOST tidak; view/link click tidak mereset timer | RISK-01 |
+| AT-25 | Sinyal kesehatan deal: tanpa task, task terlambat, stage mandek, lewat target, tinjau on hold; deal on hold/WON/LOST tidak diberi sinyal yang salah | DEAL-09 |
+| AT-26 | `confirmWon` membuat pesanan dan termin secara atomik dan rollback bila gagal; WON tanpa bukti ditolak | DEAL-04, ORD-01-02 |
+| AT-27 | Pesanan tambahan ke deal WON berhasil; deal belum WON atau customer berbeda ditolak; pesanan langsung dengan invoice dan pembayaran tunai dalam satu submit | ORD-02 |
+| AT-28 | Amandemen menyeimbangkan termin; nilai di bawah total tertagih ditolak; ubah termin berinvoice ditolak; pecah termin lalu tagih sebagian | ORD-03, BIL-02 |
+| AT-29 | Termin DP 30/40/30 dengan BAST dan retensi: PLANNED/READY/INVOICED benar, retensi tidak overdue | BIL-03 |
+| AT-30 | Dua Finance menerbitkan invoice termin yang sama, satu kalah; void mengembalikan READY; void ditolak bila ada settlement aktif; nomor tidak dipakai ulang | INV-04, INV-08 |
+| AT-31 | Satu transfer ke dua invoice, dua transfer ke satu invoice, DP sebelum invoice, kelebihan bayar menjadi kredit; alokasi bersamaan tidak memakai sisa receipt dua kali | RCP-01, SET-01-02 |
+| AT-32 | Receipt tanpa customer tidak bisa dialokasikan; setelah identifikasi berhasil; salah identifikasi diperbaiki lewat reversal | RCP-02 |
+| AT-33 | Bayar bersih + WITHHOLDING = PAID tanpa menambah kas; WRITE_OFF di atas batas oleh Finance ditolak; reversal membuka kembali saldo; refund melebihi sisa ditolak | SET-01, RCP-04-05 |
+| AT-34 | Reopen WON/LOST: pesanan dibatalkan sesuai aturan, audit tercatat, task yang dibatalkan tidak hidup kembali | DEAL-03, FUP-04 |
+| AT-35 | Prospek cukup nama dan nomor; kontak tanpa telepon dan email ditolak; NPWP tidak valid ditolak; snapshot lama tidak berubah | CUS-01, CUS-04 |
+| AT-36 | Task penagihan dan janji bayar: antrian Penagihan menampilkan janji yang lewat; task invoice tidak terpengaruh penutupan deal | FUP-01-04, TASK-01 |
+| AT-37 | Outbox: handler gagal lalu diulang tidak mengirim dua kali; invoice tetap terbit saat email gagal; dua sapuan tidak memproses baris sama; melebihi batas menjadi DEAD | ADR-0004, OBS-05 |
+| AT-38 | Audit organisasi merekam anggota, settings, reopen, void, reversal, refund tanpa password/token | AUD-04 |
+| AT-39 | `pnpm reconcile` lulus pada seed dan gagal pada data yang sengaja dirusak (receipt berlebih, termin tidak seimbang, nomor ganda) | SET-02, BIL-02 |
+| AT-40 | User nonaktif di organisasi A dapat bergabung ke organisasi B; login dan semua lookup memakai membership aktif | §3 Organisasi, TENANT-05 |
+| AT-41 | Migrasi: total invoice, piutang, dan kas sebelum dan sesudah sama; deal WON lama menjadi pesanan LEGACY; snapshot dokumen beku tidak berubah | §23 versi 2.0 |
 
 ### 19.2 Happy path E2E utama
 
 ```text
 Login
-→ Create Customer
-→ Create Deal
-→ Move to CONTACTED
-→ Move to QUALIFIED
+→ Create Customer (+ kontak utama)
+→ Create Deal (PROSPECT)
 → Create Quotation + Add Items
 → Generate / Download PDF
-→ Mark Quotation SENT (deal menjadi QUOTATION jika masih QUALIFIED)
+→ Mark Quotation SENT (deal menjadi PROPOSAL)
 → Create Follow-up
 → Move Deal to NEGOTIATION
-→ Mark Deal WON
-→ Create Invoice
-→ Record Partial Payment
-→ Record Final Payment
+→ Move Deal to COMMITMENT (atau tandai quotation ACCEPTED)
+→ Confirm WON (pesanan + termin DP dan pelunasan)
+→ Issue Invoice termin DP → Record Payment DP
+→ Mark milestone selesai → Issue Invoice termin pelunasan
+→ Record Partial Payment → Record Final Payment
 → Invoice PAID
-→ Verify dashboard + immutable history + activity timeline
+→ Verify dashboard + aging + immutable history + activity timeline
 ```
 
 `TEST-04`: Happy path di atas wajib berjalan dengan Owner/Admin end-to-end. Jalankan juga handoff role: Sales menyelesaikan sisi sales, lalu Finance membuat invoice dan mencatat payment menggunakan session berbeda. Tambahkan satu negative test tenant B untuk memastikan keberhasilan alur tidak bergantung pada bypass authorization.
@@ -813,10 +925,10 @@ Login
 Seed minimum:
 
 - 20+ customer dengan company/contact/alamat yang masuk akal dan seluruhnya fiktif.
-- 10+ active deal tersebar pada NEW/CONTACTED/QUALIFIED/QUOTATION/NEGOTIATION; tambahkan beberapa WON dan LOST beserta alasan.
+- 10+ deal aktif tersebar pada PROSPECT/PROPOSAL/NEGOTIATION/COMMITMENT, satu di antaranya on hold; tambahkan beberapa WON (dengan pesanan dan termin) dan LOST beserta alasan.
 - Beberapa quotation: multi-item, SENT, ACCEPTED, REJECTED, EXPIRED, dan keluarga revisi R1/R2.
-- Beberapa invoice: UNPAID, PARTIALLY_PAID, PAID, OVERDUE termasuk partial-overdue.
-- Payment beberapa method, partial/final, tanpa melewati saldo.
+- Beberapa invoice: UNPAID, PARTIALLY_PAID, PAID, OVERDUE termasuk partial-overdue, satu VOID dengan pengganti, dan satu pesanan dengan termin DP/pelunasan.
+- Receipt beberapa method: satu transfer ke dua invoice, satu uang muka belum dialokasikan, satu potongan pajak, tanpa melewati saldo.
 - Follow-up Today, Overdue, Upcoming, completed, dan activity timeline yang konsisten.
 - Akun contoh untuk tiga kelompok role dan organisasi kedua untuk demonstrasi isolasi/test.
 
@@ -836,6 +948,7 @@ Seed minimum:
 | M3: Finance | WON→invoice, payment partial/final, overdue, transaction/idempotency/concurrency; financial tests lulus |
 | M4: Visibility & UX | Dashboard, search/filter, responsive/a11y, coherent error/loading/empty states; role handoff E2E lulus |
 | M5: Release | Seed demo, security checks, performance sample, monitoring, restore drill, README/screenshots, Vercel live deployment dan smoke test |
+| M6: v2 | Fase 1-8 pada ADR-0001 sampai ADR-0004 (platform, pipeline, kontak, pesanan/termin, receipt/settlement, task penagihan, outbox, laporan). Gate tiap fase: migrasi + service + test integrasi + `pnpm reconcile` + CI penuh |
 
 Tahap tidak boleh dinyatakan selesai hanya karena UI ter-render. Service/database/permission dan test acceptance terkait harus ikut selesai. Fitur opsional tidak menghalangi core milestones.
 
@@ -847,16 +960,17 @@ Checklist berikut mempertahankan seluruh DoD PRD asal dan menambahkan release ga
 - [ ] Organization memiliki isolated data pada semua jalur server.
 - [ ] User berwenang dapat membuat customer.
 - [ ] User berwenang dapat membuat dan mengelola deal.
-- [ ] Deal memiliki sales pipeline status dan transisi valid.
+- [ ] Deal memiliki stage pipeline (PROSPECT/PROPOSAL/NEGOTIATION/COMMITMENT), on hold, dan transisi valid.
 - [ ] User berwenang dapat membuat quotation dengan multiple items.
 - [ ] Total quotation dan invoice dihitung backend secara exact dan benar.
 - [ ] Quotation PDF dapat di-download dan layout diverifikasi.
 - [ ] Quotation revision membuat snapshot baru, histori lama tetap dapat diakses.
 - [ ] Follow-up dapat dibuat, diperbarui, diselesaikan, dan ditampilkan pada reminder.
 - [ ] WhatsApp customer dapat dibuka dengan pesan editable.
-- [ ] Deal dapat WON atau LOST dengan validasi yang benar; WON tidak mewajibkan quotation.
-- [ ] WON deal dapat dikonversi menjadi invoice dengan atau tanpa quotation.
-- [ ] Invoice mendukung partial payment dan otomatis PAID ketika lunas.
+- [ ] Deal dapat WON (lewat pesanan dengan bukti komitmen) atau LOST dengan validasi yang benar; WON tidak mewajibkan quotation.
+- [ ] Pesanan dapat ditagih per termin dengan atau tanpa quotation.
+- [ ] Invoice mendukung partial payment, banyak receipt, dan otomatis PAID ketika lunas.
+- [ ] Kesalahan uang dapat dikoreksi lewat void, reversal, refund, dan reopen tanpa menghapus histori.
 - [ ] Overdue invoice dikenali secara benar tanpa ketergantungan cron.
 - [ ] Dashboard menunjukkan pipeline value, won revenue, outstanding, overdue, dan follow-up sesuai role.
 - [ ] Authorization dan membership diperiksa di backend, termasuk akses manual dan revoked session.
@@ -877,16 +991,16 @@ Urutan berikut mempertahankan roadmap asal; tidak menjadi janji tanggal atau dep
 
 | Versi | Scope kandidat |
 |---|---|
-| v1.1: Email & WhatsApp | Quotation email, invoice email, configurable message templates, official WhatsApp integration |
+| v1.1: WhatsApp | Configurable message templates, official WhatsApp integration (email dokumen sudah di v2.0, ADR-0004) |
 | v1.2: Approval Workflow | Contoh quotation > Rp50 juta membutuhkan persetujuan manager sebelum Sales mengirim |
 | v1.3: Products / Services Catalog | Pilih item katalog: CCTV, installation, network cabling, maintenance |
-| v1.4: File Attachments | RFQ, purchase order, contract, payment proof, supporting documents; pilih Supabase Storage/S3/R2 dengan private access |
+| v1.4: Lampiran lanjutan | Lampiran bukti dasar sudah di v2.0 (ATT-01); lanjutan: RFQ dan dokumen pendukung lain, pratinjau, kebijakan retensi |
 | v1.5: AI RFQ Extraction | Paste/upload kebutuhan customer → structured requirement dan draft quotation; review manusia sebelum save |
 | v1.6: AI Document Extraction | RFQ PDF → customer, deadline, requested items, quantity, requirements; keluaran reviewable |
-| v1.7: Analytics | Win rate, average deal size, average sales cycle, revenue by salesperson, lost reason analysis, quotation conversion rate |
+| v1.7: Analytics lanjutan | Win rate, siklus penjualan, dan aging sudah di v2.0; lanjutan: average deal size, revenue by salesperson, lost reason analysis, quotation conversion rate |
 | v1.8: Integrations | Accurate, Kledo, Xero, Google Calendar, WhatsApp, email, payment gateway |
 
-Kandidat tambahan dari keputusan penjelas: payment correction/credit note, invoice void/refund, split invoicing, multi-organization membership, dan SaaS subscription billing. Semuanya membutuhkan requirement tersendiri sebelum implementasi. Roadmap tidak otomatis mengizinkan Redis/microservices/Kafka/Kubernetes/Elasticsearch.
+Kandidat tambahan: credit note, dispute dengan pemisahan saldo, konfirmasi receipt dua langkah, tagihan berulang otomatis, katalog harga per customer, link publik customer, multi-organization membership, dan SaaS subscription billing. Semuanya membutuhkan requirement tersendiri sebelum implementasi; pemicu tiap item ada di dokumen arsitektur target. Roadmap tidak otomatis mengizinkan Redis/microservices/Kafka/Kubernetes/Elasticsearch.
 
 ## 21. Instruksi implementasi untuk developer dan AI coding assistant
 
@@ -942,7 +1056,7 @@ Nomor kolom pertama adalah nomor bagian pada PRD asal, bukan nomor bagian dokume
 | 24 | Payment fields dan methods | PAY-01-02 |
 | 25 | Partial/final payment | PAY-03-05, AT-14-17 |
 | 26 | Pipeline, won-month, outstanding, follow-up, overdue KPIs | DASH-01-03 |
-| 27 | Optional Money at Risk >7 days | RISK-01 |
+| 27 | Optional Money at Risk >7 days | RISK-01 (digantikan DEAL-09) |
 | 28 | Deal activity timeline | AUD-01-04 |
 | 29 | Login, hashed password, protected routes, session/logout | AUTH-01-06, §16 |
 | 30 | Server-side authorization | §6.2, §15-16 |
@@ -974,5 +1088,6 @@ Saat ada perubahan, update versi/tanggal dokumen, requirement terkait, ADR bila 
 
 **Riwayat revisi**
 
+- **2.0 (29 Oktober 2026)**: perubahan arsitektur setelah discovery B2B (28 Oktober 2026) dan business system map; keputusan serta alternatif yang ditolak ada di ADR-0001 sampai ADR-0004 (`docs/adr/`). (1) Pipeline: empat stage aktif `PROSPECT`, `PROPOSAL`, `NEGOTIATION`, `COMMITMENT`, perpindahan bebas, overlay on hold, reopen, dan kesehatan deal menggantikan Money at Risk (§7.3, DEAL-03-09, RISK-01, QUO-08-11). (2) WON lewat pesanan dengan bukti komitmen; pesanan, amandemen, dan termin; banyak invoice per pesanan dengan total sama dengan termin; void invoice (§10.1-10.3, ORD-01-05, BIL-01-03, INV-01-08, DATA-02). (3) Receipt, settlement (kas, potongan pajak, write-off), refund, reversal, dan kredit customer menggantikan `payments` (§10.4, RCP-01-05, SET-01-02, PAY-01-05). (4) Kontak customer dan NPWP opsional (CUS-01, CUS-04). (5) Task penagihan, janji bayar, dan antrian kerja (FUP-01-04, TASK-01, WA-04). (6) Outbox dan Vercel Cron (§2.3, ARCH-06, OBS-05). (7) Metrik bookings, ditagih, kas diterima, aging, dan kredit customer (§11.1); lampiran privat (ATT-01); koreksi self-service menggantikan prosedur operator untuk kasus yang tercakup (OPS-04). Dampak data: migrasi stage, `deals.estimated_value` nullable, deal WON lama menjadi pesanan `LEGACY` dengan satu termin, invoice lama ditautkan ke termin, `payments` menjadi receipt + settlement, `contactPerson`/telepon/email customer menjadi kontak utama; snapshot dokumen beku tidak diubah. Test: AT-03/04/05/09/13/14/17/18/25 diperbarui, AT-26 sampai AT-41 baru. Dikerjakan bertahap dalam Fase 0-8; status implementasi tiap fase dicatat di README, bukan di dokumen ini.
 - **1.2 (26 September 2026)**: menambahkan tahap `QUALIFIED` pada sales pipeline, di antara `CONTACTED` dan `QUOTATION`. Alasan: memberi sales titik keputusan eksplisit sebelum quotation dikirim -- memisahkan "sudah dikontak" dari "kebutuhan jelas dan layak ditawari" -- tanpa menambah field, checklist, scoring, atau approval manager pada MVP (DEAL-08 baru di §7.3). Dampak requirement: §7.3 (status/transisi deal), §8.3/QUO-08 (SENT ditolak pada NEW/CONTACTED/LOST, hanya dapat dimulai dari QUALIFIED), §11.1 (Sales Pipeline Value memasukkan QUALIFIED), §19.1 (AT-03/AT-04/AT-09), §19.2 (happy path menambah langkah Move to QUALIFIED), §20.1 (seed demo). Dampak data: tidak ada migration schema -- `deals.status` sudah berupa `text` tanpa CHECK constraint nilai, sehingga nilai baru diterima tanpa DDL; deal yang sudah berada di QUOTATION, NEGOTIATION, WON, atau LOST sebelum revisi ini tidak dimundurkan dan tidak diberi histori QUALIFIED buatan. Test terkait: integration test deals/quotations/concurrency/invoices/payments/whatsapp diperbarui untuk urutan tahap baru.
 - **1.1 (20 September 2026)**: tiga koreksi dokumentasi ditemukan lewat audit implementasi M1-M3, tidak ada perubahan aturan bisnis atau data. (1) §5.1: struktur folder ilustratif diperbarui dari `src/modules/` terpisah menjadi modul bisnis langsung di bawah `src/server/`, mengikuti konvensi yang sudah konsisten dipakai sejak M1 -- ARCH-02 sendiri tidak berubah. (2) §10.1: field table invoice menambahkan `notes`/`terms`, yang sebelumnya tidak tercantum padahal INV-02 mengharuskan keduanya disalin dari quotation source -- kontradiksi internal dokumen, bukan implementasi yang menyimpang. (3) §10.1: `paid_amount`/`remaining_amount` diperjelas sebagai nilai turunan yang dihitung ulang saat read, bukan kolom tersimpan, konsisten dengan §14.1 yang sejak awal menandai cache sebagai opsional. Tidak ada ADR terpisah dibuat untuk revisi ini karena ketiganya adalah koreksi framing dokumen terhadap keputusan yang sudah berjalan, bukan keputusan arsitektur baru.
