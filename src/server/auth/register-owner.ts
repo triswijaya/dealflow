@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { auth } from "./auth";
 import { findActiveMembership } from "./current-membership";
+import { recordAudit } from "@/server/audit/audit";
 import { db } from "@/server/db/client";
 import { organization, organizationSettings, user } from "@/server/db/schema";
 
@@ -62,6 +63,14 @@ export async function provisionOrganization(params: { userId: string; companyNam
       throw new Error("Registration failed");
     }
     organizationId = org.id;
+    await recordAudit(db, {
+      organizationId,
+      actorId: userId,
+      action: "organization.created",
+      targetType: "organization",
+      targetId: organizationId,
+      metadata: { name: params.companyName },
+    });
   }
 
   const existingSettings = await db.query.organizationSettings.findFirst({

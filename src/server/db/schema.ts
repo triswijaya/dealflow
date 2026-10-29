@@ -829,6 +829,31 @@ export const idempotencyRecords = pgTable(
   ],
 );
 
+// Business table (v2.0, AUD-04). The organization-level audit trail: who
+// changed membership, invitations, settings and, in later phases, who reopened,
+// voided or reversed what. Distinct from `activities`, which is a deal's
+// business timeline. Append-only by trigger (migration 0018), so even a
+// buggy query or a hand-run UPDATE cannot rewrite history; TRUNCATE is left
+// alone so the demo seed can reset the database.
+export const auditEvents = pgTable(
+  "audit_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    // Null means the system acted (a repair, a scheduled job).
+    actorId: text("actor_id").references(() => user.id, { onDelete: "restrict" }),
+    action: text("action").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id"),
+    // Redacted summary of what changed, never a full record (AUD-02).
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("audit_events_organizationId_createdAt_idx").on(table.organizationId, table.createdAt)],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),

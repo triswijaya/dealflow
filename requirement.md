@@ -563,7 +563,7 @@ Won Revenue adalah nilai deal yang dimenangkan; Bookings adalah komitmen pesanan
 
 `AUD-03`: Activity bisnis dan mutasi sumber disimpan atomik. Sentry/log aplikasi tidak menggantikan audit data bisnis. Duplicate request tidak boleh menghasilkan dua activity untuk satu aksi yang sama.
 
-`AUD-04`: Histori tidak dapat diedit/dihapus dari UI/API umum. Event finance pada timeline disembunyikan dari Sales sesuai permission; invoice total/payment detail tidak boleh bocor melalui ringkasan, count, atau payload activity. Perubahan role, deactivation, settings, serta koreksi insiden disimpan pada audit organisasi dengan akses Owner/Admin; audit organisasi (`audit_events`) juga mencatat perubahan anggota, undangan, settings, customer dan kontak, reopen, void, reversal, refund, write-off, identifikasi receipt, ubah rencana termin, dan pemindahan massal.
+`AUD-04`: Histori tidak dapat diedit/dihapus dari UI/API umum. Event finance pada timeline disembunyikan dari Sales sesuai permission; invoice total/payment detail tidak boleh bocor melalui ringkasan, count, atau payload activity. Perubahan role, deactivation, settings, serta koreksi insiden disimpan pada audit organisasi dengan akses Owner/Admin; audit organisasi (`audit_events`) juga mencatat perubahan anggota, undangan, settings, customer dan kontak, reopen, void, reversal, refund, write-off, identifikasi receipt, ubah rencana termin, dan pemindahan massal. Tabel ini append-only dan dijaga trigger database (UPDATE dan DELETE ditolak untuk semua role); penulisannya berada di transaksi yang sama dengan perubahan yang diaudit, kecuali perubahan yang ditulis oleh Better Auth (undangan, penerimaan), yang dicatat segera setelah berhasil.
 
 ## 12. Search, filter, dan pengalaman pengguna
 

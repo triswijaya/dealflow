@@ -5,6 +5,12 @@ import { findActiveMembership } from "./current-membership";
 import { requirePermission } from "./require-membership";
 import { db } from "@/server/db/client";
 import { invitation, member } from "@/server/db/schema";
+import { recordAudit } from "@/server/audit/audit";
+
+async function callerId(headers: Headers): Promise<string | null> {
+  const session = await auth.api.getSession({ headers });
+  return session?.user.id ?? null;
+}
 
 // AUTH-04: ownership transfer is not MVP UI (RBAC-02), so invitations only
 // ever grant one of these; also enforced server-side via beforeCreateInvitation.
@@ -16,10 +22,20 @@ export async function inviteMember(params: {
   organizationId?: string;
   headers: Headers;
 }) {
-  return auth.api.createInvitation({
+  const created = await auth.api.createInvitation({
     body: { email: params.email, role: params.role, organizationId: params.organizationId },
     headers: params.headers,
   });
+  // Better Auth owns this write, so the audit row follows it rather than sharing its transaction.
+  await recordAudit(db, {
+    organizationId: created.organizationId,
+    actorId: await callerId(params.headers),
+    action: "invitation.created",
+    targetType: "invitation",
+    targetId: created.id,
+    metadata: { email: created.email, role: created.role },
+  });
+  return created;
 }
 
 export async function listOrganizationMembers(params: { organizationId?: string; headers: Headers }) {
@@ -30,10 +46,21 @@ export async function listOrganizationMembers(params: { organizationId?: string;
 }
 
 export async function cancelInvitation(params: { invitationId: string; headers: Headers }) {
-  return auth.api.cancelInvitation({
+  const cancelled = await auth.api.cancelInvitation({
     body: { invitationId: params.invitationId },
     headers: params.headers,
   });
+  if (cancelled) {
+    await recordAudit(db, {
+      organizationId: cancelled.organizationId,
+      actorId: await callerId(params.headers),
+      action: "invitation.cancelled",
+      targetType: "invitation",
+      targetId: cancelled.id,
+      metadata: { email: cancelled.email, role: cancelled.role },
+    });
+  }
+  return cancelled;
 }
 
 /**
@@ -43,10 +70,21 @@ export async function cancelInvitation(params: { invitationId: string; headers: 
  */
 export async function acceptInvitation(params: { invitationId: string; userId: string; headers: Headers }) {
   try {
-    return await auth.api.acceptInvitation({
+    const accepted = await auth.api.acceptInvitation({
       body: { invitationId: params.invitationId },
       headers: params.headers,
     });
+    if (accepted) {
+      await recordAudit(db, {
+        organizationId: accepted.member.organizationId,
+        actorId: params.userId,
+        action: "member.joined",
+        targetType: "member",
+        targetId: accepted.member.id,
+        metadata: { role: accepted.member.role, invitationId: params.invitationId },
+      });
+    }
+    return accepted;
   } catch (error) {
     const existingInvitation = await db.query.invitation.findFirst({
       where: eq(invitation.id, params.invitationId),
@@ -106,12 +144,18 @@ export async function deactivateMember(params: { memberId: string; headers: Head
     }
   }
 
-  const [updated] = await db
-    .update(member)
-    .set({ deactivatedAt: new Date() })
-    .where(eq(member.id, target.id))
-    .returning();
-  return updated;
+  return db.transaction(async (tx) => {
+    const [updated] = await tx.update(member).set({ deactivatedAt: new Date() }).where(eq(member.id, target.id)).returning();
+    await recordAudit(tx, {
+      organizationId: actor.organizationId,
+      actorId: actor.userId,
+      action: "member.deactivated",
+      targetType: "member",
+      targetId: target.id,
+      metadata: { userId: target.userId, role: target.role },
+    });
+    return updated;
+  });
 }
 
 export async function reactivateMember(params: { memberId: string; headers: Headers }) {
@@ -135,8 +179,18 @@ export async function reactivateMember(params: { memberId: string; headers: Head
     throw new APIError("BAD_REQUEST", { message: "User already has an active organization membership" });
   }
 
-  const [updated] = await db.update(member).set({ deactivatedAt: null }).where(eq(member.id, target.id)).returning();
-  return updated;
+  return db.transaction(async (tx) => {
+    const [updated] = await tx.update(member).set({ deactivatedAt: null }).where(eq(member.id, target.id)).returning();
+    await recordAudit(tx, {
+      organizationId: actor.organizationId,
+      actorId: actor.userId,
+      action: "member.reactivated",
+      targetType: "member",
+      targetId: target.id,
+      metadata: { userId: target.userId, role: target.role },
+    });
+    return updated;
+  });
 }
 
 const ASSIGNABLE_ROLES = ["ADMIN", "SALES", "FINANCE"] as const;
@@ -172,6 +226,16 @@ export async function updateMemberRole(params: { memberId: string; role: Invitab
     return target; // already that role: idempotent
   }
 
-  const [updated] = await db.update(member).set({ role: params.role }).where(eq(member.id, target.id)).returning();
-  return updated;
+  return db.transaction(async (tx) => {
+    const [updated] = await tx.update(member).set({ role: params.role }).where(eq(member.id, target.id)).returning();
+    await recordAudit(tx, {
+      organizationId: actor.organizationId,
+      actorId: actor.userId,
+      action: "member.role_changed",
+      targetType: "member",
+      targetId: target.id,
+      metadata: { userId: target.userId, from: target.role, to: params.role },
+    });
+    return updated;
+  });
 }

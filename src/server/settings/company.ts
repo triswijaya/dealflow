@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { organization, organizationSettings } from "@/server/db/schema";
+import { recordAudit } from "@/server/audit/audit";
 import { toIsoDto } from "@/server/shared/dto";
 
 // S-01: company profile. The name lives on Better Auth's organization row;
@@ -87,11 +88,15 @@ export async function updateCompanySettings(params: {
 
   await db.transaction(async (tx) => {
     const [current] = await tx
-      .select({ updatedAt: organizationSettings.updatedAt })
+      .select()
       .from(organizationSettings)
       .where(eq(organizationSettings.organizationId, actor.organizationId))
       .for("update");
     if (!current) throw new APIError("NOT_FOUND", { message: "Organization settings not found" });
+    const [currentOrganization] = await tx
+      .select({ name: organization.name })
+      .from(organization)
+      .where(eq(organization.id, actor.organizationId));
     // The wire value is millisecond-precise, Postgres keeps microseconds:
     // compare at the precision the client could have seen.
     if (toIsoDto(current.updatedAt) !== params.expectedUpdatedAt) {
@@ -110,6 +115,33 @@ export async function updateCompanySettings(params: {
         defaultQuotationTerms: input.defaultQuotationTerms,
       })
       .where(eq(organizationSettings.organizationId, actor.organizationId));
+
+    // AUD-04. Only which fields changed, plus the old and new company name:
+    // addresses and terms can be long and are not worth copying into the trail.
+    const changedFields = (
+      [
+        ["name", currentOrganization.name, input.name],
+        ["contactEmail", current.contactEmail, input.contactEmail],
+        ["contactPhone", current.contactPhone, input.contactPhone],
+        ["address", current.address, input.address],
+        ["defaultQuotationTerms", current.defaultQuotationTerms, input.defaultQuotationTerms],
+      ] as const
+    )
+      .filter(([, before, after]) => before !== after)
+      .map(([field]) => field);
+    if (changedFields.length > 0) {
+      await recordAudit(tx, {
+        organizationId: actor.organizationId,
+        actorId: actor.userId,
+        action: "settings.updated",
+        targetType: "organization_settings",
+        targetId: current.id,
+        metadata: {
+          changedFields,
+          ...(changedFields.includes("name") ? { name: { from: currentOrganization.name, to: input.name } } : {}),
+        },
+      });
+    }
   });
   return read(actor.organizationId);
 }

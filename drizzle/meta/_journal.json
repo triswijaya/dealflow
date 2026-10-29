@@ -120,6 +120,20 @@
       "when": 1793247762861,
       "tag": "0016_active_membership_uniqueness",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793248076596,
+      "tag": "0017_audit_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793248077118,
+      "tag": "0018_audit_events_append_only",
+      "breakpoints": true
     }
   ]
 }
