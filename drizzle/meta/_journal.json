@@ -113,6 +113,13 @@
       "when": 1792247840660,
       "tag": "0015_drop_account_issuer",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793247762861,
+      "tag": "0016_active_membership_uniqueness",
+      "breakpoints": true
     }
   ]
 }

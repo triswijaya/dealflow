@@ -5,19 +5,44 @@ import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { member } from "@/server/db/schema";
+import { invitation, organization as organizationTable } from "@/server/db/schema";
 import { invitationEmail, resetPasswordEmail, verificationEmail } from "@/server/email/account-emails";
 import { sendEmail } from "@/server/email/send-email";
 import { env } from "@/server/env";
 import { ac, roles } from "@/lib/auth-permissions";
+import { findActiveMembership, findCurrentMembership } from "./current-membership";
 
-async function findMembershipDeactivation(userId: string) {
-  const [row] = await db
-    .select({ deactivatedAt: member.deactivatedAt })
-    .from(member)
-    .where(eq(member.userId, userId))
-    .limit(1);
-  return row?.deactivatedAt ?? null;
+// Organization endpoints a person needs precisely because they have no usable
+// membership: answering an invitation. Better Auth itself checks the invitation
+// is addressed to the signed-in email.
+const JOINING_PATHS = new Set([
+  "/organization/accept-invitation",
+  "/organization/reject-invitation",
+  "/organization/get-invitation",
+  "/organization/list-user-invitations",
+]);
+
+type OrganizationRequest = {
+  body?: unknown;
+  query?: unknown;
+  session: { session: object };
+};
+
+// Which organization an /organization/* call acts on, the way Better Auth will
+// resolve it: explicit id or slug, the organization of a named invitation, else
+// the session's active organization.
+async function targetOrganizationId(ctx: OrganizationRequest): Promise<string | undefined> {
+  const input = { ...(ctx.query as object | undefined), ...(ctx.body as object | undefined) } as Record<string, unknown>;
+  if (typeof input.organizationId === "string") return input.organizationId;
+  if (typeof input.organizationSlug === "string") {
+    const org = await db.query.organization.findFirst({ where: eq(organizationTable.slug, input.organizationSlug) });
+    return org?.id;
+  }
+  if (typeof input.invitationId === "string") {
+    const row = await db.query.invitation.findFirst({ where: eq(invitation.id, input.invitationId) });
+    return row?.organizationId;
+  }
+  return (ctx.session.session as { activeOrganizationId?: string | null }).activeOrganizationId ?? undefined;
 }
 
 export const auth = betterAuth({
@@ -43,40 +68,40 @@ export const auth = betterAuth({
       await sendEmail(verificationEmail({ to: user.email, name: user.name, url }));
     },
   },
-  // AUTH-06: a deactivated user cannot log in. This runs for every session
-  // creation path (not just email/password), always against a fresh DB read
-  // (we never enable session.cookieCache), so there is no stale-cache window.
-  databaseHooks: {
-    session: {
-      create: {
-        before: async (session) => {
-          const deactivatedAt = await findMembershipDeactivation(session.userId);
-          if (deactivatedAt) {
-            return false;
-          }
-        },
-      },
-    },
-  },
-  // AUTH-06: a deactivated user cannot run organization-management
-  // operations either. organizationHooks (below) only see target data, not
-  // the calling actor, and Better Auth's own role checks have no notion of
-  // deactivation, so this is the one choke point that covers every
-  // /organization/* endpoint (invite, cancel, list, add/remove/update-role).
+  // AUTH-06: a deactivated user may sign in (so they can accept an invitation
+  // to another organization) but can do nothing else: every service rejects
+  // them through requireMembership, and the hook below covers Better Auth's
+  // own organization endpoints. Sessions are never cached (no
+  // session.cookieCache), so a deactivation takes effect on the next request.
+  //
+  // Better Auth's own role checks have no notion of deactivation, and a person
+  // can now hold an old deactivated row in one organization next to an active
+  // one in another. So this is the single choke point for every
+  // /organization/* endpoint (invite, cancel, list, add/remove/update-role):
+  // the caller needs an active membership AND the call must target that same
+  // organization, otherwise a deactivated ex-admin of A, now a member of B,
+  // could still act on A.
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
-      if (!ctx.path.startsWith("/organization/")) {
+      if (!ctx.path.startsWith("/organization/") || JOINING_PATHS.has(ctx.path)) {
         return;
       }
       const session = await getSessionFromCtx(ctx);
       if (!session) {
         return;
       }
-      const deactivatedAt = await findMembershipDeactivation(session.user.id);
-      if (deactivatedAt) {
+      const current = await findCurrentMembership(session.user.id);
+      if (!current) {
+        return; // no membership yet, e.g. creating the first organization
+      }
+      if (current.deactivatedAt) {
         throw new APIError("FORBIDDEN", {
           message: "Your membership has been deactivated",
         });
+      }
+      const target = await targetOrganizationId({ body: ctx.body, query: ctx.query, session });
+      if (target && target !== current.organizationId) {
+        throw new APIError("FORBIDDEN", { message: "You are not a member of this organization" });
       }
     }),
   },
@@ -120,12 +145,7 @@ export const auth = betterAuth({
         // beforeAddMember. Database unique index in schema.ts is the
         // defense-in-depth backstop for races.
         beforeAddMember: async ({ user }) => {
-          const existing = await db
-            .select({ id: member.id })
-            .from(member)
-            .where(eq(member.userId, user.id))
-            .limit(1);
-          if (existing.length > 0) {
+          if (await findActiveMembership(user.id)) {
             throw new APIError("BAD_REQUEST", {
               message: "User already has an active organization membership",
             });

@@ -1,7 +1,7 @@
 // Better Auth tables generated via `npx auth@1.7.2 generate` against
 // src/server/auth/auth.ts, then reviewed and committed here (TENANT-05:
 // review plugin-generated schema before migration); includes two additions
-// beyond the generated output: a unique index on member.userId, enforcing
+// beyond the generated output: a partial unique index on member.userId, enforcing
 // AUTH-05 (one active organization per user) at the database level as a
 // defense-in-depth alongside the beforeAddMember hook in auth.ts, and
 // member.deactivatedAt (AUTH-04), registered with Better Auth via the
@@ -135,11 +135,14 @@ export const member = pgTable(
   },
   (table) => [
     index("member_organizationId_idx").on(table.organizationId),
-    // AUTH-05 defense-in-depth: one membership row per user, period. Kept as
-    // a plain (not partial-on-active) unique index deliberately: no product
-    // flow re-admits a deactivated user into a different organization, so
-    // "one membership ever" stays the simpler MVP rule.
-    uniqueIndex("member_userId_uidx").on(table.userId),
+    // AUTH-05 defense-in-depth: one ACTIVE membership per user. Deactivated
+    // rows are history and may pile up, which is what lets a person who left
+    // one company join another with the same account (ADR-0001 platform
+    // note, requirement §3). Resolve "the" membership through
+    // server/auth/current-membership.ts, never a bare userId lookup.
+    uniqueIndex("member_userId_active_uidx")
+      .on(table.userId)
+      .where(sql`${table.deactivatedAt} IS NULL`),
   ],
 );
 

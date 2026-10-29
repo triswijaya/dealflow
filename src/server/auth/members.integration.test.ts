@@ -184,11 +184,14 @@ describe("member invitations", () => {
     expect(reactivatedAgain.deactivatedAt).toBeNull();
   });
 
-  it("rejects a deactivated member's own sign-in (AUTH-06)", async () => {
+  it("lets a deactivated member sign in but gives them no access (AUTH-06)", async () => {
     const { ownerCookie, memberEmail, memberPassword, membership } = await setupOwnerAndMember("SALES");
     await deactivateMember({ memberId: membership.id, headers: new Headers({ cookie: ownerCookie }) });
 
-    await expect(auth.api.signInEmail({ body: { email: memberEmail, password: memberPassword } })).rejects.toThrow();
+    // Sign-in works so the person can accept an invitation elsewhere...
+    const cookie = await sessionCookieFor(memberEmail, memberPassword);
+    // ...but every business call is refused.
+    await expect(requireMembership({ headers: new Headers({ cookie }) })).rejects.toThrow(/deactivated/);
   });
 
   it("rejects a deactivated member's existing session on organization endpoints (AUTH-06)", async () => {

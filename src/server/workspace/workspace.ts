@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { auth } from "@/server/auth/auth";
+import { currentMembershipOrder } from "@/server/auth/current-membership";
 import { db } from "@/server/db/client";
 import { member, organization } from "@/server/db/schema";
 import { organizationClock } from "@/server/shared/organization-clock";
@@ -46,6 +47,7 @@ export async function getWorkspaceState(headers: Headers): Promise<WorkspaceStat
     .from(member)
     .innerJoin(organization, eq(organization.id, member.organizationId))
     .where(eq(member.userId, user.id))
+    .orderBy(...currentMembershipOrder)
     .limit(1);
   if (!row) {
     return { status: "no-membership", user };

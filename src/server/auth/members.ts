@@ -1,6 +1,7 @@
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { APIError } from "better-auth/api";
 import { auth } from "./auth";
+import { findActiveMembership } from "./current-membership";
 import { requirePermission } from "./require-membership";
 import { db } from "@/server/db/client";
 import { invitation, member } from "@/server/db/schema";
@@ -52,7 +53,7 @@ export async function acceptInvitation(params: { invitationId: string; userId: s
     });
     const existingMembership = existingInvitation
       ? await db.query.member.findFirst({
-          where: eq(member.userId, params.userId),
+          where: and(eq(member.userId, params.userId), eq(member.organizationId, existingInvitation.organizationId)),
         })
       : undefined;
     if (
@@ -127,6 +128,11 @@ export async function reactivateMember(params: { memberId: string; headers: Head
   }
   if (target.role === "OWNER" && actor.role !== "OWNER") {
     throw new APIError("FORBIDDEN", { message: "You are not allowed to reactivate this member" });
+  }
+  // One active membership per person (AUTH-05): someone who has since joined
+  // another organization cannot be brought back here until they leave it.
+  if (await findActiveMembership(target.userId)) {
+    throw new APIError("BAD_REQUEST", { message: "User already has an active organization membership" });
   }
 
   const [updated] = await db.update(member).set({ deactivatedAt: null }).where(eq(member.id, target.id)).returning();

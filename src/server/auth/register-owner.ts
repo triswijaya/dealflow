@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { auth } from "./auth";
+import { findActiveMembership } from "./current-membership";
 import { db } from "@/server/db/client";
-import { member, organization, organizationSettings, user } from "@/server/db/schema";
+import { organization, organizationSettings, user } from "@/server/db/schema";
 
 export interface RegisterOwnerInput {
   email: string;
@@ -45,7 +46,9 @@ async function generateUniqueSlug(companyName: string): Promise<string> {
  */
 export async function provisionOrganization(params: { userId: string; companyName: string }): Promise<string> {
   const { userId } = params;
-  const existingMembership = await db.query.member.findFirst({ where: eq(member.userId, userId) });
+  // Active only: someone whose old membership was deactivated starts a new
+  // organization rather than being bounced back into the one they left.
+  const existingMembership = await findActiveMembership(userId);
 
   let organizationId: string;
   if (existingMembership) {

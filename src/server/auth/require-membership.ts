@@ -1,8 +1,6 @@
 import { APIError } from "better-auth/api";
-import { eq } from "drizzle-orm";
 import { auth } from "./auth";
-import { db } from "@/server/db/client";
-import { member } from "@/server/db/schema";
+import { findCurrentMembership } from "./current-membership";
 import { roles } from "@/lib/auth-permissions";
 
 type OrgRole = keyof typeof roles;
@@ -23,7 +21,7 @@ export async function requireMembership(params: { headers: Headers }) {
     throw new APIError("UNAUTHORIZED", { message: "Authentication required" });
   }
 
-  const [row] = await db.select().from(member).where(eq(member.userId, session.user.id)).limit(1);
+  const row = await findCurrentMembership(session.user.id);
   if (!row) {
     throw new APIError("FORBIDDEN", { message: "No organization membership" });
   }
