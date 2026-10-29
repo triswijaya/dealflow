@@ -6,28 +6,27 @@
 // lost, info is scheduled or sent, brand marks the selling stages.
 export type BadgeTone = "neutral" | "info" | "brand" | "success" | "warning" | "danger" | "outline";
 
-export const ACTIVE_DEAL_STAGES = ["NEW", "CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION"] as const;
+export const ACTIVE_DEAL_STAGES = ["PROSPECT", "PROPOSAL", "NEGOTIATION", "COMMITMENT"] as const;
 export const DEAL_STAGES = [...ACTIVE_DEAL_STAGES, "WON", "LOST"] as const;
 export type DealStage = (typeof DEAL_STAGES)[number];
 export type ActiveDealStage = (typeof ACTIVE_DEAL_STAGES)[number];
 
 export const DEAL_STAGE: Record<DealStage, { label: string; tone: BadgeTone }> = {
-  NEW: { label: "Baru", tone: "neutral" },
-  CONTACTED: { label: "Dihubungi", tone: "info" },
-  QUALIFIED: { label: "Terkualifikasi", tone: "info" },
-  QUOTATION: { label: "Penawaran", tone: "brand" },
+  PROSPECT: { label: "Gali kebutuhan", tone: "neutral" },
+  PROPOSAL: { label: "Penawaran dikirim", tone: "brand" },
   NEGOTIATION: { label: "Negosiasi", tone: "warning" },
+  COMMITMENT: { label: "Menunggu komitmen", tone: "info" },
   WON: { label: "Menang", tone: "success" },
   LOST: { label: "Kalah", tone: "danger" },
 };
 
-// DEAL-03: one step forward only; the button label names the target step.
+// DEAL-03 lets a deal move to any active stage; until the screens offer that
+// choice, the one-step-forward button names the next step.
 export const NEXT_DEAL_STAGE: Record<ActiveDealStage, { to: DealStage; action: string }> = {
-  NEW: { to: "CONTACTED", action: "Tandai dihubungi" },
-  CONTACTED: { to: "QUALIFIED", action: "Tandai terkualifikasi" },
-  QUALIFIED: { to: "QUOTATION", action: "Mulai penawaran" },
-  QUOTATION: { to: "NEGOTIATION", action: "Masuk negosiasi" },
-  NEGOTIATION: { to: "WON", action: "Tandai menang" },
+  PROSPECT: { to: "PROPOSAL", action: "Penawaran dikirim" },
+  PROPOSAL: { to: "NEGOTIATION", action: "Masuk negosiasi" },
+  NEGOTIATION: { to: "COMMITMENT", action: "Menunggu komitmen" },
+  COMMITMENT: { to: "WON", action: "Tandai menang" },
 };
 
 export function isActiveStage(status: string): status is ActiveDealStage {
@@ -40,6 +39,7 @@ export const LOST_REASONS = [
   { value: "NO_RESPONSE", label: "Tidak ada respons" },
   { value: "PROJECT_CANCELLED", label: "Proyek dibatalkan" },
   { value: "BUDGET_UNAVAILABLE", label: "Anggaran tidak tersedia" },
+  { value: "NO_NEED", label: "Tidak lagi dibutuhkan" },
   { value: "OTHER", label: "Lainnya" },
 ] as const;
 

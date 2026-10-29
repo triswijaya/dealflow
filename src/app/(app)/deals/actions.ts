@@ -72,7 +72,7 @@ export async function transitionDealAction(input: {
 }
 
 export async function loadMorePipelineAction(input: {
-  status: "NEW" | "CONTACTED" | "QUALIFIED" | "QUOTATION" | "NEGOTIATION";
+  status: "PROSPECT" | "PROPOSAL" | "NEGOTIATION" | "COMMITMENT";
   offset: number;
   filters: Omit<DealFilters, "status" | "createdFrom" | "createdTo">;
 }): Promise<ActionResult<PipelineCardDto[]>> {

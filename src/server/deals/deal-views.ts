@@ -8,13 +8,13 @@ import { activities, customers, deals, followUps, member, user } from "@/server/
 import { toIsoDto, toMoneyDto } from "@/server/shared/dto";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
+import { ACTIVE_STAGES, DEAL_STATUSES } from "./stages";
 
 // Read models for the deal screens. Mutations stay in deals.ts; this file
 // only joins what a screen needs (customer and people names, follow-up
 // flags, stage history) so a page never has to stitch rows together.
 
-const ACTIVE_STAGES = ["NEW", "CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION"] as const;
-const ALL_STAGES = [...ACTIVE_STAGES, "WON", "LOST"] as const;
+const ALL_STAGES = DEAL_STATUSES;
 export const PIPELINE_COLUMN_LIMIT = 10;
 const ACTIVITY_LIMIT = 100;
 
@@ -318,8 +318,10 @@ export type DealDetailDto = {
     address: string | null;
     notes: string | null;
   };
-  /** When the deal entered each stage; stages it never reached are absent. */
+  /** When the deal first entered each stage; stages it never reached are absent. */
   stageEnteredAt: Partial<Record<(typeof ALL_STAGES)[number], string>>;
+  /** When the deal entered the stage it is in now (DEAL-03). */
+  stageSince: string;
 };
 
 /**
@@ -354,12 +356,19 @@ export async function getDealDetail(params: { headers: Headers; dealId: string }
     )
     .orderBy(asc(activities.createdAt), asc(activities.id));
 
-  const stageEnteredAt: DealDetailDto["stageEnteredAt"] = { NEW: toIsoDto(row.deal.createdAt) };
+  // Events written before the stage model changed carry the old names.
+  const stageName = (value: unknown) => {
+    const name = value === "NEW" || value === "CONTACTED" || value === "QUALIFIED" ? "PROSPECT" : value === "QUOTATION" ? "PROPOSAL" : value;
+    return (ALL_STAGES as readonly unknown[]).includes(name) ? (name as (typeof ALL_STAGES)[number]) : null;
+  };
+  const stageOf = (event: (typeof stageEvents)[number], key: "fromStatus" | "toStatus") => stageName((event.metadata as Record<string, unknown> | null)?.[key]);
+
+  // The deal started in the stage the first event left; with no events it never moved.
+  const startedIn = (stageEvents.length ? stageOf(stageEvents[0], "fromStatus") : null) ?? (row.deal.status as (typeof ALL_STAGES)[number]);
+  const stageEnteredAt: DealDetailDto["stageEnteredAt"] = { [startedIn]: toIsoDto(row.deal.createdAt) };
   for (const event of stageEvents) {
-    const toStatus = (event.metadata as { toStatus?: string } | null)?.toStatus;
-    if (toStatus && (ALL_STAGES as readonly string[]).includes(toStatus)) {
-      stageEnteredAt[toStatus as (typeof ALL_STAGES)[number]] ??= toIsoDto(event.createdAt);
-    }
+    const toStatus = stageOf(event, "toStatus");
+    if (toStatus) stageEnteredAt[toStatus] ??= toIsoDto(event.createdAt);
   }
 
   const { deal, customer } = row;
@@ -395,6 +404,7 @@ export async function getDealDetail(params: { headers: Headers; dealId: string }
       notes: customer.notes,
     },
     stageEnteredAt,
+    stageSince: toIsoDto(deal.stageEnteredAt),
   };
 }
 

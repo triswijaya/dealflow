@@ -18,9 +18,9 @@ describe("deal stages", () => {
     }
   });
 
-  it("moves one step forward at a time, from NEW through every active stage to WON (DEAL-03)", () => {
-    const path: string[] = ["NEW"];
-    let stage = NEXT_DEAL_STAGE.NEW;
+  it("moves one step forward at a time, from PROSPECT through every active stage to WON (DEAL-03)", () => {
+    const path: string[] = ["PROSPECT"];
+    let stage = NEXT_DEAL_STAGE.PROSPECT;
     while (true) {
       path.push(stage.to);
       if (!isActiveStage(stage.to)) break;
@@ -30,7 +30,7 @@ describe("deal stages", () => {
   });
 
   it("treats WON and LOST as closed", () => {
-    expect(isActiveStage("QUOTATION")).toBe(true);
+    expect(isActiveStage("PROPOSAL")).toBe(true);
     expect(isActiveStage("WON")).toBe(false);
     expect(isActiveStage("LOST")).toBe(false);
     expect(isActiveStage("anything else")).toBe(false);

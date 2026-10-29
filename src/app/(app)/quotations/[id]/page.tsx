@@ -17,7 +17,7 @@ import { QuotationActions } from "../quotation-actions";
 export const metadata: Metadata = { title: "Detail quotation · DealFlow" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const CANNOT_SEND_DEAL = ["NEW", "CONTACTED", "LOST"];
+const CANNOT_SEND_DEAL = ["LOST"];
 
 export default async function QuotationDetailPage({ params }: PageProps<"/quotations/[id]">) {
   const { id } = await params;

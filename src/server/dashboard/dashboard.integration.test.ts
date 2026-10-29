@@ -37,26 +37,26 @@ describe("dashboard metrics", () => {
     }
     return { customer, deal };
   }
-  const WON = ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"];
+  const WON = ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"];
 
   it("sums the active pipeline by stage with exact bigint values and zeros for empty stages", async () => {
     const org = await setupOrganization();
     await newDeal(org, "A", "15000000");
-    await newDeal(org, "B", "22750000", ["CONTACTED"]);
-    await newDeal(org, "C", "48500000", ["CONTACTED", "QUALIFIED", "QUOTATION"]);
+    await newDeal(org, "B", "22750000", ["PROPOSAL"]);
+    await newDeal(org, "C", "48500000", ["PROPOSAL", "NEGOTIATION", "COMMITMENT"]);
     await newDeal(org, "Menang", "99000000", WON);
     await newDeal(org, "Kalah", "77000000");
 
     const metrics = await getPipelineMetrics({ headers: org.ownerHeaders });
     expect(metrics.stages.map((stage) => [stage.status, stage.count, stage.value])).toEqual([
-      ["NEW", 2, "92000000"],
-      ["CONTACTED", 1, "22750000"],
-      ["QUALIFIED", 0, "0"],
-      ["QUOTATION", 1, "48500000"],
+      ["PROSPECT", 2, "92000000"],
+      ["PROPOSAL", 1, "22750000"],
       ["NEGOTIATION", 0, "0"],
+      ["COMMITMENT", 1, "48500000"],
     ]);
-    expect(metrics.totalCount).toBe(4);
-    expect(metrics.totalValue).toBe("163250000");
+    // DEAL-08: PROSPECT is listed but is not part of the pipeline totals.
+    expect(metrics.totalCount).toBe(2);
+    expect(metrics.totalValue).toBe("71250000");
   });
 
   it("counts won value by the organization's calendar month, half-open at local midnight", async () => {

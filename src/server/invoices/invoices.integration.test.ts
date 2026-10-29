@@ -86,7 +86,7 @@ describe("invoices", () => {
         assignedToId: owner.ownerUserId,
       },
     });
-    for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"]) {
+    for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]) {
       const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, deal.id) });
       await transitionDeal({
         headers: new Headers({ cookie: owner.ownerCookie }),
@@ -224,13 +224,13 @@ describe("invoices", () => {
         headers: new Headers({ cookie: owner.ownerCookie }),
         dealId: deal.id,
         expectedVersion: contactedBase!.version,
-        input: { toStatus: "CONTACTED" },
+        input: { toStatus: "PROPOSAL" },
       });
       await transitionDeal({
         headers: new Headers({ cookie: owner.ownerCookie }),
         dealId: deal.id,
         expectedVersion: contacted.version,
-        input: { toStatus: "QUALIFIED" },
+        input: { toStatus: "NEGOTIATION" },
       });
       const quotation = await createQuotation({
         headers: new Headers({ cookie: owner.ownerCookie }),
@@ -321,12 +321,12 @@ describe("invoices", () => {
           input: { toStatus },
         });
       };
-      await advance("CONTACTED");
+      await advance("PROPOSAL");
       const draft = await createQuotation({
         headers: new Headers({ cookie: owner.ownerCookie }),
         input: { dealId: deal.id, validUntil: "2026-12-31", items: oneItem },
       });
-      for (const toStatus of ["QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"]) {
+      for (const toStatus of ["NEGOTIATION", "COMMITMENT", "WON"]) {
         await advance(toStatus);
       }
       return { ...owner, customerId: customer.id, dealId: deal.id, draft };
@@ -405,7 +405,7 @@ describe("invoices", () => {
         headers: new Headers({ cookie: owner.ownerCookie }),
         dealId: otherDeal.id,
         expectedVersion: otherDealCurrent!.version,
-        input: { toStatus: "CONTACTED" },
+        input: { toStatus: "PROPOSAL" },
       });
       const foreignQuotation = await createQuotation({
         headers: new Headers({ cookie: owner.ownerCookie }),
@@ -509,7 +509,7 @@ describe("invoices", () => {
           assignedToId: owner.ownerUserId,
         },
       });
-      for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"]) {
+      for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]) {
         const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, deal.id) });
         await transitionDeal({
           headers: new Headers({ cookie: owner.ownerCookie }),

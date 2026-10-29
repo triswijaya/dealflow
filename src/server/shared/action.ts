@@ -11,6 +11,7 @@ import { logger } from "./logger";
 const KNOWN_MESSAGES: [RegExp, string, string?][] = [
   [/modified by someone else|newer version, reload/i, "Data sudah diubah orang lain. Muat ulang untuk melihat versi terbaru sebelum menyimpan lagi."],
   [/Cannot transition a deal/i, "Tahap deal tidak dapat dipindahkan ke tahap tersebut."],
+  [/Estimated value must be positive for a deal in/i, "Nilai estimasi harus lebih dari Rp0 untuk tahap ini.", "estimatedValue"],
   [/Estimated value must be positive/i, "Nilai deal harus lebih dari Rp0 untuk menandai menang."],
   [/won or lost deal cannot be edited/i, "Deal yang sudah menang atau kalah tidak dapat diubah."],
   [/Cannot change the customer once a quotation exists/i, "Customer terkunci karena deal sudah memiliki quotation.", "customerId"],
@@ -26,7 +27,7 @@ const KNOWN_MESSAGES: [RegExp, string, string?][] = [
   [/can no longer be edited/i, "Quotation ini sudah dikunci dan tidak dapat diedit. Buat revisi untuk perubahan."],
   [/Only the latest version/i, "Hanya versi terbaru yang dapat diubah statusnya."],
   [/expired and can no longer be sent or accepted/i, "Quotation sudah kedaluwarsa, jadi tidak dapat dikirim atau diterima. Perbarui tanggal berlaku."],
-  [/must be at least QUALIFIED/i, "Deal harus sudah Terkualifikasi dan belum Kalah sebelum quotation ditandai terkirim."],
+  [/cannot be sent on a lost deal/i, "Quotation tidak dapat dikirim pada deal yang sudah kalah."],
   [/Cannot transition a quotation/i, "Status quotation tidak dapat diubah ke status tersebut."],
   [/must have at least one item/i, "Tambahkan minimal satu item.", "items"],
   [/Discount cannot exceed the subtotal/i, "Diskon tidak boleh melebihi subtotal.", "discount"],

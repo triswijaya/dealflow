@@ -95,14 +95,14 @@ describe("deals", () => {
     ...overrides,
   });
 
-  it("creates a deal defaulting to NEW status and version 1", async () => {
+  it("creates a deal defaulting to PROSPECT status and version 1", async () => {
     const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
     const created = await createDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: dealInput(customerId, { assignedToId: ownerUserId }),
     });
 
-    expect(created.status).toBe("NEW");
+    expect(created.status).toBe("PROSPECT");
     expect(created.version).toBe(1);
     expect(created.estimatedValue).toBe("30000000");
     expect(created.description).toBe("");
@@ -454,14 +454,14 @@ describe("deals", () => {
     expect(financeList.items[0]?.id).toBe(wonDeal.id);
   });
 
-  it("walks the full pipeline NEW -> CONTACTED -> QUALIFIED -> QUOTATION -> NEGOTIATION -> WON, logging an activity per step", async () => {
+  it("walks PROSPECT -> PROPOSAL -> NEGOTIATION -> COMMITMENT -> WON, logging an activity per step", async () => {
     const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
     let deal = await createDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: dealInput(customerId, { assignedToId: ownerUserId }),
     });
 
-    for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"] as const) {
+    for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"] as const) {
       deal = await transitionDeal({
         headers: new Headers({ cookie: ownerCookie }),
         dealId: deal.id,
@@ -474,64 +474,96 @@ describe("deals", () => {
     expect(deal.wonAt).not.toBeNull();
     expect(deal.wonValue).toBe("30000000");
 
-    // created + 5 transitions = 6 activity rows.
+    // created + 4 transitions = 5 activity rows.
     const log = await db.query.activities.findMany({ where: eq(activities.dealId, deal.id) });
-    expect(log).toHaveLength(6);
-    expect(log.map((a) => a.eventType).sort()).toEqual(
-      ["created", "stage_changed", "stage_changed", "stage_changed", "stage_changed", "won"].sort(),
-    );
+    expect(log).toHaveLength(5);
+    expect(log.map((a) => a.eventType).sort()).toEqual(["created", "stage_changed", "stage_changed", "stage_changed", "won"].sort());
 
     const wonEvent = log.find((a) => a.eventType === "won");
     const metadata = wonEvent?.metadata as { wonValue: string };
     expect(metadata.wonValue).toBe("30000000");
   });
 
-  it("rejects an illegal transition (skipping stages) without mutating the deal", async () => {
+  it("moves between active stages freely: skipping ahead and back, each move logged with the new stage_entered_at (DEAL-03)", async () => {
     const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
-    const created = await createDeal({
-      headers: new Headers({ cookie: ownerCookie }),
-      input: dealInput(customerId, { assignedToId: ownerUserId }),
-    });
+    const headers = new Headers({ cookie: ownerCookie });
+    const created = await createDeal({ headers, input: dealInput(customerId, { assignedToId: ownerUserId }) });
 
-    await expect(
-      transitionDeal({
-        headers: new Headers({ cookie: ownerCookie }),
-        dealId: created.id,
-        expectedVersion: created.version,
-        input: { toStatus: "WON" },
-      }),
-    ).rejects.toThrow(/Cannot transition/);
+    const skipped = await transitionDeal({ headers, dealId: created.id, expectedVersion: created.version, input: { toStatus: "COMMITMENT", note: "  PO dijanjikan minggu depan  " } });
+    expect(skipped.status).toBe("COMMITMENT");
+    const back = await transitionDeal({ headers, dealId: skipped.id, expectedVersion: skipped.version, input: { toStatus: "NEGOTIATION" } });
+    expect(back.status).toBe("NEGOTIATION");
 
-    const unchanged = await db.query.deals.findFirst({ where: eq(deals.id, created.id) });
-    expect(unchanged?.status).toBe("NEW");
-    expect(unchanged?.version).toBe(1);
+    const row = await db.query.deals.findFirst({ where: eq(deals.id, created.id) });
+    expect(row!.stageEnteredAt.getTime()).toBeGreaterThan(new Date(created.createdAt).getTime());
+    const log = await db.query.activities.findMany({ where: and(eq(activities.dealId, created.id), eq(activities.eventType, "stage_changed")) });
+    expect(log.map((event) => event.metadata)).toEqual(
+      expect.arrayContaining([
+        { fromStatus: "PROSPECT", toStatus: "COMMITMENT", note: "PO dijanjikan minggu depan" },
+        { fromStatus: "COMMITMENT", toStatus: "NEGOTIATION" },
+      ]),
+    );
   });
 
-  it("rejects CONTACTED -> QUOTATION directly, skipping QUALIFIED", async () => {
+  it("can win a deal straight from any active stage", async () => {
     const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
     const created = await createDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: dealInput(customerId, { assignedToId: ownerUserId }),
     });
-    const contacted = await transitionDeal({
-      headers: new Headers({ cookie: ownerCookie }),
-      dealId: created.id,
-      expectedVersion: created.version,
-      input: { toStatus: "CONTACTED" },
-    });
+    const won = await transitionDeal({ headers: new Headers({ cookie: ownerCookie }), dealId: created.id, expectedVersion: created.version, input: { toStatus: "WON" } });
+    expect(won.status).toBe("WON");
+    expect(won.wonValue).toBe("30000000");
+  });
+
+  it("refuses to leave WON or LOST (reopen is a separate operation) without mutating the deal", async () => {
+    const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
+    const headers = new Headers({ cookie: ownerCookie });
+    const created = await createDeal({ headers, input: dealInput(customerId, { assignedToId: ownerUserId }) });
+    const lost = await transitionDeal({ headers, dealId: created.id, expectedVersion: created.version, input: { toStatus: "LOST", lostReason: "NO_NEED" } });
+
+    await expect(transitionDeal({ headers, dealId: lost.id, expectedVersion: lost.version, input: { toStatus: "PROPOSAL" } })).rejects.toThrow(/Cannot transition/);
+
+    const unchanged = await db.query.deals.findFirst({ where: eq(deals.id, created.id) });
+    expect(unchanged?.status).toBe("LOST");
+    expect(unchanged?.version).toBe(2);
+  });
+
+  it("refuses a stage that needs a value while the estimated value is empty, and a new deal likewise (§7.3)", async () => {
+    const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
+    const headers = new Headers({ cookie: ownerCookie });
+    const created = await createDeal({ headers, input: dealInput(customerId, { assignedToId: ownerUserId, estimatedValue: "0" }) });
+    expect(created.status).toBe("PROSPECT");
+
+    for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT"] as const) {
+      await expect(transitionDeal({ headers, dealId: created.id, expectedVersion: created.version, input: { toStatus } })).rejects.toThrow(/positive/);
+    }
+    await expect(createDeal({ headers, input: dealInput(customerId, { assignedToId: ownerUserId, estimatedValue: "0", stage: "COMMITMENT" }) })).rejects.toThrow(/positive/);
+
+    const unchanged = await db.query.deals.findFirst({ where: eq(deals.id, created.id) });
+    expect(unchanged).toMatchObject({ status: "PROSPECT", version: 1 });
+    expect(await db.query.activities.findMany({ where: eq(activities.dealId, created.id) })).toHaveLength(1);
+  });
+
+  it("lets a deal start in a later stage when it has a value, and stops the value being emptied afterwards", async () => {
+    const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
+    const headers = new Headers({ cookie: ownerCookie });
+    const repeat = await createDeal({ headers, input: dealInput(customerId, { assignedToId: ownerUserId, stage: "COMMITMENT" }) });
+    expect(repeat.status).toBe("COMMITMENT");
 
     await expect(
-      transitionDeal({
-        headers: new Headers({ cookie: ownerCookie }),
-        dealId: contacted.id,
-        expectedVersion: contacted.version,
-        input: { toStatus: "QUOTATION" },
-      }),
-    ).rejects.toThrow(/Cannot transition/);
+      updateDeal({ headers, dealId: repeat.id, expectedVersion: repeat.version, input: dealInput(customerId, { assignedToId: ownerUserId, estimatedValue: "0" }) }),
+    ).rejects.toThrow(/positive/);
+  });
 
-    const unchangedAfterContacted = await db.query.deals.findFirst({ where: eq(deals.id, created.id) });
-    expect(unchangedAfterContacted?.status).toBe("CONTACTED");
-    expect(unchangedAfterContacted?.version).toBe(2);
+  it("is backed by constraints, so a stage, a lost reason or a missing value cannot be written around the service", async () => {
+    const { organizationId, ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
+    const deal = await createDeal({ headers: new Headers({ cookie: ownerCookie }), input: dealInput(customerId, { assignedToId: ownerUserId }) });
+
+    const write = (values: Partial<typeof deals.$inferInsert>) => db.update(deals).set(values).where(and(eq(deals.id, deal.id), eq(deals.organizationId, organizationId)));
+    await expect(write({ status: "QUALIFIED" })).rejects.toMatchObject({ cause: { code: "23514" } });
+    await expect(write({ lostReason: "BORED" })).rejects.toMatchObject({ cause: { code: "23514" } });
+    await expect(write({ status: "NEGOTIATION", estimatedValue: 0n })).rejects.toMatchObject({ cause: { code: "23514" } });
   });
 
   it("treats a retried transition to the already-current status as an idempotent no-op, not a new activity", async () => {
@@ -544,7 +576,7 @@ describe("deals", () => {
       headers: new Headers({ cookie: ownerCookie }),
       dealId: created.id,
       expectedVersion: created.version,
-      input: { toStatus: "CONTACTED" },
+      input: { toStatus: "PROPOSAL" },
     });
     expect(contacted.version).toBe(2);
 
@@ -554,44 +586,12 @@ describe("deals", () => {
       headers: new Headers({ cookie: ownerCookie }),
       dealId: contacted.id,
       expectedVersion: contacted.version,
-      input: { toStatus: "CONTACTED" },
+      input: { toStatus: "PROPOSAL" },
     });
     expect(retried.version).toBe(2); // unchanged, not bumped to 3
 
     const log = await db.query.activities.findMany({ where: eq(activities.dealId, created.id) });
-    expect(log).toHaveLength(2); // "created" + the one real CONTACTED transition, no duplicate
-  });
-
-  it("treats a retried transition to QUALIFIED as an idempotent no-op, not a new activity", async () => {
-    const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
-    const created = await createDeal({
-      headers: new Headers({ cookie: ownerCookie }),
-      input: dealInput(customerId, { assignedToId: ownerUserId }),
-    });
-    const contacted = await transitionDeal({
-      headers: new Headers({ cookie: ownerCookie }),
-      dealId: created.id,
-      expectedVersion: created.version,
-      input: { toStatus: "CONTACTED" },
-    });
-    const qualified = await transitionDeal({
-      headers: new Headers({ cookie: ownerCookie }),
-      dealId: contacted.id,
-      expectedVersion: contacted.version,
-      input: { toStatus: "QUALIFIED" },
-    });
-    expect(qualified.version).toBe(3);
-
-    const retried = await transitionDeal({
-      headers: new Headers({ cookie: ownerCookie }),
-      dealId: qualified.id,
-      expectedVersion: qualified.version,
-      input: { toStatus: "QUALIFIED" },
-    });
-    expect(retried.version).toBe(3); // unchanged, not bumped to 4
-
-    const log = await db.query.activities.findMany({ where: eq(activities.dealId, created.id) });
-    expect(log).toHaveLength(3); // created + CONTACTED + QUALIFIED, no duplicate
+    expect(log).toHaveLength(2); // "created" + the one real PROPOSAL transition, no duplicate
   });
 
   it("requires a valid reason to mark a deal LOST, and freezes lostAt", async () => {
@@ -629,14 +629,14 @@ describe("deals", () => {
     expect(metadata.lostNote).toBe("Tidak ada balasan setelah 3 minggu");
   });
 
-  it("requires a valid reason to mark a QUALIFIED deal LOST", async () => {
+  it("requires a valid reason to mark a NEGOTIATION deal LOST", async () => {
     const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
     const created = await createDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: dealInput(customerId, { assignedToId: ownerUserId }),
     });
     let deal = created;
-    for (const toStatus of ["CONTACTED", "QUALIFIED"] as const) {
+    for (const toStatus of ["PROPOSAL", "NEGOTIATION"] as const) {
       deal = await transitionDeal({
         headers: new Headers({ cookie: ownerCookie }),
         dealId: deal.id,
@@ -644,7 +644,7 @@ describe("deals", () => {
         input: { toStatus },
       });
     }
-    expect(deal.status).toBe("QUALIFIED");
+    expect(deal.status).toBe("NEGOTIATION");
 
     await expect(
       transitionDeal({
@@ -667,18 +667,10 @@ describe("deals", () => {
 
   it("rejects marking a zero-value deal WON (DEAL-04)", async () => {
     const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
-    let deal = await createDeal({
+    const deal = await createDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: dealInput(customerId, { assignedToId: ownerUserId, estimatedValue: "0" }),
     });
-    for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION"] as const) {
-      deal = await transitionDeal({
-        headers: new Headers({ cookie: ownerCookie }),
-        dealId: deal.id,
-        expectedVersion: deal.version,
-        input: { toStatus },
-      });
-    }
 
     await expect(
       transitionDeal({
@@ -701,7 +693,7 @@ describe("deals", () => {
       headers: new Headers({ cookie: ownerCookie }),
       dealId: created.id,
       expectedVersion: created.version,
-      input: { toStatus: "CONTACTED" },
+      input: { toStatus: "PROPOSAL" },
     });
 
     await expect(
@@ -709,12 +701,12 @@ describe("deals", () => {
         headers: new Headers({ cookie: ownerCookie }),
         dealId: created.id,
         expectedVersion: created.version, // stale, already moved to version 2
-        input: { toStatus: "QUALIFIED" },
+        input: { toStatus: "NEGOTIATION" },
       }),
     ).rejects.toThrow(/modified by someone else/);
 
     const log = await db.query.activities.findMany({ where: eq(activities.dealId, created.id) });
-    expect(log).toHaveLength(2); // created + the one successful CONTACTED transition, not 3
+    expect(log).toHaveLength(2); // created + the one successful PROPOSAL transition, not 3
   });
 
   it("rejects FINANCE transitioning a deal", async () => {
@@ -745,7 +737,7 @@ describe("deals", () => {
         headers: new Headers({ cookie: financeCookie }),
         dealId: created.id,
         expectedVersion: created.version,
-        input: { toStatus: "CONTACTED" },
+        input: { toStatus: "PROPOSAL" },
       }),
     ).rejects.toThrow();
   });
@@ -757,7 +749,7 @@ describe("deals", () => {
       input: dealInput(customerId, { assignedToId: ownerUserId }),
     });
     let deal = created;
-    for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"] as const) {
+    for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"] as const) {
       deal = await transitionDeal({
         headers: new Headers({ cookie: ownerCookie }),
         dealId: deal.id,

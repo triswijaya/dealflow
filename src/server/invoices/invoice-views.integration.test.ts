@@ -31,7 +31,7 @@ describe("invoice read models", () => {
   async function wonDeal(org: TestOrg, title = "Paket CCTV", companyName = "Klinik Sehat") {
     const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName, contactPerson: "dr. Lestari", phone: "08161234567" } });
     let deal = await createDeal({ headers: org.ownerHeaders, input: { customerId: customer.id, title, estimatedValue: "30000000", assignedToId: org.ownerUserId } });
-    for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"]) {
+    for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]) {
       deal = await transitionDeal({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus } });
     }
     return { customer, deal };
@@ -189,7 +189,7 @@ describe("invoice read models", () => {
       const finance = await addMember(org, "FINANCE", "Dewi");
       const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName: "PT Maju", contactPerson: "Budi", phone: "08123456789" } });
       let deal = await createDeal({ headers: org.ownerHeaders, input: { customerId: customer.id, title: "CCTV", estimatedValue: "13500000", assignedToId: org.ownerUserId } });
-      for (const toStatus of ["CONTACTED", "QUALIFIED"]) {
+      for (const toStatus of ["PROPOSAL"]) {
         deal = await transitionDeal({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus } });
       }
       const quotation = await createQuotation({

@@ -58,7 +58,7 @@ describe("deal read models", () => {
       const one = await dealFor(org, a.id, { title: "Instalasi CCTV" });
       await dealFor(org, a.id, { title: "Jaringan kantor", assignedToId: sales.userId });
       await dealFor(org, b.id, { title: "Instalasi CCTV gudang" });
-      await advance(org, one, ["CONTACTED"]);
+      await advance(org, one, ["PROPOSAL"]);
 
       const titles = async (filters: Record<string, string>) =>
         (await listDealRows({ headers: org.ownerHeaders, filters })).items.map((row) => row.title).sort();
@@ -67,7 +67,7 @@ describe("deal read models", () => {
       expect(await titles({ query: "cctv" })).toEqual(["Instalasi CCTV", "Instalasi CCTV gudang"]);
       // The text search reaches the customer name as well as the title.
       expect(await titles({ query: "cahaya" })).toEqual(["Instalasi CCTV gudang"]);
-      expect(await titles({ status: "CONTACTED" })).toEqual(["Instalasi CCTV"]);
+      expect(await titles({ status: "PROPOSAL" })).toEqual(["Instalasi CCTV"]);
       expect(await titles({ assignedToId: sales.userId })).toEqual(["Jaringan kantor"]);
       expect(await titles({ customerId: b.id })).toEqual(["Instalasi CCTV gudang"]);
       expect(await titles({ customerId: a.id, query: "jaringan" })).toEqual(["Jaringan kantor"]);
@@ -128,7 +128,7 @@ describe("deal read models", () => {
       const customer = await customerFor(org);
       const won = await dealFor(org, customer.id, { title: "Menang" });
       await dealFor(org, customer.id, { title: "Aktif" });
-      await advance(org, won, ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"]);
+      await advance(org, won, ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]);
 
       const filtered = await listDealRows({ headers: org.ownerHeaders, filters: { query: "a" }, pageSize: 1 });
       expect(filtered.totalItems).toBe(2);
@@ -159,10 +159,10 @@ describe("deal read models", () => {
         await dealFor(org, customer.id, { title: `Deal ${index}`, estimatedValue: "1000000" });
       }
       const moved = await dealFor(org, customer.id, { title: "Sudah dihubungi", estimatedValue: "2500000" });
-      await advance(org, moved, ["CONTACTED"]);
+      await advance(org, moved, ["PROPOSAL"]);
 
       const board = await getPipelineBoard({ headers: org.ownerHeaders });
-      expect(board.stages.map((stage) => stage.status)).toEqual(["NEW", "CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION"]);
+      expect(board.stages.map((stage) => stage.status)).toEqual(["PROSPECT", "PROPOSAL", "NEGOTIATION", "COMMITMENT"]);
       const fresh = board.stages[0]!;
       expect(fresh.count).toBe(PIPELINE_COLUMN_LIMIT + 2);
       expect(fresh.totalValue).toBe(String((PIPELINE_COLUMN_LIMIT + 2) * 1_000_000));
@@ -170,7 +170,7 @@ describe("deal read models", () => {
       expect(board.stages[1]).toMatchObject({ count: 1, totalValue: "2500000" });
       expect(board.stages[2]).toMatchObject({ count: 0, totalValue: "0", items: [] });
 
-      const rest = await listPipelineStageCards({ headers: org.ownerHeaders, status: "NEW", offset: PIPELINE_COLUMN_LIMIT });
+      const rest = await listPipelineStageCards({ headers: org.ownerHeaders, status: "PROSPECT", offset: PIPELINE_COLUMN_LIMIT });
       expect(rest).toHaveLength(2);
       const seen = new Set([...fresh.items, ...rest].map((card) => card.id));
       expect(seen.size).toBe(PIPELINE_COLUMN_LIMIT + 2);
@@ -216,16 +216,17 @@ describe("deal read models", () => {
       const org = await setupOrganization();
       const customer = await customerFor(org);
       const deal = await dealFor(org, customer.id, { description: "Instalasi", notes: "Catatan" });
-      await advance(org, deal, ["CONTACTED", "QUALIFIED"]);
+      await advance(org, deal, ["PROPOSAL", "NEGOTIATION"]);
 
       const detail = await getDealDetail({ headers: org.ownerHeaders, dealId: deal.id });
       expect(detail.customer).toMatchObject({ id: customer.id, companyName: "PT Maju Jaya", contactPerson: "Budi Santoso" });
       expect(detail.assignedToName).toBe("Owner");
       expect(detail.createdByName).toBe("Owner");
-      expect(detail.status).toBe("QUALIFIED");
-      expect(Object.keys(detail.stageEnteredAt).sort()).toEqual(["CONTACTED", "NEW", "QUALIFIED"]);
-      expect(detail.stageEnteredAt.NEW).toBe(detail.createdAt);
-      expect(detail.stageEnteredAt.QUALIFIED! >= detail.stageEnteredAt.CONTACTED!).toBe(true);
+      expect(detail.status).toBe("NEGOTIATION");
+      expect(Object.keys(detail.stageEnteredAt).sort()).toEqual(["NEGOTIATION", "PROPOSAL", "PROSPECT"]);
+      expect(detail.stageEnteredAt.PROSPECT).toBe(detail.createdAt);
+      expect(detail.stageEnteredAt.NEGOTIATION! >= detail.stageEnteredAt.PROPOSAL!).toBe(true);
+      expect(detail.stageSince).toBe(detail.stageEnteredAt.NEGOTIATION);
     });
 
     it("records a lost deal's final stage with its reason", async () => {
@@ -264,7 +265,7 @@ describe("deal read models", () => {
       const finance = await addMember(org, "FINANCE", "Dewi");
       const customer = await customerFor(org);
       const deal = await dealFor(org, customer.id);
-      await advance(org, deal, ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"]);
+      await advance(org, deal, ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]);
       await db.insert(activities).values({
         organizationId: org.organizationId,
         dealId: deal.id,
@@ -281,11 +282,11 @@ describe("deal read models", () => {
       const asOwner = await kinds(org.ownerHeaders);
       expect(asOwner).toContain("invoice.created");
       expect(asOwner).toContain("deal.created");
-      expect(asOwner).toHaveLength(7);
+      expect(asOwner).toHaveLength(6);
 
       const asSales = await kinds(sales.headers);
       expect(asSales).not.toContain("invoice.created");
-      expect(asSales).toHaveLength(6);
+      expect(asSales).toHaveLength(5);
 
       expect((await kinds(finance.headers)).sort()).toEqual(["deal.won", "invoice.created"]);
     });
@@ -294,11 +295,11 @@ describe("deal read models", () => {
       const org = await setupOrganization();
       const customer = await customerFor(org);
       const deal = await dealFor(org, customer.id);
-      await advance(org, deal, ["CONTACTED"]);
+      await advance(org, deal, ["PROPOSAL"]);
       const events = await listDealActivities({ headers: org.ownerHeaders, dealId: deal.id });
       expect(events.map((event) => event.eventType)).toEqual(["stage_changed", "created"]);
       expect(events[0]?.actorName).toBe("Owner");
-      expect(events[0]?.metadata).toMatchObject({ fromStatus: "NEW", toStatus: "CONTACTED" });
+      expect(events[0]?.metadata).toMatchObject({ fromStatus: "PROSPECT", toStatus: "PROPOSAL" });
     });
 
     it("answers NOT_FOUND for another organization's deal", async () => {

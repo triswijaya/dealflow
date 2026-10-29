@@ -25,6 +25,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { CustomerSnapshot, SellerSnapshot } from "@/server/shared/document-snapshot-types";
+import { DEAL_STATUSES, LOST_REASONS } from "@/server/deals/stages";
 
 // MONEY-04: the same ceiling as MAX_MONEY_AMOUNT in server/money/amount.ts
 // (Rp1.000.000.000.000.000), duplicated here as a literal because these
@@ -252,7 +253,7 @@ export const deals = pgTable(
     // MONEY-01: rupiah as PostgreSQL bigint / TypeScript bigint, never a
     // floating-point number, all the way from schema to domain code.
     estimatedValue: bigint("estimated_value", { mode: "bigint" }).notNull(),
-    status: text("status").notNull().default("NEW"),
+    status: text("status").notNull().default("PROSPECT"),
     assignedToId: text("assigned_to_id")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
@@ -267,6 +268,9 @@ export const deals = pgTable(
     wonValue: bigint("won_value", { mode: "bigint" }),
     lostAt: timestamp("lost_at", { withTimezone: true }),
     lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).defaultNow().notNull(),
+    // DEAL-03/DEAL-09: set in the same statement that changes `status`; the age
+    // of the current stage is read from here, not rebuilt from the activity log.
+    stageEnteredAt: timestamp("stage_entered_at", { withTimezone: true }).defaultNow().notNull(),
     // DEAL-02: once a deal has a quotation, its customer_id can no longer
     // move via updateDeal's general edit path. Set once, inside the same
     // transaction as the quotation insert (see quotations.ts createQuotation),
@@ -313,6 +317,16 @@ export const deals = pgTable(
     check(
       "deals_estimatedValue_range_chk",
       sql`${table.estimatedValue} >= 0 AND ${table.estimatedValue} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`,
+    ),
+    check("deals_status_chk", sql`${table.status} IN (${sql.raw(DEAL_STATUSES.map((value) => `'${value}'`).join(", "))})`),
+    check(
+      "deals_lostReason_chk",
+      sql`${table.lostReason} IS NULL OR ${table.lostReason} IN (${sql.raw(LOST_REASONS.map((value) => `'${value}'`).join(", "))})`,
+    ),
+    // §7.3 "Data wajib": PROPOSAL, NEGOTIATION and COMMITMENT need a positive value.
+    check(
+      "deals_stageValue_chk",
+      sql`${table.status} NOT IN ('PROPOSAL', 'NEGOTIATION', 'COMMITMENT') OR ${table.estimatedValue} > 0`,
     ),
     // wonValue is a frozen copy of estimatedValue (DEAL-04) and nullable
     // until WON, so the same range applies only once it is set.

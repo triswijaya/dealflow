@@ -19,6 +19,7 @@ function makeRow(overrides: Partial<Parameters<typeof toDealDto>[0]> = {}) {
     wonValue: null,
     lostAt: null,
     lastActivityAt: new Date("2026-03-01T04:00:00.000Z"),
+    stageEnteredAt: new Date("2026-02-01T04:00:00.000Z"),
     hasQuotation: true,
     version: 3,
     createdAt: new Date("2026-01-05T01:00:00.000Z"),

@@ -139,15 +139,9 @@ function buildItems(total: number, template: TemplateName, size = 8) {
 
 // --- Deals ----------------------------------------------------------------------
 
-const STAGE_ORDER: Stage[] = ["NEW", "CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"];
-
-async function advanceTo(actor: Actor, dealId: string, target: Stage) {
-  for (;;) {
-    const deal = await getDeal({ headers: actor.headers, dealId });
-    const current = STAGE_ORDER.indexOf(deal.status as Stage);
-    if (current >= STAGE_ORDER.indexOf(target)) return;
-    await transitionDeal({ headers: actor.headers, dealId, expectedVersion: deal.version, input: { toStatus: STAGE_ORDER[current + 1] } });
-  }
+async function moveTo(actor: Actor, dealId: string, target: Stage) {
+  const deal = await getDeal({ headers: actor.headers, dealId });
+  if (deal.status !== target) await transitionDeal({ headers: actor.headers, dealId, expectedVersion: deal.version, input: { toStatus: target } });
 }
 
 async function setQuotationStatus(actor: Actor, quotationId: string, toStatus: "SENT" | "ACCEPTED" | "REJECTED") {
@@ -307,14 +301,13 @@ async function seedDeal(spec: DealSpec, index: number, anchor: string, customerI
   // Logged interactions go in before the deal closes; reminders only make sense while it is open.
   for (const fu of spec.followUps ?? []) if (fu.done) await followUp(fu);
 
-  if (spec.stage !== "NEW") await advanceTo(sales, deal.id, spec.stage === "CONTACTED" || (spec.stage === "LOST" && !spec.quote) ? "CONTACTED" : "QUALIFIED");
   if (spec.quote) await seedQuotation(sales, spec, anchor, deal.id);
 
   if (spec.stage === "LOST") {
     const current = await getDeal({ headers: sales.headers, dealId: deal.id });
     await transitionDeal({ headers: sales.headers, dealId: deal.id, expectedVersion: current.version, input: { toStatus: "LOST", lostReason: spec.lost!.reason, lostNote: spec.lost!.note } });
   } else {
-    await advanceTo(sales, deal.id, spec.stage);
+    await moveTo(sales, deal.id, spec.stage);
   }
 
   if (spec.stage !== "WON" && spec.stage !== "LOST") for (const fu of spec.followUps ?? []) if (!fu.done) await followUp(fu);

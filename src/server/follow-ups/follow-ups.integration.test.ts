@@ -104,7 +104,7 @@ describe("follow-ups", () => {
       headers: new Headers({ cookie: ownerCookie }),
       dealId,
       expectedVersion: deal!.version,
-      input: { toStatus: "CONTACTED" },
+      input: { toStatus: "PROPOSAL" },
     });
     deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
     await transitionDeal({

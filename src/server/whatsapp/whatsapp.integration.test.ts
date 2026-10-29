@@ -89,7 +89,7 @@ describe("whatsapp", () => {
   }
 
   async function advanceDealToQualified(ownerCookie: string, dealId: string) {
-    for (const toStatus of ["CONTACTED", "QUALIFIED"] as const) {
+    for (const toStatus of ["PROPOSAL"] as const) {
       const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
       await transitionDeal({
         headers: new Headers({ cookie: ownerCookie }),

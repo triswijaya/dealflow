@@ -3,16 +3,21 @@ import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { deals } from "@/server/db/schema";
 import { zonedLocalToInstant } from "@/lib/format";
+import { ACTIVE_STAGES } from "@/server/deals/stages";
 import { organizationClock } from "@/server/shared/organization-clock";
 
 // DASH-01: the definitions are fixed by the requirement, and every figure is
 // one grouped read in the database (DASH-02: no joins that double a sum).
 
-const ACTIVE = ["NEW", "CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION"] as const;
+const ACTIVE = ACTIVE_STAGES;
 
 export type PipelineStageMetric = { status: (typeof ACTIVE)[number]; count: number; value: string };
 
-/** "Sales Pipeline Value": the estimated value of every deal still in play, by stage. */
+/**
+ * "Sales Pipeline Value": the estimated value of every deal still in play, by
+ * stage. PROSPECT is listed but never counted in the totals (DEAL-08): it is
+ * not a revenue opportunity yet.
+ */
 export async function getPipelineMetrics(params: { headers: Headers }) {
   const actor = await requirePermission({ headers: params.headers, permission: { deal: ["read"] } });
   const rows = await db
@@ -25,10 +30,11 @@ export async function getPipelineMetrics(params: { headers: Headers }) {
     const row = rows.find((candidate) => candidate.status === status);
     return { status, count: row?.count ?? 0, value: row?.value ?? "0" };
   });
+  const counted = stages.filter((stage) => stage.status !== "PROSPECT");
   return {
     stages,
-    totalCount: stages.reduce((sum, stage) => sum + stage.count, 0),
-    totalValue: stages.reduce((sum, stage) => sum + BigInt(stage.value), 0n).toString(),
+    totalCount: counted.reduce((sum, stage) => sum + stage.count, 0),
+    totalValue: counted.reduce((sum, stage) => sum + BigInt(stage.value), 0n).toString(),
   };
 }
 

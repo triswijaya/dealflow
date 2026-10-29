@@ -27,7 +27,7 @@ export type TransitionMode = "advance" | "won" | "lost";
 const NOTE_LIMIT = 5000;
 
 const STAGE_HINT: Partial<Record<DealStage, string>> = {
-  QUALIFIED: "Tandai bila kebutuhan customer sudah jelas dan peluang layak masuk ke penawaran.",
+  PROPOSAL: "Tandai bila harga, scope, dan ketentuan sudah disampaikan ke customer. Nilai estimasi harus lebih dari Rp0.",
 };
 
 /**

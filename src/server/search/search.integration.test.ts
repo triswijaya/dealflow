@@ -20,7 +20,7 @@ describe("global search", () => {
   async function fixture(org: TestOrg) {
     const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName: "PT Maju Jaya", contactPerson: "Budi Santoso", phone: "08123456789" } });
     let won = await createDeal({ headers: org.ownerHeaders, input: { customerId: customer.id, title: "Paket CCTV Maju", estimatedValue: "30000000", assignedToId: org.ownerUserId } });
-    for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"]) {
+    for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]) {
       won = await transitionDeal({ headers: org.ownerHeaders, dealId: won.id, expectedVersion: won.version, input: { toStatus } });
     }
     const open = await createDeal({ headers: org.ownerHeaders, input: { customerId: customer.id, title: "Jaringan Maju", estimatedValue: "5000000", assignedToId: org.ownerUserId } });

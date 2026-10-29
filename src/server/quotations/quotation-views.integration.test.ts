@@ -25,7 +25,7 @@ describe("quotation read models", () => {
   async function dealWith(org: TestOrg, companyName = "PT Maju Jaya", title = "CCTV Installation") {
     const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName, contactPerson: "Budi Santoso", phone: "08123456789", email: "budi@example.test", address: "Jl. Industri 12" } });
     let deal = await createDeal({ headers: org.ownerHeaders, input: { customerId: customer.id, title, estimatedValue: "10000000", assignedToId: org.ownerUserId } });
-    for (const toStatus of ["CONTACTED", "QUALIFIED"]) {
+    for (const toStatus of ["PROPOSAL"]) {
       deal = await transitionDeal({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus } });
     }
     return { customer, deal };

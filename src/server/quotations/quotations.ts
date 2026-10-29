@@ -691,7 +691,7 @@ export async function transitionQuotationStatus(params: {
   }
 
   if (parsed.toStatus === "SENT") {
-    // QUO-08: "dilarang pada deal NEW, CONTACTED, dan LOST". A plain read,
+    // QUO-08: SENT is refused on a LOST deal only. A plain read,
     // not a lock -- the same pattern deals.ts uses for assertActiveAssignee/
     // assertCustomerInOrganization, validating a related row without
     // needing to hold it: the actual side effect below is itself guarded
@@ -699,10 +699,8 @@ export async function transitionQuotationStatus(params: {
     const deal = await db.query.deals.findFirst({
       where: and(eq(deals.id, existing.dealId), eq(deals.organizationId, actor.organizationId)),
     });
-    if (!deal || deal.status === "NEW" || deal.status === "CONTACTED" || deal.status === "LOST") {
-      throw new APIError("BAD_REQUEST", {
-        message: "The deal must be at least QUALIFIED and not LOST before a quotation can be sent",
-      });
+    if (!deal || deal.status === "LOST") {
+      throw new APIError("BAD_REQUEST", { message: "A quotation cannot be sent on a lost deal" });
     }
   }
 
@@ -762,12 +760,13 @@ export async function transitionQuotationStatus(params: {
       throw new APIError("CONFLICT", { message: "Quotation was modified by someone else, reload and try again" });
     }
 
-    // QUO-08: QUALIFIED -> QUOTATION happens only on SENT, only if the
-    // deal is still QUALIFIED, in the same transaction. The UPDATE's own
-    // WHERE status='QUALIFIED' is the race guard: two concurrent SENT
+    // QUO-08: PROSPECT -> PROPOSAL happens only on SENT, only if the deal is
+    // still PROSPECT, in the same transaction. The UPDATE's own
+    // WHERE status='PROSPECT' is the race guard: two concurrent SENT
     // actions on different quotations of the same deal both attempt this,
     // and only whichever commits first actually changes anything -- the
-    // second affects 0 rows and is simply skipped, not an error.
+    // second affects 0 rows and is simply skipped, not an error. An empty
+    // estimated value is filled with the quotation total.
     //
     // RISK-01/11.2: SENT/ACCEPTED/REJECTED are all meaningful activity
     // regardless of whether the stage itself also advances, so
@@ -776,8 +775,14 @@ export async function transitionQuotationStatus(params: {
     if (parsed.toStatus === "SENT") {
       const [advancedDeal] = await tx
         .update(deals)
-        .set({ status: "QUOTATION", lastActivityAt: now, version: sql`${deals.version} + 1` })
-        .where(and(eq(deals.id, existing.dealId), eq(deals.status, "QUALIFIED")))
+        .set({
+          status: "PROPOSAL",
+          stageEnteredAt: now,
+          estimatedValue: sql`CASE WHEN ${deals.estimatedValue} > 0 THEN ${deals.estimatedValue} ELSE ${updated.total} END`,
+          lastActivityAt: now,
+          version: sql`${deals.version} + 1`,
+        })
+        .where(and(eq(deals.id, existing.dealId), eq(deals.status, "PROSPECT")))
         .returning();
       if (advancedDeal) {
         // AUD-01: "deal updated/stage changed" is a required minimum event.
@@ -787,7 +792,7 @@ export async function transitionQuotationStatus(params: {
           entityType: "deal",
           eventType: "stage_changed",
           actorId: actor.userId,
-          metadata: { fromStatus: "QUALIFIED", toStatus: "QUOTATION", reason: "quotation_sent" },
+          metadata: { fromStatus: "PROSPECT", toStatus: "PROPOSAL", reason: "quotation_sent" },
           permissionCategory: "sales",
         });
       } else {

@@ -58,7 +58,7 @@ export function PipelineBoard({
     setLoaded({});
   }
   const [loading, setLoading] = useState<ActiveDealStage | null>(null);
-  const [mobileStage, setMobileStage] = useState<ActiveDealStage>("NEW");
+  const [mobileStage, setMobileStage] = useState<ActiveDealStage>("PROSPECT");
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   // Follow-up and WhatsApp work on the card's deal; one of each is shared by every card.

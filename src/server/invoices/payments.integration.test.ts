@@ -106,7 +106,7 @@ describe("payments", () => {
         assignedToId: owner.ownerUserId,
       },
     });
-    for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"]) {
+    for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]) {
       const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, deal.id) });
       await transitionDeal({
         headers: new Headers({ cookie: owner.ownerCookie }),

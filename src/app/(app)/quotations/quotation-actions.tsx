@@ -31,7 +31,7 @@ export type QuotationActionState = {
 // QUO-08: a quotation can only be marked sent once the deal is Terkualifikasi
 // or further, and never on a lost one. The server enforces it; this only
 // explains why the button is off.
-const CANNOT_SEND_DEAL = ["NEW", "CONTACTED", "LOST"];
+const CANNOT_SEND_DEAL = ["LOST"];
 
 /**
  * The buttons in a quotation's header. What is offered follows the state of
@@ -159,7 +159,7 @@ function QuotationDialogBody({ mode, quotation, onClose }: { mode: Mode; quotati
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
-  const advancesDeal = quotation.dealStatus === "QUALIFIED";
+  const advancesDeal = quotation.dealStatus === "PROSPECT";
 
   async function submit() {
     setPending(true);

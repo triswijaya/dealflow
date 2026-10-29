@@ -359,7 +359,7 @@ describe("customers", () => {
       await newDeal("Aktif satu");
       await newDeal("Aktif dua");
       let won = await newDeal("Akan menang");
-      for (const toStatus of ["CONTACTED", "QUALIFIED", "QUOTATION", "NEGOTIATION", "WON"] as const) {
+      for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"] as const) {
         won = await transitionDeal({ headers, dealId: won.id, expectedVersion: won.version, input: { toStatus } });
       }
       const lost = await newDeal("Akan kalah");

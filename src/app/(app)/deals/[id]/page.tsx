@@ -305,7 +305,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
                   </KeyValue>
                   <KeyValue label="Dibuat">{formatDateTime(deal.createdAt, timezone)}</KeyValue>
                   <KeyValue label="Diubah terakhir">{formatDateTime(deal.updatedAt, timezone)}</KeyValue>
-                  <KeyValue label="Tahap sejak">{deal.stageEnteredAt[deal.status as DealStage] ? formatDateTime(deal.stageEnteredAt[deal.status as DealStage]!, timezone) : "-"}</KeyValue>
+                  <KeyValue label="Tahap sejak">{formatDateTime(deal.stageSince, timezone)}</KeyValue>
                 </dl>
               </section>
             ) : null}
