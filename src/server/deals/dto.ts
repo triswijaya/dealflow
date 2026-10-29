@@ -20,6 +20,8 @@ export type DealDto = {
   wonValue: string | null;
   lostAt: string | null;
   lastActivityAt: string;
+  onHoldUntil: string | null;
+  onHoldReason: string | null;
   hasQuotation: boolean;
   version: number;
   createdAt: string;
@@ -49,6 +51,8 @@ export function toDealDto(row: DealRow): DealDto {
     wonValue: row.wonValue !== null ? toMoneyDto(row.wonValue) : null,
     lostAt: row.lostAt ? toIsoDto(row.lostAt) : null,
     lastActivityAt: toIsoDto(row.lastActivityAt),
+    onHoldUntil: row.onHoldUntil,
+    onHoldReason: row.onHoldReason,
     hasQuotation: row.hasQuotation,
     version: row.version,
     createdAt: toIsoDto(row.createdAt),

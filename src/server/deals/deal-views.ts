@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
@@ -81,6 +81,7 @@ export type DealRowDto = {
   expectedCloseDate: string | null;
   lastActivityAt: string;
   createdAt: string;
+  onHoldUntil: string | null;
   hasQuotation: boolean;
   version: number;
 };
@@ -104,6 +105,7 @@ function toRow(row: {
     expectedCloseDate: deal.expectedCloseDate,
     lastActivityAt: toIsoDto(deal.lastActivityAt),
     createdAt: toIsoDto(deal.createdAt),
+    onHoldUntil: deal.onHoldUntil,
     hasQuotation: deal.hasQuotation,
     version: deal.version,
   };
@@ -226,7 +228,7 @@ async function pipelineActor(headers: Headers) {
 }
 
 /**
- * P-01: the five active stages, each with its total count and value and the
+ * P-01: the four active stages (deals on hold are not on the board, DEAL-07), each with its total count and value and the
  * first PIPELINE_COLUMN_LIMIT cards, most recently active first. Counts and
  * values come from the whole stage, not from the visible cards.
  */
@@ -234,7 +236,7 @@ export async function getPipelineBoard(params: { headers: Headers; filters?: Omi
   const actor = await pipelineActor(params.headers);
   const { timezone } = await organizationClock(actor.organizationId);
   const filters = filterSchema.omit({ status: true, createdFrom: true, createdTo: true }).parse(params.filters ?? {});
-  const common = [eq(deals.organizationId, actor.organizationId), ...filterConditions(filters, timezone)];
+  const common = [eq(deals.organizationId, actor.organizationId), isNull(deals.onHoldUntil), ...filterConditions(filters, timezone)];
 
   const totals = await db
     .select({
@@ -274,7 +276,7 @@ export async function listPipelineStageCards(params: {
   const rows = await cardQuery(
     actor.organizationId,
     timezone,
-    and(eq(deals.organizationId, actor.organizationId), eq(deals.status, status), ...filterConditions(filters, timezone)),
+    and(eq(deals.organizationId, actor.organizationId), eq(deals.status, status), isNull(deals.onHoldUntil), ...filterConditions(filters, timezone)),
   )
     .orderBy(desc(deals.lastActivityAt), desc(deals.id))
     .limit(PIPELINE_COLUMN_LIMIT)
@@ -298,6 +300,8 @@ export type DealDetailDto = {
   lostReason: string | null;
   lostNote: string | null;
   expectedCloseDate: string | null;
+  onHoldUntil: string | null;
+  onHoldReason: string | null;
   hasQuotation: boolean;
   version: number;
   createdAt: string;
@@ -383,6 +387,8 @@ export async function getDealDetail(params: { headers: Headers; dealId: string }
     lostReason: deal.lostReason,
     lostNote: deal.lostNote,
     expectedCloseDate: deal.expectedCloseDate,
+    onHoldUntil: deal.onHoldUntil,
+    onHoldReason: deal.onHoldReason,
     hasQuotation: deal.hasQuotation,
     version: deal.version,
     createdAt: toIsoDto(deal.createdAt),

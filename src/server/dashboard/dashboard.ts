@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { deals } from "@/server/db/schema";
@@ -15,7 +15,7 @@ export type PipelineStageMetric = { status: (typeof ACTIVE)[number]; count: numb
 
 /**
  * "Sales Pipeline Value": the estimated value of every deal still in play, by
- * stage. PROSPECT is listed but never counted in the totals (DEAL-08): it is
+ * stage, without deals on hold. PROSPECT is listed but never counted in the totals (DEAL-08): it is
  * not a revenue opportunity yet.
  */
 export async function getPipelineMetrics(params: { headers: Headers }) {
@@ -23,8 +23,13 @@ export async function getPipelineMetrics(params: { headers: Headers }) {
   const rows = await db
     .select({ status: deals.status, count: sql<number>`count(*)`.mapWith(Number), value: sql<string>`coalesce(sum(${deals.estimatedValue}), 0)::text` })
     .from(deals)
-    .where(and(eq(deals.organizationId, actor.organizationId), inArray(deals.status, [...ACTIVE])))
+    .where(and(eq(deals.organizationId, actor.organizationId), inArray(deals.status, [...ACTIVE]), isNull(deals.onHoldUntil)))
     .groupBy(deals.status);
+  // §11.1: deals on hold are reported apart from the stages.
+  const [onHold] = await db
+    .select({ count: sql<number>`count(*)`.mapWith(Number), value: sql<string>`coalesce(sum(${deals.estimatedValue}), 0)::text` })
+    .from(deals)
+    .where(and(eq(deals.organizationId, actor.organizationId), isNotNull(deals.onHoldUntil)));
 
   const stages: PipelineStageMetric[] = ACTIVE.map((status) => {
     const row = rows.find((candidate) => candidate.status === status);
@@ -33,6 +38,7 @@ export async function getPipelineMetrics(params: { headers: Headers }) {
   const counted = stages.filter((stage) => stage.status !== "PROSPECT");
   return {
     stages,
+    onHold: { count: onHold?.count ?? 0, value: onHold?.value ?? "0" },
     totalCount: counted.reduce((sum, stage) => sum + stage.count, 0),
     totalValue: counted.reduce((sum, stage) => sum + BigInt(stage.value), 0n).toString(),
   };

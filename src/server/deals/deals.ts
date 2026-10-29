@@ -5,6 +5,7 @@ import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { activities, customers, deals, member } from "@/server/db/schema";
 import { moneyAmountSchema } from "@/server/money/amount";
+import { organizationClock } from "@/server/shared/organization-clock";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
 import { toDealDto } from "./dto";
 import { ACTIVE_STAGES, LOST_REASONS, stageNeedsValue } from "./stages";
@@ -325,9 +326,16 @@ export async function transitionDeal(params: {
     });
   }
 
+  // DEAL-03: a deal on hold stays where it is until resumed; closing it is still allowed.
+  if (existing.onHoldUntil && parsed.toStatus !== "WON" && parsed.toStatus !== "LOST") {
+    throw new APIError("BAD_REQUEST", { message: "The deal is on hold, resume it before changing its stage" });
+  }
+
   const now = new Date();
   const statusFields: Record<string, unknown> = {
     status: parsed.toStatus,
+    onHoldUntil: null,
+    onHoldReason: null,
     stageEnteredAt: now,
     lastActivityAt: now,
     updatedById: actor.userId,
@@ -389,6 +397,153 @@ export async function transitionDeal(params: {
     });
 
     return toDealDto(updated);
+  });
+}
+
+const reasonSchema = z.string().trim().min(1, "A reason is required").max(1000);
+
+const onHoldInputSchema = z.object({
+  reason: reasonSchema,
+  reviewDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Review date must be YYYY-MM-DD"),
+});
+
+const reopenInputSchema = z.object({
+  toStatus: z.enum(ACTIVE_STAGES),
+  reason: reasonSchema,
+});
+
+async function findDealForUpdate(organizationId: string, dealId: string) {
+  const existing = await db.query.deals.findFirst({
+    where: and(eq(deals.id, dealId), eq(deals.organizationId, organizationId)),
+  });
+  if (!existing) {
+    throw new APIError("NOT_FOUND", { message: "Deal not found" });
+  }
+  return existing;
+}
+
+/** Guarded UPDATE + activity in one transaction, shared by the on hold, resume and reopen operations. */
+async function applyDealChange(params: {
+  actor: { userId: string; organizationId: string };
+  existing: typeof deals.$inferSelect;
+  expectedVersion: number;
+  fields: Partial<typeof deals.$inferInsert>;
+  eventType: string;
+  metadata: Record<string, unknown>;
+}) {
+  const { actor, existing } = params;
+  return db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(deals)
+      .set({
+        ...params.fields,
+        lastActivityAt: new Date(),
+        updatedById: actor.userId,
+        version: sql`${deals.version} + 1`,
+      })
+      .where(
+        and(eq(deals.id, existing.id), eq(deals.organizationId, actor.organizationId), eq(deals.version, params.expectedVersion)),
+      )
+      .returning();
+    if (!updated) {
+      throw new APIError("CONFLICT", { message: "Deal was modified by someone else, reload and try again" });
+    }
+    await tx.insert(activities).values({
+      organizationId: actor.organizationId,
+      dealId: existing.id,
+      entityType: "deal",
+      eventType: params.eventType,
+      actorId: actor.userId,
+      metadata: params.metadata,
+      permissionCategory: "sales",
+    });
+    return toDealDto(updated);
+  });
+}
+
+/**
+ * DEAL-03: an open deal can be put on hold with a reason and a review date
+ * (today or later, in the organization's calendar). The stage does not
+ * change. Calling it again on a deal already on hold replaces the reason and
+ * date, which is how a hold is extended.
+ */
+export async function putDealOnHold(params: { headers: Headers; dealId: string; expectedVersion: number; input: unknown }) {
+  const actor = await requirePermission({ headers: params.headers, permission: { deal: ["transition"] } });
+  const parsed = onHoldInputSchema.parse(params.input);
+  const existing = await findDealForUpdate(actor.organizationId, params.dealId);
+
+  if (existing.status === "WON" || existing.status === "LOST") {
+    throw new APIError("BAD_REQUEST", { message: "Only an open deal can be put on hold" });
+  }
+  const { today } = await organizationClock(actor.organizationId);
+  if (parsed.reviewDate < today) {
+    throw new APIError("BAD_REQUEST", { message: "The review date cannot be in the past" });
+  }
+
+  return applyDealChange({
+    actor,
+    existing,
+    expectedVersion: params.expectedVersion,
+    fields: { onHoldUntil: parsed.reviewDate, onHoldReason: parsed.reason },
+    eventType: "on_hold",
+    metadata: {
+      stage: existing.status,
+      reason: parsed.reason,
+      reviewDate: parsed.reviewDate,
+      ...(existing.onHoldUntil ? { previousReviewDate: existing.onHoldUntil } : {}),
+    },
+  });
+}
+
+/** DEAL-03: resume clears the hold and leaves the stage as it was. A deal that is not on hold is returned unchanged. */
+export async function resumeDeal(params: { headers: Headers; dealId: string; expectedVersion: number }) {
+  const actor = await requirePermission({ headers: params.headers, permission: { deal: ["transition"] } });
+  const existing = await findDealForUpdate(actor.organizationId, params.dealId);
+  if (!existing.onHoldUntil) {
+    return toDealDto(existing);
+  }
+
+  return applyDealChange({
+    actor,
+    existing,
+    expectedVersion: params.expectedVersion,
+    fields: { onHoldUntil: null, onHoldReason: null },
+    eventType: "resumed",
+    metadata: { stage: existing.status, previousReviewDate: existing.onHoldUntil },
+  });
+}
+
+/**
+ * DEAL-03: a LOST deal returns to the active stage of the caller's choice,
+ * with a reason. Owner and Admin can reopen any deal, Sales only their own.
+ * The lost fields are cleared on the deal; the lost event stays in the
+ * timeline and the previous reason is copied into the reopen event.
+ */
+export async function reopenDeal(params: { headers: Headers; dealId: string; expectedVersion: number; input: unknown }) {
+  const actor = await requirePermission({ headers: params.headers, permission: { deal: ["transition"] } });
+  const parsed = reopenInputSchema.parse(params.input);
+  const existing = await findDealForUpdate(actor.organizationId, params.dealId);
+
+  if (existing.status !== "LOST") {
+    throw new APIError("BAD_REQUEST", { message: "Only a lost deal can be reopened" });
+  }
+  if (actor.role === "SALES" && existing.assignedToId !== actor.userId) {
+    throw new APIError("FORBIDDEN", { message: "Only an owner, an admin or the assigned sales can reopen this deal" });
+  }
+  assertStageValue(parsed.toStatus, existing.estimatedValue);
+
+  return applyDealChange({
+    actor,
+    existing,
+    expectedVersion: params.expectedVersion,
+    fields: { status: parsed.toStatus, stageEnteredAt: new Date(), lostAt: null, lostReason: null, lostNote: null },
+    eventType: "reopened",
+    metadata: {
+      fromStatus: "LOST",
+      toStatus: parsed.toStatus,
+      reason: parsed.reason,
+      previousLostReason: existing.lostReason,
+    },
   });
 }
 

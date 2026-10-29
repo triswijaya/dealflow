@@ -564,6 +564,8 @@ describe("deals", () => {
     await expect(write({ status: "QUALIFIED" })).rejects.toMatchObject({ cause: { code: "23514" } });
     await expect(write({ lostReason: "BORED" })).rejects.toMatchObject({ cause: { code: "23514" } });
     await expect(write({ status: "NEGOTIATION", estimatedValue: 0n })).rejects.toMatchObject({ cause: { code: "23514" } });
+    await expect(write({ onHoldUntil: "2099-01-01" })).rejects.toMatchObject({ cause: { code: "23514" } });
+    await expect(write({ status: "WON", onHoldUntil: "2099-01-01", onHoldReason: "Tunggu" })).rejects.toMatchObject({ cause: { code: "23514" } });
   });
 
   it("treats a retried transition to the already-current status as an idempotent no-op, not a new activity", async () => {

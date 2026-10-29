@@ -47,6 +47,22 @@ function describe(event: ActivityDto, ctx: { customerName?: string; dealTitle?: 
       ) : (
         <>memindahkan deal dari {stage(meta.fromStatus)} ke {stage(meta.toStatus)}</>
       );
+    case "deal.on_hold":
+      return (
+        <>
+          menahan deal{typeof meta.reviewDate === "string" ? ` sampai ${formatDate(meta.reviewDate, ctx.timezone)}` : ""}
+          {text(meta.reason) ? <small style={{ display: "block", marginTop: 4 }}>{text(meta.reason)}</small> : null}
+        </>
+      );
+    case "deal.resumed":
+      return "melanjutkan deal yang ditahan";
+    case "deal.reopened":
+      return (
+        <>
+          membuka kembali deal ke {stage(meta.toStatus)}
+          {text(meta.reason) ? <small style={{ display: "block", marginTop: 4 }}>{text(meta.reason)}</small> : null}
+        </>
+      );
     case "deal.won":
       return <>menandai deal Menang{money(meta.wonValue) ? ` · ${money(meta.wonValue)}` : ""}</>;
     case "deal.lost":

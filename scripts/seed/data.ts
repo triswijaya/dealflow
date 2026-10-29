@@ -76,18 +76,20 @@ export type DealSpec = {
   quote?: QuoteKind;
   lost?: { reason: "PRICE_TOO_HIGH" | "LOST_TO_COMPETITOR" | "NO_RESPONSE" | "PROJECT_CANCELLED" | "BUDGET_UNAVAILABLE" | "OTHER"; note: string };
   invoice?: InvoiceKind;
+  // On hold from the seed day: review `days` from the anchor date.
+  hold?: { days: number; reason: string };
   // done: logged interaction that already happened. Otherwise a reminder at `days` from the anchor date.
   followUps?: { type: FollowUpType; note: string; days: number; time: string; done?: boolean }[];
 };
 
 export const DEALS: DealSpec[] = [
-  // NEW
+  // PROSPECT
   { customer: 17, sales: "andi", title: "CCTV gudang dingin tahap 2", description: "Tambah kamera di area bongkar muat dan ruang chiller.", value: 25_000_000, closeInDays: 35, stage: "PROSPECT", followUps: [{ type: "CALL", note: "Jadwalkan survei lokasi", days: 2, time: "10:00" }] },
   { customer: 16, sales: "rina", title: "WiFi lantai 3 gedung retail", description: "Perluasan jaringan nirkabel area kasir dan gudang.", value: 18_500_000, closeInDays: 30, stage: "PROSPECT", followUps: [{ type: "WHATSAPP", note: "Kirim daftar pertanyaan kebutuhan", days: 0, time: "11:00" }] },
   { customer: 7, sales: "andi", title: "Maintenance CCTV tahunan sekolah", description: "Pemeriksaan berkala 4 kali setahun.", value: 9_600_000, closeInDays: 28, stage: "PROSPECT" },
   { customer: 11, sales: "rina", title: "Upgrade NVR dan storage rumah sakit", description: "Perpanjang masa simpan rekaman menjadi 90 hari.", value: 62_000_000, closeInDays: 40, stage: "PROSPECT", followUps: [{ type: "CALL", note: "Tanya jadwal rapat komite pengadaan", days: -1, time: "13:00" }] },
   { customer: 12, sales: "andi", title: "Access control kantor baru", description: "Kontrol akses 6 pintu dan integrasi absensi.", value: 41_000_000, closeInDays: 45, stage: "PROSPECT", template: "access", size: 6, followUps: [{ type: "WHATSAPP", note: "Minta denah lantai kantor", days: -3, time: "09:30" }] },
-  { customer: 9, sales: "rina", title: "Instalasi LAN ruko", description: "Penarikan kabel dan rak jaringan di dua lantai.", value: 14_500_000, closeInDays: 21, stage: "PROSPECT" },
+  { customer: 9, sales: "rina", title: "Instalasi LAN ruko", description: "Penarikan kabel dan rak jaringan di dua lantai.", value: 14_500_000, closeInDays: 21, stage: "PROSPECT", hold: { days: 14, reason: "Menunggu renovasi ruko selesai" } },
   { customer: 6, sales: "andi", title: "CCTV 24 titik area produksi", description: "Kamera tahan debu dan lembap untuk lini produksi.", value: 78_000_000, closeInDays: 30, stage: "PROSPECT", template: "cctv", size: 24, quote: "draft", followUps: [{ type: "CALL", note: "Bahas spesifikasi kamera", days: 3, time: "10:00" }] },
   { customer: 15, sales: "rina", title: "Fiber optic backbone kampus", description: "Backbone antar tiga gedung dan switch distribusi.", value: 95_000_000, closeInDays: 50, stage: "PROSPECT", template: "network", size: 8, quote: "draft", followUps: [{ type: "MEETING", note: "Presentasi rencana jaringan", days: 5, time: "14:00" }] },
   { customer: 3, sales: "andi", title: "Sistem antrean klinik", description: "Layar antrean dan aplikasi pendaftaran pasien.", value: 22_000_000, closeInDays: 33, stage: "PROSPECT" },

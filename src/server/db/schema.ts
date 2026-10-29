@@ -271,6 +271,10 @@ export const deals = pgTable(
     // DEAL-03/DEAL-09: set in the same statement that changes `status`; the age
     // of the current stage is read from here, not rebuilt from the activity log.
     stageEnteredAt: timestamp("stage_entered_at", { withTimezone: true }).defaultNow().notNull(),
+    // DEAL-03: on hold is an overlay on an active stage, not a stage. Both are
+    // set together (review date and why) or both are null.
+    onHoldUntil: date("on_hold_until", { mode: "string" }),
+    onHoldReason: text("on_hold_reason"),
     // DEAL-02: once a deal has a quotation, its customer_id can no longer
     // move via updateDeal's general edit path. Set once, inside the same
     // transaction as the quotation insert (see quotations.ts createQuotation),
@@ -323,6 +327,9 @@ export const deals = pgTable(
       "deals_lostReason_chk",
       sql`${table.lostReason} IS NULL OR ${table.lostReason} IN (${sql.raw(LOST_REASONS.map((value) => `'${value}'`).join(", "))})`,
     ),
+    check("deals_onHold_pair_chk", sql`(${table.onHoldUntil} IS NULL) = (${table.onHoldReason} IS NULL)`),
+    // Only an open deal can be on hold; WON and LOST clear it.
+    check("deals_onHold_open_chk", sql`${table.onHoldUntil} IS NULL OR ${table.status} NOT IN ('WON', 'LOST')`),
     // §7.3 "Data wajib": PROPOSAL, NEGOTIATION and COMMITMENT need a positive value.
     check(
       "deals_stageValue_chk",

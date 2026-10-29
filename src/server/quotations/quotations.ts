@@ -691,7 +691,7 @@ export async function transitionQuotationStatus(params: {
   }
 
   if (parsed.toStatus === "SENT") {
-    // QUO-08: SENT is refused on a LOST deal only. A plain read,
+    // QUO-08: SENT is refused on a LOST deal and on a deal on hold. A plain read,
     // not a lock -- the same pattern deals.ts uses for assertActiveAssignee/
     // assertCustomerInOrganization, validating a related row without
     // needing to hold it: the actual side effect below is itself guarded
@@ -701,6 +701,9 @@ export async function transitionQuotationStatus(params: {
     });
     if (!deal || deal.status === "LOST") {
       throw new APIError("BAD_REQUEST", { message: "A quotation cannot be sent on a lost deal" });
+    }
+    if (deal.onHoldUntil) {
+      throw new APIError("BAD_REQUEST", { message: "A quotation cannot be sent while the deal is on hold" });
     }
   }
 

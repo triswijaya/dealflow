@@ -148,6 +148,13 @@
       "when": 1793263603644,
       "tag": "0020_deal_stages",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793264443312,
+      "tag": "0021_deal_on_hold",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,7 @@ import { auth } from "@/server/auth/auth";
 import { acceptInvitation, inviteMember, type InvitableRole } from "@/server/auth/members";
 import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
-import { createDeal, getDeal, transitionDeal } from "@/server/deals/deals";
+import { createDeal, getDeal, putDealOnHold, transitionDeal } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
 import { quotations, user } from "@/server/db/schema";
 import { createFollowUp } from "@/server/follow-ups/follow-ups";
@@ -308,6 +308,11 @@ async function seedDeal(spec: DealSpec, index: number, anchor: string, customerI
     await transitionDeal({ headers: sales.headers, dealId: deal.id, expectedVersion: current.version, input: { toStatus: "LOST", lostReason: spec.lost!.reason, lostNote: spec.lost!.note } });
   } else {
     await moveTo(sales, deal.id, spec.stage);
+  }
+
+  if (spec.hold) {
+    const current = await getDeal({ headers: sales.headers, dealId: deal.id });
+    await putDealOnHold({ headers: sales.headers, dealId: deal.id, expectedVersion: current.version, input: { reason: spec.hold.reason, reviewDate: addDays(anchor, spec.hold.days) } });
   }
 
   if (spec.stage !== "WON" && spec.stage !== "LOST") for (const fu of spec.followUps ?? []) if (!fu.done) await followUp(fu);
