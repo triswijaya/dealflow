@@ -123,7 +123,7 @@ export async function createQuotation(params: { headers: Headers; input: unknown
       .select()
       .from(deals)
       .where(and(eq(deals.id, parsed.dealId), eq(deals.organizationId, actor.organizationId)))
-      .for("update");
+      .for("no key update");
     if (!deal) {
       throw new APIError("NOT_FOUND", { message: "Deal not found" });
     }
@@ -390,7 +390,7 @@ async function lockDealForQuotation(tx: Pick<typeof db, "select">, organizationI
     .select()
     .from(deals)
     .where(and(eq(deals.id, dealId), eq(deals.organizationId, organizationId)))
-    .for("update");
+    .for("no key update");
   if (!deal) {
     throw new APIError("NOT_FOUND", { message: "Deal not found" });
   }

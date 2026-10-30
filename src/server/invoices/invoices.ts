@@ -198,13 +198,13 @@ export async function createInvoiceInTx(
     throw new APIError("NOT_FOUND", { message: "Billing item not found" });
   }
   if (lookup.dealId) {
-    await tx.select({ id: deals.id }).from(deals).where(and(eq(deals.id, lookup.dealId), eq(deals.organizationId, actor.organizationId))).for("update");
+    await tx.select({ id: deals.id }).from(deals).where(and(eq(deals.id, lookup.dealId), eq(deals.organizationId, actor.organizationId))).for("no key update");
   }
   const [order] = await tx
     .select()
     .from(orders)
     .where(and(eq(orders.id, lookup.orderId), eq(orders.organizationId, actor.organizationId)))
-    .for("update");
+    .for("no key update");
   const [item] = await tx
     .select()
     .from(billingItems)
@@ -408,9 +408,9 @@ export async function voidInvoice(params: { headers: Headers; invoiceId: string;
     });
     if (!plain) throw new APIError("NOT_FOUND", { message: "Invoice not found" });
     if (plain.dealId) {
-      await tx.select({ id: deals.id }).from(deals).where(and(eq(deals.id, plain.dealId), eq(deals.organizationId, actor.organizationId))).for("update");
+      await tx.select({ id: deals.id }).from(deals).where(and(eq(deals.id, plain.dealId), eq(deals.organizationId, actor.organizationId))).for("no key update");
     }
-    await tx.select({ id: orders.id }).from(orders).where(and(eq(orders.id, plain.orderId), eq(orders.organizationId, actor.organizationId))).for("update");
+    await tx.select({ id: orders.id }).from(orders).where(and(eq(orders.id, plain.orderId), eq(orders.organizationId, actor.organizationId))).for("no key update");
     await tx.select({ id: billingItems.id }).from(billingItems).where(and(eq(billingItems.id, plain.billingItemId), eq(billingItems.organizationId, actor.organizationId))).for("update");
     const [invoice] = await tx
       .select()

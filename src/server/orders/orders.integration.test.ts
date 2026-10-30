@@ -25,6 +25,7 @@ describe("orders, billing items and invoices (ADR-0002)", () => {
     await migrationClient.end();
   });
 
+  const key = () => crypto.randomUUID();
   async function customerFor(org: TestOrg, name = "PT Maju Jaya") {
     return createCustomer({ headers: org.ownerHeaders, input: { companyName: name, contactPerson: "Budi", phone: "08123456789" } });
   }
@@ -542,6 +543,40 @@ describe("orders, billing items and invoices (ADR-0002)", () => {
       });
       expect((await getOrder({ headers: org.ownerHeaders, orderId: order.id })).status).toBe("CLOSED");
     });
+  });
+
+  it("never deadlocks when order, invoice and payment operations race on the same order and deal", async () => {
+    const org = await setupOrganization();
+    const deadlocks: unknown[] = [];
+    const watch = async (operation: Promise<unknown>) => {
+      try {
+        await operation;
+      } catch (error) {
+        // Business refusals (conflict, not ready, locked) are fine; a deadlock is a bug in the lock order.
+        const text = `${String(error)} ${JSON.stringify((error as { cause?: unknown }).cause ?? "")}`;
+        if (/deadlock|40P01/i.test(text)) deadlocks.push(error);
+      }
+    };
+
+    for (let round = 0; round < 4; round += 1) {
+      const deal = await openDeal(org, { title: `Balapan ${round}` });
+      const { order } = await confirmWon({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { commitmentType: "CONTRACT", billingItems: dp } });
+      const [first, second] = order.billingItems;
+      const invoice = await createInvoice({ headers: org.ownerHeaders, input: invoiceInput(first!.id, "30000000") });
+
+      await Promise.all([
+        watch(rebalanceBillingItems({ headers: org.ownerHeaders, orderId: order.id, input: { reason: "A", items: [{ id: second!.id, label: "Termin 2", amount: "40000000", trigger: "ON_MILESTONE" }, { label: "Sisa", amount: "30000000" }] } })),
+        watch(rebalanceBillingItems({ headers: org.ownerHeaders, orderId: order.id, input: { reason: "B", items: [{ id: second!.id, label: "Termin 2", amount: "35000000", trigger: "ON_MILESTONE" }, { label: "Sisa", amount: "35000000" }] } })),
+        watch(amendOrder({ headers: org.ownerHeaders, orderId: order.id, input: { delta: "1000000", reason: "Tambah" } })),
+        watch(markMilestone({ headers: org.ownerHeaders, billingItemId: second!.id, input: { milestoneRef: "BAST" } })),
+        watch(createInvoice({ headers: org.ownerHeaders, input: invoiceInput(second!.id, "40000000") })),
+        watch(recordPayment({ headers: org.ownerHeaders, input: { invoiceId: invoice.id, amount: "1000000", paymentDate: invoice.issueDate, paymentMethod: "CASH", idempotencyKey: key() } })),
+        watch(voidInvoice({ headers: org.ownerHeaders, invoiceId: invoice.id, input: { reason: "Coba" } })),
+        watch(recordPayment({ headers: org.ownerHeaders, input: { invoiceId: invoice.id, amount: "2000000", paymentDate: invoice.issueDate, paymentMethod: "CASH", idempotencyKey: key() } })),
+        watch(cancelOrder({ headers: org.ownerHeaders, orderId: order.id, input: { reason: "Batal" } })),
+      ]);
+    }
+    expect(deadlocks).toEqual([]);
   });
 
   it("turns a lost deal's transition into a plain one, so LOST still needs no order", async () => {

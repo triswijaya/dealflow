@@ -274,7 +274,7 @@ export async function confirmWon(params: { headers: Headers; dealId: string; exp
       .select()
       .from(deals)
       .where(and(eq(deals.id, params.dealId), eq(deals.organizationId, actor.organizationId)))
-      .for("update");
+      .for("no key update");
     if (!deal) throw new APIError("NOT_FOUND", { message: "Deal not found" });
     if (deal.status === "WON" || deal.status === "LOST") {
       throw new APIError("BAD_REQUEST", { message: "Only an open deal can be won" });
@@ -352,7 +352,7 @@ export async function addOrderToDeal(params: { headers: Headers; dealId: string;
       .select()
       .from(deals)
       .where(and(eq(deals.id, params.dealId), eq(deals.organizationId, actor.organizationId)))
-      .for("update");
+      .for("no key update");
     if (!deal) throw new APIError("NOT_FOUND", { message: "Deal not found" });
     if (deal.status !== "WON") {
       throw new APIError("BAD_REQUEST", { message: "An order can only be added to a won deal" });
@@ -421,14 +421,30 @@ export { directOrderSchema };
 // ---------------------------------------------------------------------------
 // Changing an order
 
-async function lockOrder(tx: Tx, organizationId: string, orderId: string) {
+/**
+ * Locks follow one order everywhere: deal, order, billing items, invoice. The deal
+ * lock is FOR NO KEY UPDATE, which excludes other writers of the deal but not the
+ * key-share lock a foreign-key check takes when a transaction inserts an activity
+ * that points at it. A stronger lock here deadlocked a rebalance (holding the order,
+ * needing the deal for its activity) against an invoice issue (holding the deal,
+ * waiting for the order).
+ */
+async function lockOrder(tx: Tx, organizationId: string, orderId: string, options: { allowCancelled?: boolean } = {}) {
+  const [plain] = await tx
+    .select({ dealId: orders.dealId })
+    .from(orders)
+    .where(and(eq(orders.id, orderId), eq(orders.organizationId, organizationId)));
+  if (!plain) throw new APIError("NOT_FOUND", { message: "Order not found" });
+  if (plain.dealId) {
+    await tx.select({ id: deals.id }).from(deals).where(and(eq(deals.id, plain.dealId), eq(deals.organizationId, organizationId))).for("no key update");
+  }
   const [order] = await tx
     .select()
     .from(orders)
     .where(and(eq(orders.id, orderId), eq(orders.organizationId, organizationId)))
-    .for("update");
+    .for("no key update");
   if (!order) throw new APIError("NOT_FOUND", { message: "Order not found" });
-  if (order.cancelledAt) throw new APIError("BAD_REQUEST", { message: "The order is cancelled" });
+  if (order.cancelledAt && !options.allowCancelled) throw new APIError("BAD_REQUEST", { message: "The order is cancelled" });
   return order;
 }
 
@@ -596,13 +612,17 @@ export async function markMilestone(params: { headers: Headers; billingItemId: s
   const clock = await organizationClock(actor.organizationId);
 
   return db.transaction(async (tx) => {
+    const [plain] = await tx
+      .select({ orderId: billingItems.orderId })
+      .from(billingItems)
+      .where(and(eq(billingItems.id, params.billingItemId), eq(billingItems.organizationId, actor.organizationId)));
+    if (!plain) throw new APIError("NOT_FOUND", { message: "Billing item not found" });
+    const order = await lockOrder(tx, actor.organizationId, plain.orderId);
     const [item] = await tx
       .select()
       .from(billingItems)
       .where(and(eq(billingItems.id, params.billingItemId), eq(billingItems.organizationId, actor.organizationId)))
       .for("update");
-    if (!item) throw new APIError("NOT_FOUND", { message: "Billing item not found" });
-    const order = await lockOrder(tx, actor.organizationId, item.orderId);
     if (item.cancelledAt) throw new APIError("BAD_REQUEST", { message: "The billing item is cancelled" });
     if (item.trigger !== "ON_MILESTONE") throw new APIError("BAD_REQUEST", { message: "Only a milestone billing item has a milestone to mark" });
     if (input.doneAt && input.doneAt.getTime() > clock.now.getTime() + 60_000) {
@@ -626,12 +646,7 @@ export async function cancelOrder(params: { headers: Headers; orderId: string; i
   const clock = await organizationClock(actor.organizationId);
 
   return db.transaction(async (tx) => {
-    const [order] = await tx
-      .select()
-      .from(orders)
-      .where(and(eq(orders.id, params.orderId), eq(orders.organizationId, actor.organizationId)))
-      .for("update");
-    if (!order) throw new APIError("NOT_FOUND", { message: "Order not found" });
+    const order = await lockOrder(tx, actor.organizationId, params.orderId, { allowCancelled: true });
     if (order.cancelledAt) return loadOrder(tx, actor.organizationId, order.id, clock.today);
 
     const { liveInvoiceTotal, items } = await lockPlan(tx, actor.organizationId, order.id);
