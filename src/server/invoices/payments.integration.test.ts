@@ -9,7 +9,7 @@ import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
 import { createDeal,  } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
-import { activities, payments } from "@/server/db/schema";
+import { activities, settlements } from "@/server/db/schema";
 import { getInvoice } from "./invoices";
 import { listPayments, recordPayment } from "./payments";
 import { transitionOrWin, createInvoiceForDeal } from "@/server/testing/orders";
@@ -335,7 +335,7 @@ describe("payments", () => {
       }),
     ).rejects.toThrow(/exceeds the remaining balance/);
 
-    expect(await db.query.payments.findMany({ where: eq(payments.invoiceId, invoice.id) })).toHaveLength(0);
+    expect(await db.query.settlements.findMany({ where: eq(settlements.invoiceId, invoice.id) })).toHaveLength(0);
     expect(
       await db.query.activities.findMany({
         where: and(eq(activities.dealId, dealId), eq(activities.entityType, "payment")),

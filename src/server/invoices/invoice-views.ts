@@ -4,7 +4,7 @@ import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
-import { activities, billingItems, customers, deals, invoiceItems, invoices, orders, organizationSettings, payments, quotationItems, quotations, user } from "@/server/db/schema";
+import { activities, billingItems, customers, deals, invoiceItems, invoices, orders, organizationSettings, quotationItems, quotations, receipts, refunds, settlements, user } from "@/server/db/schema";
 import { billingItemStatus } from "@/server/orders/billing";
 import { toIsoDto, toMoneyDto } from "@/server/shared/dto";
 import type { CustomerSnapshot, SellerSnapshot } from "@/server/shared/document-snapshots";
@@ -36,13 +36,13 @@ const escapeLike = (value: string) => value.replace(/[\\%_]/g, (match) => `\\${m
 function paidSubquery(organizationId: string) {
   return db
     .select({
-      invoiceId: payments.invoiceId,
-      paid: sql<string>`sum(${payments.amount})`.as("paid_amount"),
-      lastPaidOn: sql<string>`max(${payments.paymentDate})`.as("last_paid_on"),
+      invoiceId: settlements.invoiceId,
+      paid: sql<string>`sum(${settlements.amount})`.as("paid_amount"),
+      lastPaidOn: sql<string>`max(${settlements.settledOn})`.as("last_paid_on"),
     })
-    .from(payments)
-    .where(eq(payments.organizationId, organizationId))
-    .groupBy(payments.invoiceId)
+    .from(settlements)
+    .where(and(eq(settlements.organizationId, organizationId), isNull(settlements.reversedAt)))
+    .groupBy(settlements.invoiceId)
     .as("paid_sub");
 }
 
@@ -208,11 +208,16 @@ const recorder = alias(user, "recorder");
 
 export type InvoicePaymentDto = {
   id: string;
+  /** RECEIPT, WITHHOLDING or WRITE_OFF (SET-01). */
+  kind: string;
+  receiptId: string | null;
   amount: string;
   paymentDate: string;
   paymentMethod: string;
   reference: string | null;
   note: string | null;
+  reversedAt: string | null;
+  reversalReason: string | null;
   createdAt: string;
   createdByName: string | null;
 };
@@ -275,14 +280,16 @@ export async function getInvoiceDetail(params: { headers: Headers; invoiceId: st
     where: eq(invoiceItems.invoiceId, invoice.id),
     orderBy: (item, { asc: ascOp }) => ascOp(item.sortOrder),
   });
+  // Every settlement is shown, reversed ones too (struck through); only active ones count.
   const paymentRows = await db
-    .select({ payment: payments, createdByName: recorder.name })
-    .from(payments)
-    .leftJoin(recorder, eq(recorder.id, payments.createdById))
-    .where(and(eq(payments.organizationId, actor.organizationId), eq(payments.invoiceId, invoice.id)))
-    .orderBy(asc(payments.paymentDate), asc(payments.createdAt), asc(payments.id));
+    .select({ settlement: settlements, receipt: receipts, createdByName: recorder.name })
+    .from(settlements)
+    .leftJoin(receipts, and(eq(receipts.id, settlements.receiptId), eq(receipts.organizationId, settlements.organizationId)))
+    .leftJoin(recorder, eq(recorder.id, settlements.createdById))
+    .where(and(eq(settlements.organizationId, actor.organizationId), eq(settlements.invoiceId, invoice.id)))
+    .orderBy(asc(settlements.settledOn), asc(settlements.createdAt), asc(settlements.id));
 
-  const paidAmount = paymentRows.reduce((sum, { payment }) => sum + payment.amount, 0n);
+  const paidAmount = paymentRows.reduce((sum, { settlement }) => (settlement.reversedAt ? sum : sum + settlement.amount), 0n);
   let sourceQuotation: InvoiceDetailDto["sourceQuotation"] = null;
   if (invoice.quotationId && (actor.role === "OWNER" || actor.role === "ADMIN")) {
     const [source] = await db
@@ -328,14 +335,18 @@ export async function getInvoiceDetail(params: { headers: Headers; invoiceId: st
       unitPrice: toMoneyDto(item.unitPrice),
       subtotal: toMoneyDto(item.subtotal),
     })),
-    payments: paymentRows.map(({ payment, createdByName }) => ({
-      id: payment.id,
-      amount: toMoneyDto(payment.amount),
-      paymentDate: payment.paymentDate,
-      paymentMethod: payment.paymentMethod,
-      reference: payment.reference,
-      note: payment.note,
-      createdAt: toIsoDto(payment.createdAt),
+    payments: paymentRows.map(({ settlement, receipt, createdByName }) => ({
+      id: settlement.id,
+      kind: settlement.kind,
+      receiptId: settlement.receiptId,
+      amount: toMoneyDto(settlement.amount),
+      paymentDate: settlement.settledOn,
+      paymentMethod: receipt?.method ?? settlement.kind,
+      reference: settlement.reference ?? receipt?.reference ?? null,
+      note: settlement.note ?? receipt?.note ?? null,
+      reversedAt: settlement.reversedAt ? toIsoDto(settlement.reversedAt) : null,
+      reversalReason: settlement.reversalReason,
+      createdAt: toIsoDto(settlement.createdAt),
       createdByName,
     })),
     sourceQuotation,
@@ -603,35 +614,40 @@ export async function listRecentPayments(params: { headers: Headers; limit?: num
   const actor = await requirePermission({ headers: params.headers, permission: { payment: ["read"] } });
   const limit = z.number().int().min(1).max(20).default(5).parse(params.limit);
   const rows = await db
-    .select({ payment: payments, invoiceNumber: invoices.invoiceNumber, customerName: customers.companyName })
-    .from(payments)
-    .innerJoin(invoices, and(eq(invoices.id, payments.invoiceId), eq(invoices.organizationId, payments.organizationId)))
+    .select({ settlement: settlements, receipt: receipts, invoiceNumber: invoices.invoiceNumber, customerName: customers.companyName })
+    .from(settlements)
+    .innerJoin(receipts, and(eq(receipts.id, settlements.receiptId), eq(receipts.organizationId, settlements.organizationId)))
+    .innerJoin(invoices, and(eq(invoices.id, settlements.invoiceId), eq(invoices.organizationId, settlements.organizationId)))
     .innerJoin(customers, and(eq(customers.id, invoices.customerId), eq(customers.organizationId, invoices.organizationId)))
-    .where(eq(payments.organizationId, actor.organizationId))
-    .orderBy(desc(payments.paymentDate), desc(payments.createdAt), desc(payments.id))
+    .where(and(eq(settlements.organizationId, actor.organizationId), isNull(settlements.reversedAt), isNull(receipts.reversedAt)))
+    .orderBy(desc(settlements.settledOn), desc(settlements.createdAt), desc(settlements.id))
     .limit(limit);
-  return rows.map(({ payment, invoiceNumber, customerName }) => ({
-    id: payment.id,
-    invoiceId: payment.invoiceId,
+  return rows.map(({ settlement, receipt, invoiceNumber, customerName }) => ({
+    id: settlement.id,
+    invoiceId: settlement.invoiceId,
     invoiceNumber,
     customerName,
-    amount: toMoneyDto(payment.amount),
-    paymentDate: payment.paymentDate,
-    paymentMethod: payment.paymentMethod,
+    amount: toMoneyDto(settlement.amount),
+    paymentDate: settlement.settledOn,
+    paymentMethod: receipt.method,
   }));
 }
 
-/** Money received in the current calendar month, by payment date (DASH-03's half-open month). */
+/** RCP-05: cash received in the current calendar month: active receipts by received date minus refunds by refund date. Withholding and write-offs are not cash. */
 export async function getReceivedThisMonth(params: { headers: Headers }): Promise<{ total: string; count: number }> {
   const actor = await requirePermission({ headers: params.headers, permission: { payment: ["read"] } });
   const { today } = await organizationClock(actor.organizationId);
   const monthStart = `${today.slice(0, 7)}-01`;
   const nextMonth = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 1)).toISOString().slice(0, 10);
   const [row] = await db
-    .select({ total: sql<string>`coalesce(sum(${payments.amount}), 0)::text`, count: sql<number>`count(*)`.mapWith(Number) })
-    .from(payments)
-    .where(and(eq(payments.organizationId, actor.organizationId), sql`${payments.paymentDate} >= ${monthStart}::date`, sql`${payments.paymentDate} < ${nextMonth}::date`));
-  return { total: row?.total ?? "0", count: row?.count ?? 0 };
+    .select({ total: sql<string>`coalesce(sum(${receipts.amount}), 0)::text`, count: sql<number>`count(*)`.mapWith(Number) })
+    .from(receipts)
+    .where(and(eq(receipts.organizationId, actor.organizationId), isNull(receipts.reversedAt), sql`${receipts.receivedOn} >= ${monthStart}::date`, sql`${receipts.receivedOn} < ${nextMonth}::date`));
+  const [refunded] = await db
+    .select({ total: sql<string>`coalesce(sum(${refunds.amount}), 0)::text` })
+    .from(refunds)
+    .where(and(eq(refunds.organizationId, actor.organizationId), sql`${refunds.refundedOn} >= ${monthStart}::date`, sql`${refunds.refundedOn} < ${nextMonth}::date`));
+  return { total: (BigInt(row?.total ?? "0") - BigInt(refunded?.total ?? "0")).toString(), count: row?.count ?? 0 };
 }
 
 /** The deal page's "Buat invoice" button: the first billing item of the deal's orders that is ready to be invoiced. */

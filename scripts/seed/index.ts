@@ -229,11 +229,12 @@ async function ageDeal(dealId: string, days: number) {
 async function alignFinance(dealId: string) {
   // The invoice follows the last sales event by a minute, so it never sorts before the deal it came from.
   await db.execute(sql`update invoices set created_at = (select max(created_at) from activities where deal_id = ${dealId} and entity_type <> 'invoice' and entity_type <> 'payment') + interval '1 minute' where deal_id = ${dealId}`);
-  await db.execute(sql`update payments set created_at = ((payment_date::timestamp + interval '10 hours') at time zone 'Asia/Jakarta') where invoice_id in (select id from invoices where deal_id = ${dealId})`);
-  await db.execute(sql`update invoices i set updated_at = coalesce((select max(p.created_at) from payments p where p.invoice_id = i.id), i.created_at) where i.deal_id = ${dealId}`);
+  await db.execute(sql`update settlements set created_at = ((settled_on::timestamp + interval '10 hours') at time zone 'Asia/Jakarta') where invoice_id in (select id from invoices where deal_id = ${dealId})`);
+  await db.execute(sql`update receipts set created_at = ((received_on::timestamp + interval '10 hours') at time zone 'Asia/Jakarta') where id in (select receipt_id from settlements where invoice_id in (select id from invoices where deal_id = ${dealId}))`);
+  await db.execute(sql`update invoices i set updated_at = coalesce((select max(p.created_at) from settlements p where p.invoice_id = i.id), i.created_at) where i.deal_id = ${dealId}`);
   await db.execute(sql`update activities set created_at = i.created_at from invoices i where activities.deal_id = ${dealId} and activities.entity_type = 'invoice' and i.deal_id = activities.deal_id`);
   await db.execute(sql`
-    with p as (select row_number() over (order by payment_date, id) as n, created_at from payments where invoice_id in (select id from invoices where deal_id = ${dealId})),
+    with p as (select row_number() over (order by settled_on, id) as n, created_at from settlements where invoice_id in (select id from invoices where deal_id = ${dealId})),
          a as (select id, row_number() over (order by created_at, id) as n from activities where deal_id = ${dealId} and entity_type = 'payment')
     update activities set created_at = p.created_at from a join p on p.n = a.n where activities.id = a.id`);
   // The deal's last activity is the latest of everything above.

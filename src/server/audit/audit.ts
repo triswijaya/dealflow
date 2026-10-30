@@ -18,9 +18,14 @@ export type AuditAction =
   | "member.deactivated"
   | "member.reactivated"
   | "member.role_changed"
-  | "invoice.voided";
+  | "invoice.voided"
+  | "receipt.identified"
+  | "receipt.reversed"
+  | "settlement.reversed"
+  | "settlement.written_off"
+  | "refund.recorded";
 
-export type AuditTargetType = "organization" | "organization_settings" | "invitation" | "member" | "invoice";
+export type AuditTargetType = "organization" | "organization_settings" | "invitation" | "member" | "invoice" | "receipt" | "settlement" | "refund";
 
 type Executor = Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db;
 

@@ -344,7 +344,7 @@ describe("concurrency", () => {
     expect(rejected).toHaveLength(1);
     expect(String(rejected[0].reason)).toMatch(/exceeds the remaining balance/);
 
-    const stored = await db.query.payments.findMany({ where: (p, { eq }) => eq(p.invoiceId, invoice.id) });
+    const stored = await db.query.settlements.findMany({ where: (p, { eq }) => eq(p.invoiceId, invoice.id) });
     const paid = stored.reduce((sum, row) => sum + row.amount, 0n);
     expect(paid).toBe(20_000_000n);
     expect(paid).toBeLessThanOrEqual(BigInt(invoice.total));

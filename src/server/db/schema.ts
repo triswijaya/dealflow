@@ -183,6 +183,8 @@ export const organizationSettings = pgTable("organization_settings", {
   currency: text("currency").default("IDR").notNull(),
   timezone: text("timezone").default("Asia/Jakarta").notNull(),
   defaultQuotationTerms: text("default_quotation_terms"),
+  // SET-01: the largest write-off Finance can post on its own; above it only Owner/Admin. Rp50.000 covers a transfer fee.
+  writeOffLimit: bigint("write_off_limit", { mode: "bigint" }).notNull().default(sql`50000`),
   // DATA-04: all instants use timestamptz UTC. Better Auth's own tables
   // (above) intentionally don't (TENANT-01 exempts them, and that's what
   // Better Auth's own schema generator produces), but this is our table.
@@ -1003,35 +1005,31 @@ export const invoiceItems = pgTable(
   ],
 );
 
-// Business table (M3, PAY-01-05). Append-only: PAY-05 forbids editing or
-// deleting a recorded payment in the MVP, so there is no version column and
-// no updated_at -- the only write path is the insert inside recordPayment's
-// transaction.
-//
-// An invoice's paid/remaining balance is summed from these rows on every
-// read rather than cached on the invoice (§14.1 "cached paid/status jika
-// dipakai"), which is also what PAY-03's "hitung saldo terbaru" does under
-// the invoice row lock before accepting a new payment.
-export const payments = pgTable(
-  "payments",
+// Business table (v2.0, RCP-01/RCP-02, ADR-0003). Money that actually came in.
+// Never edited and never deleted: a mistake is reversed (reversed_at...) and
+// recorded again. customer_id is empty for a transfer nobody has recognized yet;
+// identifyReceipt sets it once, with the basis. What is left of a receipt is
+// derived: amount minus its active settlements minus its refunds.
+export const receipts = pgTable(
+  "receipts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "restrict" }),
-    invoiceId: uuid("invoice_id").notNull(),
-    // MONEY-01: rupiah as bigint. PAY-02 requires strictly positive, which
-    // the CHECK below enforces at the database layer too.
+    customerId: uuid("customer_id"),
     amount: bigint("amount", { mode: "bigint" }).notNull(),
-    // DATA-04: a business date, not an instant. createdAt below records when
-    // it was actually entered, which PAY-02 keeps distinct from the date the
-    // money moved.
-    paymentDate: date("payment_date", { mode: "string" }).notNull(),
-    // PAY-01: BANK_TRANSFER, CASH, OTHER. Validated in the service's Zod
-    // schema, stored as plain text like every other status/enum column here.
-    paymentMethod: text("payment_method").notNull(),
+    // DATA-04: a business date, not an instant. createdAt records when it was entered.
+    receivedOn: date("received_on", { mode: "string" }).notNull(),
+    method: text("method").notNull(),
     reference: text("reference"),
     note: text("note"),
+    identifiedAt: timestamp("identified_at", { withTimezone: true }),
+    identifiedById: text("identified_by_id").references(() => user.id, { onDelete: "restrict" }),
+    identificationNote: text("identification_note"),
+    reversedAt: timestamp("reversed_at", { withTimezone: true }),
+    reversedById: text("reversed_by_id").references(() => user.id, { onDelete: "restrict" }),
+    reversalReason: text("reversal_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdById: text("created_by_id")
       .notNull()
@@ -1039,14 +1037,101 @@ export const payments = pgTable(
   },
   (table) => [
     foreignKey({
-      name: "payments_invoice_tenant_fk",
+      name: "receipts_customer_tenant_fk",
+      columns: [table.organizationId, table.customerId],
+      foreignColumns: [customers.organizationId, customers.id],
+    }).onDelete("restrict"),
+    uniqueIndex("receipts_organizationId_id_uidx").on(table.organizationId, table.id),
+    index("receipts_organizationId_customerId_idx").on(table.organizationId, table.customerId),
+    index("receipts_organizationId_receivedOn_idx").on(table.organizationId, table.receivedOn),
+    check("receipts_amount_range_chk", sql`${table.amount} > 0 AND ${table.amount} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`),
+    check("receipts_method_chk", sql`${table.method} IN ('BANK_TRANSFER', 'CASH', 'OTHER')`),
+    check(
+      "receipts_reversal_chk",
+      sql`(${table.reversedAt} IS NULL) = (${table.reversedById} IS NULL) AND (${table.reversedAt} IS NULL) = (${table.reversalReason} IS NULL)`,
+    ),
+  ],
+);
+
+// Business table (v2.0, SET-01). The part of the money (or the tax withheld, or a
+// small write-off) that settles one invoice. Append-only like receipts: a wrong
+// allocation is reversed, never edited.
+export const settlements = pgTable(
+  "settlements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    invoiceId: uuid("invoice_id").notNull(),
+    // RECEIPT draws on a receipt; WITHHOLDING is tax the customer kept back (needs the proof's number);
+    // WRITE_OFF is a small difference (needs a note and stays within the settings limit).
+    kind: text("kind").notNull(),
+    receiptId: uuid("receipt_id"),
+    amount: bigint("amount", { mode: "bigint" }).notNull(),
+    settledOn: date("settled_on", { mode: "string" }).notNull(),
+    reference: text("reference"),
+    note: text("note"),
+    reversedAt: timestamp("reversed_at", { withTimezone: true }),
+    reversedById: text("reversed_by_id").references(() => user.id, { onDelete: "restrict" }),
+    reversalReason: text("reversal_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    foreignKey({
+      name: "settlements_invoice_tenant_fk",
       columns: [table.organizationId, table.invoiceId],
       foreignColumns: [invoices.organizationId, invoices.id],
     }).onDelete("restrict"),
-    // DATA-03: payments tenant+invoice.
-    index("payments_organizationId_invoiceId_idx").on(table.organizationId, table.invoiceId),
-    // PAY-02/MONEY-04/MONEY-06: strictly positive, within the money ceiling.
-    check("payments_amount_range_chk", sql`${table.amount} > 0 AND ${table.amount} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`),
+    foreignKey({
+      name: "settlements_receipt_tenant_fk",
+      columns: [table.organizationId, table.receiptId],
+      foreignColumns: [receipts.organizationId, receipts.id],
+    }).onDelete("restrict"),
+    index("settlements_organizationId_invoiceId_idx").on(table.organizationId, table.invoiceId),
+    index("settlements_organizationId_receiptId_idx").on(table.organizationId, table.receiptId),
+    check("settlements_amount_range_chk", sql`${table.amount} > 0 AND ${table.amount} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`),
+    check("settlements_kind_chk", sql`${table.kind} IN ('RECEIPT', 'WITHHOLDING', 'WRITE_OFF')`),
+    check("settlements_receipt_chk", sql`(${table.kind} = 'RECEIPT') = (${table.receiptId} IS NOT NULL)`),
+    check("settlements_withholding_ref_chk", sql`${table.kind} <> 'WITHHOLDING' OR ${table.reference} IS NOT NULL`),
+    check("settlements_writeoff_note_chk", sql`${table.kind} <> 'WRITE_OFF' OR ${table.note} IS NOT NULL`),
+    check(
+      "settlements_reversal_chk",
+      sql`(${table.reversedAt} IS NULL) = (${table.reversedById} IS NULL) AND (${table.reversedAt} IS NULL) = (${table.reversalReason} IS NULL)`,
+    ),
+  ],
+);
+
+// Business table (v2.0, RCP-04). Money handed back out of what is left of a receipt.
+export const refunds = pgTable(
+  "refunds",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    receiptId: uuid("receipt_id").notNull(),
+    amount: bigint("amount", { mode: "bigint" }).notNull(),
+    refundedOn: date("refunded_on", { mode: "string" }).notNull(),
+    reference: text("reference"),
+    note: text("note"),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    foreignKey({
+      name: "refunds_receipt_tenant_fk",
+      columns: [table.organizationId, table.receiptId],
+      foreignColumns: [receipts.organizationId, receipts.id],
+    }).onDelete("restrict"),
+    index("refunds_organizationId_receiptId_idx").on(table.organizationId, table.receiptId),
+    check("refunds_amount_range_chk", sql`${table.amount} > 0 AND ${table.amount} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`),
   ],
 );
 
@@ -1320,22 +1405,6 @@ export const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({
   invoice: one(invoices, {
     fields: [invoiceItems.invoiceId],
     references: [invoices.id],
-  }),
-}));
-
-export const paymentsRelations = relations(payments, ({ one }) => ({
-  organization: one(organization, {
-    fields: [payments.organizationId],
-    references: [organization.id],
-  }),
-  invoice: one(invoices, {
-    fields: [payments.invoiceId],
-    references: [invoices.id],
-  }),
-  createdBy: one(user, {
-    fields: [payments.createdById],
-    references: [user.id],
-    relationName: "paymentCreatedBy",
   }),
 }));
 

@@ -1,11 +1,23 @@
-import { invoiceItems, invoices, payments } from "@/server/db/schema";
+import { invoiceItems, invoices } from "@/server/db/schema";
 import type { CustomerSnapshot, SellerSnapshot } from "@/server/shared/document-snapshot-types";
 import { toIsoDto, toMoneyDto } from "@/server/shared/dto";
 import { invoiceEffectiveStatus, invoiceRemainingAmount } from "./effective-status";
 
 type InvoiceRow = typeof invoices.$inferSelect;
 type InvoiceItemRow = typeof invoiceItems.$inferSelect;
-type PaymentRow = typeof payments.$inferSelect;
+/** A payment is a receipt together with its settlement on the invoice (PAY-01); this is the flat shape screens read. */
+export type PaymentRow = {
+  id: string;
+  organizationId: string;
+  invoiceId: string;
+  amount: bigint;
+  paymentDate: string;
+  paymentMethod: string;
+  reference: string | null;
+  note: string | null;
+  createdAt: Date;
+  createdById: string;
+};
 
 export type InvoiceItemDto = {
   id: string;

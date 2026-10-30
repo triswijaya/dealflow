@@ -1,18 +1,19 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { payments } from "@/server/db/schema";
+import { settlements } from "@/server/db/schema";
 
 type Executor = Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db;
 
 /**
- * §10.2: `paid_amount = sum(payment.amount yang tercatat valid)`.
+ * §10.3: `settled_amount = sum(settlement aktif ke invoice)`, every kind
+ * (receipt, withholding, write-off); a reversed settlement no longer counts.
  *
  * One grouped query for however many invoices are asked about, so a list
  * read does not fan out into a query per row. Postgres `sum()` over bigint
  * returns numeric, which postgres.js hands back as a string; it is parsed
  * with BigInt, never Number, so a large total stays exact (MONEY-01,
  * MONEY-04's "Agregasi dashboard tetap exact dan tidak dikonversi ke
- * number"). Invoices with no payments simply have no row in the result and
+ * number"). Invoices with nothing settled simply have no row in the result and
  * fall back to 0.
  */
 export async function paidAmountsFor(
@@ -24,12 +25,16 @@ export async function paidAmountsFor(
   }
 
   const rows = await executor
-    .select({ invoiceId: payments.invoiceId, paid: sql<string>`sum(${payments.amount})` })
-    .from(payments)
+    .select({ invoiceId: settlements.invoiceId, paid: sql<string>`sum(${settlements.amount})` })
+    .from(settlements)
     .where(
-      and(eq(payments.organizationId, params.organizationId), inArray(payments.invoiceId, params.invoiceIds)),
+      and(
+        eq(settlements.organizationId, params.organizationId),
+        inArray(settlements.invoiceId, params.invoiceIds),
+        isNull(settlements.reversedAt),
+      ),
     )
-    .groupBy(payments.invoiceId);
+    .groupBy(settlements.invoiceId);
 
   return new Map(rows.map((row) => [row.invoiceId, BigInt(row.paid)]));
 }
