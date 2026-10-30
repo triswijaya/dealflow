@@ -204,6 +204,13 @@
       "when": 1793324884128,
       "tag": "0028_drop_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793325210470,
+      "tag": "0029_collection_tasks",
+      "breakpoints": true
     }
   ]
 }

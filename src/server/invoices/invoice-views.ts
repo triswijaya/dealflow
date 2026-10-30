@@ -408,7 +408,7 @@ export type InvoiceableItemDto = {
 };
 
 /** INV-01: a billing item whose trigger is met and that has no live invoice, on an order that is not cancelled. */
-function readyItemCondition(organizationId: string, today: string): SQL {
+export function readyItemCondition(organizationId: string, today: string): SQL {
   return sql`${billingItems.organizationId} = ${organizationId}
     and ${billingItems.cancelledAt} is null
     and ${orders.cancelledAt} is null

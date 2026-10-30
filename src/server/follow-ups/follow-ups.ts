@@ -6,10 +6,10 @@ import { db } from "@/server/db/client";
 import { activities, deals, followUps } from "@/server/db/schema";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
 import { organizationClock } from "@/server/shared/organization-clock";
-import { toActiveFollowUpDto, toFollowUpDto } from "./dto";
+import { toActiveFollowUpDto, toDealFollowUpDto, toFollowUpDto } from "./dto";
 import { followUpBucket } from "./follow-up-bucket";
 
-const FOLLOW_UP_TYPES = ["CALL", "WHATSAPP", "EMAIL", "MEETING", "OTHER"] as const;
+const FOLLOW_UP_TYPES = ["CALL", "WHATSAPP", "EMAIL", "MEETING", "VISIT", "OTHER"] as const;
 
 // FUP-01 field contract. Input is untrusted (API-01): only dealId/type/
 // note/followUpAt/completedAt are accepted, never created_by/version/
@@ -118,7 +118,7 @@ export async function createFollowUp(params: { headers: Headers; input: unknown 
       permissionCategory: "sales",
     });
 
-    return toFollowUpDto(created);
+    return toDealFollowUpDto(created);
   });
 }
 
@@ -149,6 +149,9 @@ export async function updateFollowUp(params: {
   });
   if (!existing) {
     throw new APIError("NOT_FOUND", { message: "Follow-up not found" });
+  }
+  if (!existing.dealId) {
+    throw new APIError("BAD_REQUEST", { message: "A collection task is changed through the collection operations" });
   }
   if (existing.completedAt !== null) {
     throw new APIError("BAD_REQUEST", { message: "Cannot edit a follow-up that is already completed" });
@@ -200,7 +203,7 @@ export async function updateFollowUp(params: {
       });
     }
 
-    return toFollowUpDto(updated);
+    return toDealFollowUpDto(updated);
   });
 }
 
@@ -232,8 +235,12 @@ export async function completeFollowUp(params: {
   if (!existing) {
     throw new APIError("NOT_FOUND", { message: "Follow-up not found" });
   }
+  if (!existing.dealId) {
+    throw new APIError("BAD_REQUEST", { message: "A collection task is changed through the collection operations" });
+  }
+  const dealId = existing.dealId;
   if (existing.completedAt !== null) {
-    return toFollowUpDto(existing);
+    return toDealFollowUpDto(existing);
   }
   if (existing.cancelledAt !== null) {
     throw new APIError("BAD_REQUEST", { message: "Cannot complete a follow-up that was cancelled" });
@@ -267,7 +274,7 @@ export async function completeFollowUp(params: {
     // AUD-01: "follow-up ... completed" is a required minimum event.
     await tx.insert(activities).values({
       organizationId: actor.organizationId,
-      dealId: existing.dealId,
+      dealId,
       entityType: "follow_up",
       eventType: "completed",
       actorId: actor.userId,
@@ -286,9 +293,9 @@ export async function completeFollowUp(params: {
         lastActivityAt: sql`GREATEST(${deals.lastActivityAt}, ${completedAt.toISOString()}::timestamptz)`,
         version: sql`${deals.version} + 1`,
       })
-      .where(eq(deals.id, existing.dealId));
+      .where(eq(deals.id, dealId));
 
-    return toFollowUpDto(updated);
+    return toDealFollowUpDto(updated);
   });
 }
 

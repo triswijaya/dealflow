@@ -460,7 +460,9 @@ export const followUps = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "restrict" }),
-    dealId: uuid("deal_id").notNull(),
+    // FUP-01: a task belongs to a deal (sales follow-up) or to an invoice (collection), never both.
+    dealId: uuid("deal_id"),
+    invoiceId: uuid("invoice_id"),
     type: text("type").notNull(),
     note: text("note"),
     // DATA-04: all instants use timestamptz UTC. followUpAt/completedAt are
@@ -472,6 +474,7 @@ export const followUps = pgTable(
     // FUP-02/FUP-04: a task that no longer matters (set when its deal closes).
     // It is neither open nor done, and reopening the deal does not revive it.
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelReason: text("cancel_reason"),
     // DATA-07: optimistic concurrency, same pattern as deals/customers.
     version: integer("version").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -497,6 +500,14 @@ export const followUps = pgTable(
     index("follow_ups_organizationId_followUpAt_idx")
       .on(table.organizationId, table.followUpAt)
       .where(sql`${table.completedAt} IS NULL AND ${table.cancelledAt} IS NULL`),
+    foreignKey({
+      name: "follow_ups_invoice_tenant_fk",
+      columns: [table.organizationId, table.invoiceId],
+      foreignColumns: [invoices.organizationId, invoices.id],
+    }).onDelete("restrict"),
+    index("follow_ups_organizationId_invoiceId_idx").on(table.organizationId, table.invoiceId),
+    check("follow_ups_one_subject_chk", sql`(${table.dealId} IS NULL) <> (${table.invoiceId} IS NULL)`),
+    check("follow_ups_promise_invoice_chk", sql`${table.type} <> 'PROMISE_TO_PAY' OR ${table.invoiceId} IS NOT NULL`),
     check("follow_ups_not_done_and_cancelled_chk", sql`${table.completedAt} IS NULL OR ${table.cancelledAt} IS NULL`),
     // Per-deal listing (deal detail page, UX-01): cheap, and justified by
     // that real query pattern even though DATA-03 doesn't name it directly.

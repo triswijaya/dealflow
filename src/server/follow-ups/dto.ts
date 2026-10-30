@@ -7,7 +7,9 @@ type FollowUpRow = typeof followUps.$inferSelect;
 export type FollowUpDto = {
   id: string;
   organizationId: string;
-  dealId: string;
+  dealId: string | null;
+  /** Set instead of dealId on a collection task (FUP-01). */
+  invoiceId: string | null;
   type: string;
   note: string | null;
   followUpAt: string;
@@ -25,6 +27,7 @@ export function toFollowUpDto(row: FollowUpRow): FollowUpDto {
     id: row.id,
     organizationId: row.organizationId,
     dealId: row.dealId,
+    invoiceId: row.invoiceId,
     type: row.type,
     note: row.note,
     followUpAt: toIsoDto(row.followUpAt),
@@ -35,6 +38,12 @@ export function toFollowUpDto(row: FollowUpRow): FollowUpDto {
     createdById: row.createdById,
     updatedById: row.updatedById,
   };
+}
+
+/** A task of a deal: the same DTO with the deal known to be set. */
+export function toDealFollowUpDto(row: FollowUpRow): FollowUpDto & { dealId: string } {
+  if (!row.dealId) throw new Error("toDealFollowUpDto needs a task with a deal");
+  return { ...toFollowUpDto(row), dealId: row.dealId };
 }
 
 // FUP-03: listActiveFollowUps' dashboard-reminder shape -- the same DTO

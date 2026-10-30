@@ -49,3 +49,18 @@ export function buildWhatsAppDeepLink(phoneInternational: string, message: strin
   }
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
+
+/** WA-04: the collection reminder from an invoice. The amount and the date arrive already formatted. */
+export function renderCollectionMessage(params: { contactName: string; invoiceNumber: string; remaining: string; dueDate: string; overdue: boolean }): string {
+  return [
+    `Halo Pak/Bu ${params.contactName},`,
+    "",
+    params.overdue
+      ? `izin mengingatkan invoice ${params.invoiceNumber} sebesar ${params.remaining} yang jatuh tempo pada ${params.dueDate}.`
+      : `izin menginformasikan invoice ${params.invoiceNumber} sebesar ${params.remaining} yang jatuh tempo pada ${params.dueDate}.`,
+    "",
+    "Mohon konfirmasi jadwal pembayarannya.",
+    "",
+    "Terima kasih.",
+  ].join("\n");
+}

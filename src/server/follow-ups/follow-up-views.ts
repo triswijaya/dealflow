@@ -126,7 +126,7 @@ function toRow(row: Awaited<ReturnType<typeof baseQuery>>[number], timezone: str
   const lastContact = row.lastContact ? new Date(row.lastContact as unknown as string | Date) : null;
   return {
     id: followUp.id,
-    dealId: followUp.dealId,
+    dealId: followUp.dealId!,
     type: followUp.type,
     note: followUp.note,
     followUpAt: toIsoDto(followUp.followUpAt),
