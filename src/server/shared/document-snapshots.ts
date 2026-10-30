@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
-import { customers, organization, organizationSettings } from "@/server/db/schema";
+import { contacts, customers, deals, organization, organizationSettings } from "@/server/db/schema";
 import { primaryContact, primaryContactColumns, primaryContactJoin } from "@/server/customers/primary-contact";
 import type { CustomerSnapshot, SellerSnapshot } from "./document-snapshot-types";
 
@@ -28,7 +28,7 @@ export type { SellerSnapshot, CustomerSnapshot } from "./document-snapshot-types
  */
 export async function buildDocumentSnapshots(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db,
-  params: { organizationId: string; customerId: string },
+  params: { organizationId: string; customerId: string; dealId?: string | null },
 ): Promise<{ seller: SellerSnapshot; customer: CustomerSnapshot }> {
   const [org] = await tx.select().from(organization).where(eq(organization.id, params.organizationId));
   const settings = await tx.query.organizationSettings.findFirst({
@@ -41,7 +41,17 @@ export async function buildDocumentSnapshots(
     .leftJoin(primaryContact, primaryContactJoin)
     .where(and(eq(customers.id, params.customerId), eq(customers.organizationId, params.organizationId)));
   const customer = row?.customer;
-  const contact = row?.contact;
+
+  // The contact the document is for: the deal's contact when it has one, else the primary contact.
+  let contact = row?.contact;
+  if (params.dealId) {
+    const [dealContact] = await tx
+      .select({ contactPerson: contacts.name, phoneNormalized: contacts.phoneNormalized, email: contacts.email })
+      .from(deals)
+      .innerJoin(contacts, and(eq(contacts.id, deals.contactId), eq(contacts.organizationId, deals.organizationId)))
+      .where(and(eq(deals.id, params.dealId), eq(deals.organizationId, params.organizationId)));
+    if (dealContact) contact = { ...contact!, ...dealContact };
+  }
 
   return {
     seller: {

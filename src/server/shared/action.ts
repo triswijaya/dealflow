@@ -10,6 +10,13 @@ import { logger } from "./logger";
 // form field it concerns.
 const KNOWN_MESSAGES: [RegExp, string, string?][] = [
   [/modified by someone else|newer version, reload/i, "Data sudah diubah orang lain. Muat ulang untuk melihat versi terbaru sebelum menyimpan lagi."],
+  [/The contact has no phone number for WhatsApp/i, "Kontak ini belum punya nomor telepon, jadi WhatsApp tidak bisa dibuka."],
+  [/Contact not found for this customer/i, "Kontak tidak ditemukan pada customer ini.", "contactId"],
+  [/Contact was modified by someone else/i, "Kontak sudah diubah orang lain. Muat ulang sebelum menyimpan lagi."],
+  [/primary contact cannot be deleted/i, "Kontak utama tidak dapat dihapus. Jadikan kontak lain utama dulu."],
+  [/contact of a deal and cannot be deleted/i, "Kontak ini dipakai oleh sebuah deal, jadi tidak dapat dihapus."],
+  [/A contact needs a phone number or an email/i, "Isi telepon / WhatsApp atau email.", "phone"],
+  [/Tax ID must be 15 or 16 digits/i, "NPWP harus 15 atau 16 digit.", "taxId"],
   [/Cannot transition a deal/i, "Tahap deal tidak dapat dipindahkan ke tahap tersebut."],
   [/deal is on hold, resume it/i, "Deal sedang ditahan. Lanjutkan deal sebelum memindahkan tahapnya."],
   [/Only an open deal can be put on hold/i, "Hanya deal yang masih berjalan yang dapat ditahan."],

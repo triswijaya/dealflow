@@ -139,7 +139,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
     <section className="region">
       <h2>Customer</h2>
       <dl>
-        <KeyValue label="Kontak">{deal.customer.contactPerson}</KeyValue>
+        <KeyValue label="Kontak">{deal.contact ? `${deal.contact.name}${deal.contact.role ? ` (${deal.contact.role})` : ""}` : deal.customer.contactPerson}</KeyValue>
         <KeyValue label="Telepon">
           <span className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
             {formatPhone(deal.customer.phoneNormalized)}

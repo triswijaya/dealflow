@@ -233,6 +233,7 @@ export async function createInvoice(params: { headers: Headers; input: unknown }
         const built = await buildDocumentSnapshots(tx, {
           organizationId: actor.organizationId,
           customerId: source.customerId,
+          dealId: deal.id,
         });
         await tx
           .update(quotations)
@@ -259,6 +260,7 @@ export async function createInvoice(params: { headers: Headers; input: unknown }
       snapshots = await buildDocumentSnapshots(tx, {
         organizationId: actor.organizationId,
         customerId: deal.customerId,
+        dealId: deal.id,
       });
     }
 

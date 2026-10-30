@@ -40,6 +40,8 @@ export async function saveCustomerAction(input: {
 export async function findSimilarCustomersAction(input: {
   companyName?: string;
   phone?: string;
+  email?: string;
+  taxId?: string;
   excludeCustomerId?: string;
 }): Promise<ActionResult<SimilarCustomer[]>> {
   return runAction(async () =>
@@ -47,6 +49,8 @@ export async function findSimilarCustomersAction(input: {
       headers: await headers(),
       companyName: input.companyName,
       phone: input.phone,
+      email: input.email,
+      taxId: input.taxId,
       excludeCustomerId: input.excludeCustomerId,
     }),
   );

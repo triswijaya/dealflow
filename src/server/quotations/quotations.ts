@@ -553,6 +553,7 @@ export async function reviseQuotation(params: { headers: Headers; input: unknown
       const snapshots = await buildDocumentSnapshots(tx, {
         organizationId: actor.organizationId,
         customerId: currentLatest.customerId,
+        dealId: currentLatest.dealId,
       });
       await tx
         .update(quotations)
@@ -735,6 +736,7 @@ export async function transitionQuotationStatus(params: {
         const snapshots = await buildDocumentSnapshots(tx, {
           organizationId: actor.organizationId,
           customerId: existing.customerId,
+          dealId: existing.dealId,
         });
         statusFields.frozenAt = sql`now()`;
         statusFields.sellerSnapshot = snapshots.seller;
@@ -862,7 +864,7 @@ export async function getQuotationForPdf(params: { headers: Headers; quotationId
           seller: quotation.sellerSnapshot as SellerSnapshot,
           customer: quotation.customerSnapshot as CustomerSnapshot,
         }
-      : await buildDocumentSnapshots(db, { organizationId: actor.organizationId, customerId: quotation.customerId });
+      : await buildDocumentSnapshots(db, { organizationId: actor.organizationId, customerId: quotation.customerId, dealId: quotation.dealId });
 
   return { quotation, items, seller: snapshots.seller, customer: snapshots.customer };
 }

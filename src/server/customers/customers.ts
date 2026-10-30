@@ -7,6 +7,7 @@ import { contacts, customers, deals, user } from "@/server/db/schema";
 import { toIsoDto, toMoneyDto } from "@/server/shared/dto";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
 import { toCustomerDto, type CustomerDto } from "./dto";
+import { contactColumns } from "./contacts";
 import { normalizePhone } from "./phone";
 import { primaryContact, primaryContactColumns, primaryContactJoin } from "./primary-contact";
 
@@ -58,21 +59,11 @@ const customerInputSchema = z
     path: ["phone"],
   });
 
-function normalizeOrThrow(phone: string) {
-  const normalized = normalizePhone(phone);
-  if (!normalized) {
-    throw new APIError("BAD_REQUEST", { message: "Invalid phone number" });
-  }
-  return normalized;
-}
-
 // What createCustomer/updateCustomer write to the primary contact.
 function contactValues(parsed: z.output<typeof customerInputSchema>) {
   return {
     name: parsed.contactPerson || parsed.companyName,
-    phoneRaw: parsed.phone,
-    phoneNormalized: parsed.phone ? normalizeOrThrow(parsed.phone) : null,
-    email: parsed.email,
+    ...contactColumns(parsed),
   };
 }
 
@@ -304,12 +295,19 @@ export async function findSimilarCustomers(params: {
   headers: Headers;
   companyName?: string;
   phone?: string;
+  email?: string;
+  taxId?: string;
   excludeCustomerId?: string;
 }) {
   const actor = await requirePermission({ headers: params.headers, permission: { customer: ["write"] } });
   const input = z
-    .object({ companyName: z.string().trim().max(200).optional(), phone: z.string().trim().max(50).optional() })
-    .parse({ companyName: params.companyName, phone: params.phone });
+    .object({
+      companyName: z.string().trim().max(200).optional(),
+      phone: z.string().trim().max(50).optional(),
+      email: z.string().trim().max(320).optional(),
+      taxId: z.string().trim().max(40).optional(),
+    })
+    .parse({ companyName: params.companyName, phone: params.phone, email: params.email, taxId: params.taxId });
 
   const matches: SQL[] = [];
   if (input.companyName) {
@@ -325,6 +323,21 @@ export async function findSimilarCustomers(params: {
           .where(and(eq(contacts.customerId, customers.id), eq(contacts.organizationId, customers.organizationId), eq(contacts.phoneNormalized, phoneNormalized))),
       )!,
     );
+  }
+  // CUS-04: the email of any contact, and the NPWP, also count as the same customer.
+  if (input.email && input.email.includes("@")) {
+    matches.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(contacts)
+          .where(and(eq(contacts.customerId, customers.id), eq(contacts.organizationId, customers.organizationId), sql`lower(${contacts.email}) = lower(${input.email})`)),
+      )!,
+    );
+  }
+  const taxDigits = input.taxId?.replace(/[.\-\s]/g, "");
+  if (taxDigits && /^[0-9]{15,16}$/.test(taxDigits)) {
+    matches.push(eq(customers.taxId, taxDigits));
   }
   if (matches.length === 0) return [];
 

@@ -180,7 +180,7 @@ export async function getQuotationDetail(params: { headers: Headers; quotationId
   const snapshots =
     row.quotation.frozenAt !== null
       ? { seller: row.quotation.sellerSnapshot as SellerSnapshot, customer: row.quotation.customerSnapshot as CustomerSnapshot }
-      : await buildDocumentSnapshots(db, { organizationId: actor.organizationId, customerId: row.quotation.customerId });
+      : await buildDocumentSnapshots(db, { organizationId: actor.organizationId, customerId: row.quotation.customerId, dealId: row.quotation.dealId });
 
   const versions = await db
     .select({

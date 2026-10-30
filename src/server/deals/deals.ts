@@ -3,7 +3,7 @@ import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
-import { activities, customers, deals, followUps, member } from "@/server/db/schema";
+import { activities, contacts, customers, deals, followUps, member } from "@/server/db/schema";
 import { moneyAmountSchema } from "@/server/money/amount";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
@@ -59,6 +59,9 @@ const dealFieldsSchema = {
     .or(z.literal(""))
     .transform((value) => value || null),
   estimatedValue: moneyAmountSchema,
+  // CUS-04: the deal's contact (PIC), one of the customer's. On update, omitted keeps
+  // it (unless the customer changes, which clears it) and null clears it.
+  contactId: z.string().uuid().nullable().optional(),
   expectedCloseDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected close date must be YYYY-MM-DD")
@@ -105,6 +108,16 @@ async function assertCustomerInOrganization(organizationId: string, customerId: 
   }
 }
 
+async function assertContactOfCustomer(organizationId: string, customerId: string, contactId: string) {
+  const contact = await db.query.contacts.findFirst({
+    where: and(eq(contacts.id, contactId), eq(contacts.customerId, customerId), eq(contacts.organizationId, organizationId)),
+    columns: { id: true },
+  });
+  if (!contact) {
+    throw new APIError("BAD_REQUEST", { message: "Contact not found for this customer" });
+  }
+}
+
 // §7.3 "Data wajib": the same rule the deals_stageValue_chk constraint enforces,
 // raised here first so the caller gets a message instead of a constraint error.
 function assertStageValue(stage: string, estimatedValue: bigint) {
@@ -138,6 +151,7 @@ export async function createDeal(params: { headers: Headers; input: unknown }) {
   assertStageValue(parsed.stage, parsed.estimatedValue);
   await assertActiveAssignee(actor.organizationId, assignedToId);
   await assertCustomerInOrganization(actor.organizationId, parsed.customerId);
+  if (parsed.contactId) await assertContactOfCustomer(actor.organizationId, parsed.customerId, parsed.contactId);
 
   return db.transaction(async (tx) => {
     const [created] = await tx
@@ -145,6 +159,7 @@ export async function createDeal(params: { headers: Headers; input: unknown }) {
       .values({
         organizationId: actor.organizationId,
         customerId: parsed.customerId,
+        contactId: parsed.contactId ?? null,
         title: parsed.title,
         description: parsed.description,
         notes: parsed.notes,
@@ -229,11 +244,17 @@ export async function updateDeal(params: {
     await assertCustomerInOrganization(actor.organizationId, parsed.customerId);
   }
 
+  // The contact belongs to one customer, so it cannot follow the deal to another.
+  const contactId =
+    parsed.contactId === undefined ? (parsed.customerId === existing.customerId ? existing.contactId : null) : parsed.contactId;
+  if (contactId && contactId !== existing.contactId) await assertContactOfCustomer(actor.organizationId, parsed.customerId, contactId);
+
   return db.transaction(async (tx) => {
     const [updated] = await tx
       .update(deals)
       .set({
         customerId: parsed.customerId,
+        contactId,
         title: parsed.title,
         description: parsed.description,
         notes: parsed.notes,
@@ -273,12 +294,14 @@ export async function updateDeal(params: {
           title: existing.title,
           estimatedValue: existing.estimatedValue.toString(),
           customerId: existing.customerId,
+          contactId: existing.contactId,
           assignedToId: existing.assignedToId,
         },
         after: {
           title: parsed.title,
           estimatedValue: parsed.estimatedValue.toString(),
           customerId: parsed.customerId,
+          contactId,
           assignedToId: parsed.assignedToId,
         },
       },

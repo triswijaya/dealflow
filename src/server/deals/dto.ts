@@ -7,6 +7,7 @@ export type DealDto = {
   id: string;
   organizationId: string;
   customerId: string;
+  contactId: string | null;
   title: string;
   description: string;
   notes: string | null;
@@ -38,6 +39,7 @@ export function toDealDto(row: DealRow): DealDto {
     id: row.id,
     organizationId: row.organizationId,
     customerId: row.customerId,
+    contactId: row.contactId,
     title: row.title,
     description: row.description,
     notes: row.notes,

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink, IconLink } from "@/components/ui/button";
 import { formatPhone, formatRelative, formatRupiah } from "@/lib/format";
 import { DEAL_STAGE, isActiveStage, lostReasonLabel, type DealStage } from "@/lib/labels";
+import { listContacts } from "@/server/customers/contacts";
 import { getCustomer, listCustomerDeals, type CustomerDealDto } from "@/server/customers/customers";
 import { load, requireWorkspace } from "../../workspace";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -78,6 +79,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
   const workspace = await requireWorkspace();
   const customer = await load((headers) => getCustomer({ headers, customerId: id }));
   const deals = await load((headers) => listCustomerDeals({ headers, customerId: id }));
+  const contactList = await load((headers) => listContacts({ headers, customerId: id }));
 
   const finance = workspace.role === "FINANCE";
   const dealsReady = isBuilt("/deals");
@@ -103,6 +105,24 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
           <Notes value={customer.notes} />
         </KeyValue>
       </dl>
+      {contactList.length > 1 ? (
+        <>
+          <h3>Kontak lain</h3>
+          <ul className="stack">
+            {contactList
+              .filter((contact) => !contact.isPrimary)
+              .map((contact) => (
+                <li key={contact.id}>
+                  <b>{contact.name}</b>
+                  {contact.role ? ` · ${contact.role}` : ""}
+                  <small style={{ display: "block" }}>
+                    {[contact.phoneNormalized ? formatPhone(contact.phoneNormalized) : null, contact.email].filter(Boolean).join(" · ")}
+                  </small>
+                </li>
+              ))}
+          </ul>
+        </>
+      ) : null}
     </section>
   );
 

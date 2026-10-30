@@ -119,7 +119,9 @@ function CustomerForm({
   // typing doesn't fire a request per keystroke, and a stale answer is dropped.
   const companyName = values.companyName.trim();
   const phone = values.phone.trim();
-  const hasLookupInput = companyName.length > 0 || normalizePhone(phone) !== null;
+  const email = values.email.trim();
+  const taxId = values.taxId.trim();
+  const hasLookupInput = companyName.length > 0 || normalizePhone(phone) !== null || email.includes("@") || taxId.length >= 15;
   useEffect(() => {
     if (!hasLookupInput) return;
     const ticket = ++lookup.current;
@@ -127,12 +129,14 @@ function CustomerForm({
       const result = await findSimilarCustomersAction({
         companyName,
         phone: normalizePhone(phone) ? phone : undefined,
+        email: email.includes("@") ? email : undefined,
+        taxId: taxId.length >= 15 ? taxId : undefined,
         excludeCustomerId: customer?.id,
       });
       if (ticket === lookup.current) setSimilar(result.ok ? result.data : []);
     }, 500);
     return () => clearTimeout(timer);
-  }, [hasLookupInput, companyName, phone, customer?.id]);
+  }, [hasLookupInput, companyName, phone, email, taxId, customer?.id]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -247,7 +251,7 @@ function CustomerForm({
         </Field>
         {hasLookupInput && similar.length > 0 ? (
           <Alert tone="warning">
-            Customer dengan nama/nomor serupa sudah ada:{" "}
+            Customer dengan nama, nomor, email, atau NPWP serupa sudah ada:{" "}
             {similar.map((match, index) => (
               <span key={match.id}>
                 {index > 0 ? ", " : ""}

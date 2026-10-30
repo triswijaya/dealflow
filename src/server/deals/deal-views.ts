@@ -4,7 +4,7 @@ import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
-import { activities, customers, deals, followUps, member, user } from "@/server/db/schema";
+import { activities, contacts, customers, deals, followUps, member, user } from "@/server/db/schema";
 import { toIsoDto, toMoneyDto } from "@/server/shared/dto";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
@@ -342,6 +342,8 @@ export type DealDetailDto = {
     address: string | null;
     notes: string | null;
   };
+  /** CUS-04: the deal's own contact (PIC), when one was chosen. */
+  contact: { id: string; name: string; role: string | null; phoneNormalized: string | null; email: string | null } | null;
   /** When the deal first entered each stage; stages it never reached are absent. */
   stageEnteredAt: Partial<Record<(typeof ALL_STAGES)[number], string>>;
   /** When the deal entered the stage it is in now (DEAL-03). */
@@ -404,6 +406,13 @@ export async function getDealDetail(params: { headers: Headers; dealId: string }
     .from(deals)
     .where(and(eq(deals.id, row.deal.id), eq(deals.organizationId, actor.organizationId)));
 
+  const [dealContact = null] = row.deal.contactId
+    ? await db
+        .select({ id: contacts.id, name: contacts.name, role: contacts.role, phoneNormalized: contacts.phoneNormalized, email: contacts.email })
+        .from(contacts)
+        .where(and(eq(contacts.id, row.deal.contactId), eq(contacts.organizationId, actor.organizationId)))
+    : [];
+
   const { deal, customer } = row;
   return {
     id: deal.id,
@@ -435,6 +444,7 @@ export async function getDealDetail(params: { headers: Headers; dealId: string }
       address: customer.address,
       notes: customer.notes,
     },
+    contact: dealContact,
     stageEnteredAt,
     stageSince: toIsoDto(deal.stageEnteredAt),
     signals: signalsOf(deal, counts, clock),

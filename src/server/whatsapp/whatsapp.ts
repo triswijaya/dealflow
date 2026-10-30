@@ -2,8 +2,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import { APIError } from "better-auth/api";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
-import { activities, contacts, customers, deals, quotations } from "@/server/db/schema";
-import { primaryContact, primaryContactJoin } from "@/server/customers/primary-contact";
+import { activities, customers, deals, quotations } from "@/server/db/schema";
+import { findWhatsAppContact } from "@/server/customers/contacts";
 import { buildWhatsAppDeepLink, renderFollowUpMessage } from "./message";
 
 /**
@@ -78,10 +78,8 @@ export async function buildFollowUpWhatsAppMessage(params: {
       })) ?? null;
   }
 
-  // CUS-04: the message goes to the customer's primary contact. WhatsApp needs a phone number.
-  const contact = await db.query.contacts.findFirst({
-    where: and(eq(contacts.customerId, customer.id), eq(contacts.organizationId, actor.organizationId), eq(contacts.isPrimary, true)),
-  });
+  // CUS-04/WA-01: the deal's contact when it has a phone, else the customer's primary contact.
+  const contact = await findWhatsAppContact(actor.organizationId, { customerId: customer.id, contactId: deal.contactId });
   if (!contact?.phoneNormalized) {
     throw new APIError("BAD_REQUEST", { message: "The contact has no phone number for WhatsApp" });
   }
@@ -93,7 +91,7 @@ export async function buildFollowUpWhatsAppMessage(params: {
   });
   const deepLink = buildWhatsAppDeepLink(contact.phoneNormalized, message);
 
-  return { phoneInternational: contact.phoneNormalized, message, deepLink, quotationId: quotation?.id ?? null };
+  return { phoneInternational: contact.phoneNormalized, contactName: contact.name, message, deepLink, quotationId: quotation?.id ?? null };
 }
 
 /**
@@ -156,10 +154,9 @@ export async function getWhatsAppComposer(params: { headers: Headers; dealId: st
   const actor = await requirePermission({ headers: params.headers, permission: { followUp: ["read"] } });
 
   const [deal] = await db
-    .select({ title: deals.title, customerId: customers.id, companyName: customers.companyName, contactPerson: primaryContact.name })
+    .select({ title: deals.title, customerId: customers.id, companyName: customers.companyName })
     .from(deals)
     .innerJoin(customers, and(eq(customers.id, deals.customerId), eq(customers.organizationId, deals.organizationId)))
-    .leftJoin(primaryContact, primaryContactJoin)
     .where(and(eq(deals.id, params.dealId), eq(deals.organizationId, actor.organizationId)))
     .limit(1);
   if (!deal) {
@@ -177,7 +174,7 @@ export async function getWhatsAppComposer(params: { headers: Headers; dealId: st
     dealTitle: deal.title,
     customerId: deal.customerId,
     companyName: deal.companyName,
-    contactPerson: deal.contactPerson ?? "",
+    contactPerson: built.contactName,
     phoneNormalized: built.phoneInternational,
     quotations: rows,
     defaultQuotationId: built.quotationId,

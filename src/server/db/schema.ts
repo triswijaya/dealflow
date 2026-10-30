@@ -273,6 +273,8 @@ export const contacts = pgTable(
     }).onDelete("restrict"),
     // Lets a deal carry a composite FK to (organizationId, id) here.
     uniqueIndex("contacts_organizationId_id_uidx").on(table.organizationId, table.id),
+    // The FK from a deal: a deal's contact must belong to the deal's customer.
+    uniqueIndex("contacts_organizationId_customerId_id_uidx").on(table.organizationId, table.customerId, table.id),
     // "Tepat satu kontak utama per customer".
     uniqueIndex("contacts_customerId_primary_uidx").on(table.customerId).where(sql`${table.isPrimary}`),
     index("contacts_organizationId_customerId_idx").on(table.organizationId, table.customerId),
@@ -293,6 +295,9 @@ export const deals = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "restrict" }),
     customerId: uuid("customer_id").notNull(),
+    // CUS-04: the person at the customer this deal is about (PIC). Optional;
+    // WhatsApp falls back to the customer's primary contact without it.
+    contactId: uuid("contact_id"),
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
     notes: text("notes"),
@@ -351,6 +356,12 @@ export const deals = pgTable(
       name: "deals_customer_tenant_fk",
       columns: [table.organizationId, table.customerId],
       foreignColumns: [customers.organizationId, customers.id],
+    }).onDelete("restrict"),
+    // The contact has to be one of this customer's (MATCH SIMPLE: not checked while contact_id is null).
+    foreignKey({
+      name: "deals_contact_customer_fk",
+      columns: [table.organizationId, table.customerId, table.contactId],
+      foreignColumns: [contacts.organizationId, contacts.customerId, contacts.id],
     }).onDelete("restrict"),
     // Same purpose as customers_organizationId_id_uidx: lets a child table
     // (activities) carry a composite FK to (organizationId, id) here.
