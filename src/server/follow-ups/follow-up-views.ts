@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { customers, deals, followUps, user } from "@/server/db/schema";
+import { contactFields, primaryContact, primaryContactColumns, primaryContactJoin } from "@/server/customers/primary-contact";
 import { toIsoDto, toMoneyDto } from "@/server/shared/dto";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
@@ -47,7 +48,7 @@ export type FollowUpRowDto = {
   customerId: string;
   customerName: string;
   customerContact: string;
-  customerPhone: string;
+  customerPhone: string | null;
   customerEmail: string | null;
   assignedToName: string;
   completedByName: string | null;
@@ -105,6 +106,7 @@ function baseQuery(organizationId: string, where: SQL | undefined) {
       followUp: followUps,
       deal: deals,
       customer: customers,
+      contact: primaryContactColumns,
       assignedToName: assignee.name,
       completedByName: completer.name,
       lastContact,
@@ -112,6 +114,7 @@ function baseQuery(organizationId: string, where: SQL | undefined) {
     .from(followUps)
     .innerJoin(deals, and(eq(deals.id, followUps.dealId), eq(deals.organizationId, followUps.organizationId)))
     .innerJoin(customers, and(eq(customers.id, deals.customerId), eq(customers.organizationId, deals.organizationId)))
+    .leftJoin(primaryContact, primaryContactJoin)
     .innerJoin(assignee, eq(assignee.id, deals.assignedToId))
     .leftJoin(completer, and(isNotNull(followUps.completedAt), eq(completer.id, followUps.updatedById)))
     .where(where);
@@ -134,9 +137,9 @@ function toRow(row: Awaited<ReturnType<typeof baseQuery>>[number], timezone: str
     dealValue: toMoneyDto(deal.status === "WON" && deal.wonValue !== null ? deal.wonValue : deal.estimatedValue),
     customerId: customer.id,
     customerName: customer.companyName,
-    customerContact: customer.contactPerson,
-    customerPhone: customer.phoneNormalized,
-    customerEmail: customer.email,
+    customerContact: contactFields(row.contact).contactPerson,
+    customerPhone: row.contact?.phoneNormalized ?? null,
+    customerEmail: row.contact?.email ?? null,
     assignedToName: row.assignedToName,
     completedByName: followUp.completedAt ? row.completedByName : null,
     lastContactAt: lastContact ? toIsoDto(lastContact) : null,

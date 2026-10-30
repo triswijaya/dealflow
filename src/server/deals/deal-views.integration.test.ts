@@ -226,7 +226,8 @@ describe("deal read models", () => {
       expect(Object.keys(detail.stageEnteredAt).sort()).toEqual(["NEGOTIATION", "PROPOSAL", "PROSPECT"]);
       expect(detail.stageEnteredAt.PROSPECT).toBe(detail.createdAt);
       expect(detail.stageEnteredAt.NEGOTIATION! >= detail.stageEnteredAt.PROPOSAL!).toBe(true);
-      expect(detail.stageSince).toBe(detail.stageEnteredAt.NEGOTIATION);
+      // The column is stamped by the app and the event by the database, so they can differ by a millisecond.
+      expect(Math.abs(Date.parse(detail.stageSince) - Date.parse(detail.stageEnteredAt.NEGOTIATION!))).toBeLessThan(1000);
     });
 
     it("records a lost deal's final stage with its reason", async () => {

@@ -18,4 +18,6 @@ export type CustomerSnapshot = {
   phone: string | null;
   email: string | null;
   address: string | null;
+  /** NPWP, digits only. Absent on documents frozen before tax ids existed. */
+  taxId?: string | null;
 };

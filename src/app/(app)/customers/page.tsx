@@ -21,6 +21,7 @@ function editable(customer: CustomerListItemDto) {
     id: customer.id,
     version: customer.version,
     companyName: customer.companyName,
+    taxId: customer.taxId,
     contactPerson: customer.contactPerson,
     phoneRaw: customer.phoneRaw,
     email: customer.email,
@@ -112,14 +113,16 @@ export default async function CustomersPage({ searchParams }: PageProps<"/custom
                   <td data-label="Telepon">
                     <div>
                       {formatPhone(customer.phoneNormalized)}{" "}
-                      <IconLink
-                        label="Buka WhatsApp"
-                        href={`https://wa.me/${customer.phoneNormalized}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <MessageCircle aria-hidden="true" />
-                      </IconLink>
+                      {customer.phoneNormalized ? (
+                        <IconLink
+                          label="Buka WhatsApp"
+                          href={`https://wa.me/${customer.phoneNormalized}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <MessageCircle aria-hidden="true" />
+                        </IconLink>
+                      ) : null}
                     </div>
                   </td>
                   {finance ? (

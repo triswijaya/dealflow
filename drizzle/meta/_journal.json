@@ -162,6 +162,20 @@
       "when": 1793264963013,
       "tag": "0022_follow_up_cancelled_at",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793322638588,
+      "tag": "0023_customer_contacts",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793322645114,
+      "tag": "0024_drop_customer_contact_columns",
+      "breakpoints": true
     }
   ]
 }

@@ -18,8 +18,9 @@ export type EditableCustomer = {
   id: string;
   version: number;
   companyName: string;
+  taxId: string | null;
   contactPerson: string;
-  phoneRaw: string;
+  phoneRaw: string | null;
   email: string | null;
   address: string | null;
   notes: string | null;
@@ -27,6 +28,7 @@ export type EditableCustomer = {
 
 type Values = {
   companyName: string;
+  taxId: string;
   contactPerson: string;
   phone: string;
   email: string;
@@ -48,9 +50,11 @@ function validate(values: Values): Errors {
   if (!company || company.length > LIMITS.companyName) errors.companyName = "Nama perusahaan / customer wajib diisi. Maksimal 200 karakter.";
   const contact = values.contactPerson.trim();
   if (!contact || contact.length > LIMITS.contactPerson) errors.contactPerson = "Nama kontak wajib diisi. Maksimal 150 karakter.";
-  if (!values.phone.trim()) errors.phone = "Telepon / WhatsApp wajib diisi.";
-  else if (!normalizePhone(values.phone)) errors.phone = PHONE_ERROR;
   const email = values.email.trim();
+  if (!values.phone.trim() && !email) errors.phone = "Isi telepon / WhatsApp atau email.";
+  else if (values.phone.trim() && !normalizePhone(values.phone)) errors.phone = PHONE_ERROR;
+  const taxId = values.taxId.replace(/[.\-\s]/g, "");
+  if (taxId && !/^[0-9]{15,16}$/.test(taxId)) errors.taxId = "NPWP harus 15 atau 16 digit.";
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Masukkan email yang valid.";
   if (values.address.trim().length > LIMITS.address) errors.address = "Maksimal 2.000 karakter";
   if (values.notes.trim().length > LIMITS.notes) errors.notes = "Maksimal 5.000 karakter";
@@ -92,6 +96,7 @@ function CustomerForm({
   const toast = useToast();
   const [values, setValues] = useState<Values>({
     companyName: customer?.companyName ?? "",
+    taxId: customer?.taxId ?? "",
     contactPerson: customer?.contactPerson ?? "",
     phone: customer?.phoneRaw ?? "",
     email: customer?.email ?? "",
@@ -191,7 +196,6 @@ function CustomerForm({
           <Field
             label="Telepon / WhatsApp"
             htmlFor="customer-phone"
-            required
             error={errors.phone}
             hint={normalized ? `Disimpan sebagai ${formatPhone(normalized)}` : "Contoh: 0812 3456 789 atau +62 812 3456 789"}
           >
@@ -202,6 +206,16 @@ function CustomerForm({
               onChange={(event) => set("phone", event.target.value)}
               autoComplete="off"
               invalid={!!errors.phone}
+            />
+          </Field>
+          <Field label="NPWP" htmlFor="customer-taxId" error={errors.taxId} hint="Opsional. 15 atau 16 digit.">
+            <Input
+              id="customer-taxId"
+              value={values.taxId}
+              onChange={(event) => set("taxId", event.target.value)}
+              inputMode="numeric"
+              autoComplete="off"
+              invalid={!!errors.taxId}
             />
           </Field>
           <Field label="Email" htmlFor="customer-email" error={errors.email}>

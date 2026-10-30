@@ -1,13 +1,14 @@
-import { and, eq, ilike, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, exists, ilike, ne, or, sql, type SQL } from "drizzle-orm";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
-import { customers, deals, user } from "@/server/db/schema";
+import { contacts, customers, deals, user } from "@/server/db/schema";
 import { toIsoDto, toMoneyDto } from "@/server/shared/dto";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
 import { toCustomerDto, type CustomerDto } from "./dto";
 import { normalizePhone } from "./phone";
+import { primaryContact, primaryContactColumns, primaryContactJoin } from "./primary-contact";
 
 // CUS-01 field contract. Input is untrusted (API-01: client can't set
 // created_by/organization directly), validated here, not upstream.
@@ -16,32 +17,46 @@ import { normalizePhone } from "./phone";
 // .set() treats an undefined value as "leave this column alone", so
 // updateCustomer clearing a previously-set email/address/notes requires an
 // explicit null; undefined would silently keep the stale value instead.
-const customerInputSchema = z.object({
-  companyName: z.string().trim().min(1).max(200),
-  contactPerson: z.string().trim().min(1).max(150),
-  phone: z.string().trim().min(1),
-  email: z
+const optionalText = (max: number) =>
+  z
     .string()
     .trim()
-    .email()
+    .max(max)
     .optional()
     .or(z.literal(""))
-    .transform((value) => value || null),
-  address: z
-    .string()
-    .trim()
-    .max(2000)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => value || null),
-  notes: z
-    .string()
-    .trim()
-    .max(5000)
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => value || null),
-});
+    .transform((value) => value || null);
+
+// CUS-01: NPWP is 15 or 16 digits and may be typed with dots, dashes or spaces.
+const taxIdSchema = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => (value ? value.replace(/[.\-\s]/g, "") : null))
+  .refine((value) => value === null || /^[0-9]{15,16}$/.test(value), { message: "Tax ID must be 15 or 16 digits" });
+
+// CUS-04: creating or editing a customer also writes its primary contact, so a
+// prospect from WhatsApp needs only a name and a number. The contact's name
+// defaults to the customer's; it needs a phone and/or an email.
+const customerInputSchema = z
+  .object({
+    companyName: z.string().trim().min(1).max(200),
+    taxId: taxIdSchema,
+    contactPerson: z.string().trim().max(150).optional(),
+    phone: optionalText(50),
+    email: z
+      .string()
+      .trim()
+      .email()
+      .optional()
+      .or(z.literal(""))
+      .transform((value) => value || null),
+    address: optionalText(2000),
+    notes: optionalText(5000),
+  })
+  .refine((value) => value.phone !== null || value.email !== null, {
+    message: "A contact needs a phone number or an email",
+    path: ["phone"],
+  });
 
 function normalizeOrThrow(phone: string) {
   const normalized = normalizePhone(phone);
@@ -51,26 +66,52 @@ function normalizeOrThrow(phone: string) {
   return normalized;
 }
 
+// What createCustomer/updateCustomer write to the primary contact.
+function contactValues(parsed: z.output<typeof customerInputSchema>) {
+  return {
+    name: parsed.contactPerson || parsed.companyName,
+    phoneRaw: parsed.phone,
+    phoneNormalized: parsed.phone ? normalizeOrThrow(parsed.phone) : null,
+    email: parsed.email,
+  };
+}
+
+/** One customer with its primary contact, scoped to the organization. */
+async function readCustomer(executor: Pick<typeof db, "select">, organizationId: string, customerId: string) {
+  const [row] = await executor
+    .select({ customer: customers, contact: primaryContactColumns })
+    .from(customers)
+    .leftJoin(primaryContact, primaryContactJoin)
+    .where(and(eq(customers.id, customerId), eq(customers.organizationId, organizationId)));
+  return row ? toCustomerDto(row.customer, row.contact) : null;
+}
+
 export async function createCustomer(params: { headers: Headers; input: unknown }) {
   const actor = await requirePermission({ headers: params.headers, permission: { customer: ["write"] } });
   const parsed = customerInputSchema.parse(params.input);
-  const phoneNormalized = normalizeOrThrow(parsed.phone);
+  const contact = contactValues(parsed);
 
-  const [created] = await db
-    .insert(customers)
-    .values({
+  return db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(customers)
+      .values({
+        organizationId: actor.organizationId,
+        companyName: parsed.companyName,
+        taxId: parsed.taxId,
+        address: parsed.address,
+        notes: parsed.notes,
+        createdById: actor.userId,
+      })
+      .returning();
+    await tx.insert(contacts).values({
       organizationId: actor.organizationId,
-      companyName: parsed.companyName,
-      contactPerson: parsed.contactPerson,
-      phoneRaw: parsed.phone,
-      phoneNormalized,
-      email: parsed.email,
-      address: parsed.address,
-      notes: parsed.notes,
+      customerId: created.id,
+      ...contact,
+      isPrimary: true,
       createdById: actor.userId,
-    })
-    .returning();
-  return toCustomerDto(created);
+    });
+    return (await readCustomer(tx, actor.organizationId, created.id))!;
+  });
 }
 
 /**
@@ -91,7 +132,7 @@ export async function updateCustomer(params: {
 }) {
   const actor = await requirePermission({ headers: params.headers, permission: { customer: ["write"] } });
   const parsed = customerInputSchema.parse(params.input);
-  const phoneNormalized = normalizeOrThrow(parsed.phone);
+  const contact = contactValues(parsed);
 
   const existing = await db.query.customers.findFirst({
     where: and(eq(customers.id, params.customerId), eq(customers.organizationId, actor.organizationId)),
@@ -100,45 +141,50 @@ export async function updateCustomer(params: {
     throw new APIError("NOT_FOUND", { message: "Customer not found" });
   }
 
-  const [updated] = await db
-    .update(customers)
-    .set({
-      companyName: parsed.companyName,
-      contactPerson: parsed.contactPerson,
-      phoneRaw: parsed.phone,
-      phoneNormalized,
-      email: parsed.email,
-      address: parsed.address,
-      notes: parsed.notes,
-      updatedById: actor.userId,
-      version: sql`${customers.version} + 1`,
-    })
-    .where(
-      and(
-        eq(customers.id, params.customerId),
-        eq(customers.organizationId, actor.organizationId),
-        eq(customers.version, params.expectedVersion),
-      ),
-    )
-    .returning();
+  return db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(customers)
+      .set({
+        companyName: parsed.companyName,
+        taxId: parsed.taxId,
+        address: parsed.address,
+        notes: parsed.notes,
+        updatedById: actor.userId,
+        version: sql`${customers.version} + 1`,
+      })
+      .where(
+        and(
+          eq(customers.id, params.customerId),
+          eq(customers.organizationId, actor.organizationId),
+          eq(customers.version, params.expectedVersion),
+        ),
+      )
+      .returning();
 
-  if (!updated) {
-    // existing was found above under the same tenant scope, so reaching
-    // here means the version check failed, not a missing/cross-tenant row.
-    throw new APIError("CONFLICT", { message: "Customer was modified by someone else, reload and try again" });
-  }
-  return toCustomerDto(updated);
+    if (!updated) {
+      // existing was found above under the same tenant scope, so reaching
+      // here means the version check failed, not a missing/cross-tenant row.
+      throw new APIError("CONFLICT", { message: "Customer was modified by someone else, reload and try again" });
+    }
+
+    // The customer form edits the primary contact; the other contacts have
+    // their own operations.
+    await tx
+      .update(contacts)
+      .set({ ...contact, updatedById: actor.userId, version: sql`${contacts.version} + 1` })
+      .where(and(eq(contacts.customerId, updated.id), eq(contacts.organizationId, actor.organizationId), eq(contacts.isPrimary, true)));
+
+    return (await readCustomer(tx, actor.organizationId, updated.id))!;
+  });
 }
 
 export async function getCustomer(params: { headers: Headers; customerId: string }) {
   const actor = await requirePermission({ headers: params.headers, permission: { customer: ["read"] } });
-  const customer = await db.query.customers.findFirst({
-    where: and(eq(customers.id, params.customerId), eq(customers.organizationId, actor.organizationId)),
-  });
+  const customer = await readCustomer(db, actor.organizationId, params.customerId);
   if (!customer) {
     throw new APIError("NOT_FOUND", { message: "Customer not found" });
   }
-  return toCustomerDto(customer);
+  return customer;
 }
 
 const listParamsSchema = z.object({
@@ -155,25 +201,30 @@ function escapeLike(value: string) {
 }
 
 /**
- * SEARCH-01: company name, contact person, email and phone, case-insensitive.
- * A phone-looking query is also matched against the normalized number, so
- * "0812 3456" finds a customer stored as 62812....
+ * SEARCH-01: company name, tax id, and the name, email and phone of any of the
+ * customer's contacts, case-insensitive. A phone-looking query is also matched
+ * against the normalized number, so "0812 3456" finds a contact stored as 62812....
  */
 function searchCondition(term: string): SQL | undefined {
   if (!term) return undefined;
   const pattern = `%${escapeLike(term)}%`;
-  const conditions: (SQL | undefined)[] = [
-    ilike(customers.companyName, pattern),
-    ilike(customers.contactPerson, pattern),
-    ilike(customers.email, pattern),
-    ilike(customers.phoneRaw, pattern),
+  const contactMatches: (SQL | undefined)[] = [
+    ilike(contacts.name, pattern),
+    ilike(contacts.email, pattern),
+    ilike(contacts.phoneRaw, pattern),
   ];
   const digits = term.replace(/[^0-9]/g, "");
   if (digits.length >= 3 && /^[0-9\s+()\-.]+$/.test(term)) {
     const international = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
-    conditions.push(ilike(customers.phoneNormalized, `%${escapeLike(international)}%`));
+    contactMatches.push(ilike(contacts.phoneNormalized, `%${escapeLike(international)}%`));
   }
-  return or(...conditions);
+  const anyContact = exists(
+    db
+      .select({ one: sql`1` })
+      .from(contacts)
+      .where(and(eq(contacts.customerId, customers.id), eq(contacts.organizationId, customers.organizationId), or(...contactMatches))),
+  );
+  return or(ilike(customers.companyName, pattern), ilike(customers.taxId, pattern), anyContact);
 }
 
 export type CustomerListItemDto = CustomerDto & {
@@ -214,11 +265,13 @@ export async function listCustomers(params: {
     db
       .select({
         customer: customers,
+        contact: primaryContactColumns,
         active: sql<number>`coalesce(${counts.active}, 0)`.mapWith(Number),
         won: sql<number>`coalesce(${counts.won}, 0)`.mapWith(Number),
         total: sql<number>`coalesce(${counts.total}, 0)`.mapWith(Number),
       })
       .from(customers)
+      .leftJoin(primaryContact, primaryContactJoin)
       .leftJoin(counts, eq(counts.customerId, customers.id))
       .where(where)
       // SEARCH-02: stable sort -- id as a tie-breaker so ties never reorder
@@ -234,7 +287,7 @@ export async function listCustomers(params: {
   ]);
 
   const items: CustomerListItemDto[] = rows.map((row) => ({
-    ...toCustomerDto(row.customer),
+    ...toCustomerDto(row.customer, row.contact),
     activeDeals: isFinance ? null : row.active,
     totalDeals: isFinance ? null : row.total,
     wonDeals: row.won,
@@ -264,13 +317,21 @@ export async function findSimilarCustomers(params: {
   }
   const phoneNormalized = input.phone ? normalizePhone(input.phone) : null;
   if (phoneNormalized) {
-    matches.push(eq(customers.phoneNormalized, phoneNormalized));
+    matches.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(contacts)
+          .where(and(eq(contacts.customerId, customers.id), eq(contacts.organizationId, customers.organizationId), eq(contacts.phoneNormalized, phoneNormalized))),
+      )!,
+    );
   }
   if (matches.length === 0) return [];
 
   const rows = await db
-    .select({ id: customers.id, companyName: customers.companyName, contactPerson: customers.contactPerson })
+    .select({ id: customers.id, companyName: customers.companyName, contactPerson: primaryContact.name })
     .from(customers)
+    .leftJoin(primaryContact, primaryContactJoin)
     .where(
       and(
         eq(customers.organizationId, actor.organizationId),
@@ -280,7 +341,7 @@ export async function findSimilarCustomers(params: {
     )
     .orderBy(customers.companyName)
     .limit(3);
-  return rows;
+  return rows.map((row) => ({ ...row, contactPerson: row.contactPerson ?? "" }));
 }
 
 export type CustomerDealDto = {
@@ -352,10 +413,12 @@ const OPTION_LIMIT = 8;
 export async function searchCustomerOptions(params: { headers: Headers; query?: string }): Promise<CustomerOptionDto[]> {
   const actor = await requirePermission({ headers: params.headers, permission: { customer: ["read"] } });
   const { query } = listParamsSchema.parse({ query: params.query });
-  return db
-    .select({ id: customers.id, companyName: customers.companyName, contactPerson: customers.contactPerson })
+  const rows = await db
+    .select({ id: customers.id, companyName: customers.companyName, contactPerson: primaryContact.name })
     .from(customers)
+    .leftJoin(primaryContact, primaryContactJoin)
     .where(and(eq(customers.organizationId, actor.organizationId), searchCondition(query ?? "")))
     .orderBy(query ? sql`lower(${customers.companyName}) asc` : sql`${customers.createdAt} desc`, customers.id)
     .limit(OPTION_LIMIT);
+  return rows.map((row) => ({ ...row, contactPerson: row.contactPerson ?? "" }));
 }

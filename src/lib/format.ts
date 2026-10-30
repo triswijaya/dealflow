@@ -168,7 +168,8 @@ export function formatQuantity(stored: string): string {
 }
 
 /** Normalized "628123456789" -> "+62 812-3456-789". */
-export function formatPhone(normalized: string): string {
+export function formatPhone(normalized: string | null | undefined): string {
+  if (!normalized) return "-";
   const digits = normalized.replace(/[^0-9]/g, "");
   if (!digits.startsWith("62")) return `+${digits}`;
   const local = digits.slice(2);

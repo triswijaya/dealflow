@@ -143,7 +143,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         <KeyValue label="Telepon">
           <span className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
             {formatPhone(deal.customer.phoneNormalized)}
-            <CopyButton value={formatPhone(deal.customer.phoneNormalized)} label="Salin nomor" done="Nomor disalin" />
+            {deal.customer.phoneNormalized ? <CopyButton value={formatPhone(deal.customer.phoneNormalized)} label="Salin nomor" done="Nomor disalin" /> : null}
           </span>
         </KeyValue>
         <KeyValue label="Email">{deal.customer.email ? <a href={`mailto:${deal.customer.email}`}>{deal.customer.email}</a> : "-"}</KeyValue>

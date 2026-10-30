@@ -93,9 +93,10 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
         <KeyValue label="Telepon">
           <span className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
             {formatPhone(customer.phoneNormalized)}
-            <CopyButton value={formatPhone(customer.phoneNormalized)} label="Salin nomor" done="Nomor disalin" />
+            {customer.phoneNormalized ? <CopyButton value={formatPhone(customer.phoneNormalized)} label="Salin nomor" done="Nomor disalin" /> : null}
           </span>
         </KeyValue>
+        <KeyValue label="NPWP">{customer.taxId ?? "-"}</KeyValue>
         <KeyValue label="Email">{customer.email ? <a href={`mailto:${customer.email}`}>{customer.email}</a> : "-"}</KeyValue>
         <KeyValue label="Alamat">{customer.address ? <span style={{ whiteSpace: "pre-line" }}>{customer.address}</span> : "-"}</KeyValue>
         <KeyValue label="Catatan">
@@ -142,6 +143,7 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
                   id: customer.id,
                   version: customer.version,
                   companyName: customer.companyName,
+                  taxId: customer.taxId,
                   contactPerson: customer.contactPerson,
                   phoneRaw: customer.phoneRaw,
                   email: customer.email,

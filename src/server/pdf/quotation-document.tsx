@@ -148,6 +148,7 @@ export function QuotationDocument(props: QuotationDocumentProps) {
             <Text style={styles.customerLine}>{dash(props.customer.phone)}</Text>
             {props.customer.email && <Text style={styles.customerLine}>{props.customer.email}</Text>}
             {props.customer.address && <Text style={styles.customerLine}>{props.customer.address}</Text>}
+            {props.customer.taxId && <Text style={styles.customerLine}>NPWP {props.customer.taxId}</Text>}
           </View>
           <View style={styles.datesBlock}>
             <View style={styles.dateRow}>

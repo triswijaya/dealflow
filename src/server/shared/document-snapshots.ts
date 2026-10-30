@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db/client";
 import { customers, organization, organizationSettings } from "@/server/db/schema";
+import { primaryContact, primaryContactColumns, primaryContactJoin } from "@/server/customers/primary-contact";
 import type { CustomerSnapshot, SellerSnapshot } from "./document-snapshot-types";
 
 /**
@@ -33,9 +34,14 @@ export async function buildDocumentSnapshots(
   const settings = await tx.query.organizationSettings.findFirst({
     where: eq(organizationSettings.organizationId, params.organizationId),
   });
-  const customer = await tx.query.customers.findFirst({
-    where: and(eq(customers.id, params.customerId), eq(customers.organizationId, params.organizationId)),
-  });
+  // CUS-04: the snapshot's contact person and phone come from the customer's primary contact.
+  const [row] = await tx
+    .select({ customer: customers, contact: primaryContactColumns })
+    .from(customers)
+    .leftJoin(primaryContact, primaryContactJoin)
+    .where(and(eq(customers.id, params.customerId), eq(customers.organizationId, params.organizationId)));
+  const customer = row?.customer;
+  const contact = row?.contact;
 
   return {
     seller: {
@@ -46,10 +52,11 @@ export async function buildDocumentSnapshots(
     },
     customer: {
       companyName: customer?.companyName ?? null,
-      contactPerson: customer?.contactPerson ?? null,
-      phone: customer?.phoneNormalized ?? null,
-      email: customer?.email ?? null,
+      contactPerson: contact?.contactPerson ?? null,
+      phone: contact?.phoneNormalized ?? null,
+      email: contact?.email ?? null,
       address: customer?.address ?? null,
+      taxId: customer?.taxId ?? null,
     },
   };
 }

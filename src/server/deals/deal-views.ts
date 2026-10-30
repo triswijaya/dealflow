@@ -8,6 +8,7 @@ import { activities, customers, deals, followUps, member, user } from "@/server/
 import { toIsoDto, toMoneyDto } from "@/server/shared/dto";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
+import { primaryContact, primaryContactColumns, primaryContactJoin, contactFields } from "@/server/customers/primary-contact";
 import { organizationDateString } from "@/server/shared/organization-date";
 import { dealSignals, type DealSignal } from "./deal-health";
 import { ACTIVE_STAGES, DEAL_STATUSES } from "./stages";
@@ -335,8 +336,8 @@ export type DealDetailDto = {
     id: string;
     companyName: string;
     contactPerson: string;
-    phoneRaw: string;
-    phoneNormalized: string;
+    phoneRaw: string | null;
+    phoneNormalized: string | null;
     email: string | null;
     address: string | null;
     notes: string | null;
@@ -359,9 +360,10 @@ export async function getDealDetail(params: { headers: Headers; dealId: string }
   if (!dealId.success) throw new APIError("NOT_FOUND", { message: "Deal not found" });
 
   const [row] = await db
-    .select({ deal: deals, customer: customers, assignedToName: assignee.name, createdByName: createdBy.name })
+    .select({ deal: deals, customer: customers, contact: primaryContactColumns, assignedToName: assignee.name, createdByName: createdBy.name })
     .from(deals)
     .innerJoin(customers, and(eq(customers.id, deals.customerId), eq(customers.organizationId, deals.organizationId)))
+    .leftJoin(primaryContact, primaryContactJoin)
     .innerJoin(assignee, eq(assignee.id, deals.assignedToId))
     .leftJoin(createdBy, eq(createdBy.id, deals.createdById))
     .where(and(eq(deals.id, dealId.data), scope(actor.role, actor.organizationId)))
@@ -429,10 +431,7 @@ export async function getDealDetail(params: { headers: Headers; dealId: string }
     customer: {
       id: customer.id,
       companyName: customer.companyName,
-      contactPerson: customer.contactPerson,
-      phoneRaw: customer.phoneRaw,
-      phoneNormalized: customer.phoneNormalized,
-      email: customer.email,
+      ...contactFields(row.contact),
       address: customer.address,
       notes: customer.notes,
     },

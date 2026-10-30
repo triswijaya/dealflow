@@ -6,10 +6,7 @@ function makeRow(overrides: Partial<Parameters<typeof toCustomerDto>[0]> = {}) {
     id: "cus_1",
     organizationId: "org_1",
     companyName: "PT Maju Jaya",
-    contactPerson: "Budi Santoso",
-    phoneRaw: "0812-3456-7890",
-    phoneNormalized: "+6281234567890",
-    email: "budi@majujaya.co.id",
+    taxId: "0123456789012345",
     address: "Jl. Sudirman No. 1, Jakarta",
     notes: "Referral dari NusaTech",
     version: 2,
@@ -21,15 +18,25 @@ function makeRow(overrides: Partial<Parameters<typeof toCustomerDto>[0]> = {}) {
   };
 }
 
+const contact = {
+  contactId: "con_1",
+  contactPerson: "Budi Santoso",
+  phoneRaw: "0812-3456-7890",
+  phoneNormalized: "6281234567890",
+  email: "budi@majujaya.co.id",
+};
+
 describe("toCustomerDto", () => {
-  it("maps every field, converting timestamps to ISO strings", () => {
-    expect(toCustomerDto(makeRow())).toEqual({
+  it("maps every field, converting timestamps to ISO strings and flattening the primary contact", () => {
+    expect(toCustomerDto(makeRow(), contact)).toEqual({
       id: "cus_1",
       organizationId: "org_1",
       companyName: "PT Maju Jaya",
+      taxId: "0123456789012345",
+      primaryContactId: "con_1",
       contactPerson: "Budi Santoso",
       phoneRaw: "0812-3456-7890",
-      phoneNormalized: "+6281234567890",
+      phoneNormalized: "6281234567890",
       email: "budi@majujaya.co.id",
       address: "Jl. Sudirman No. 1, Jakarta",
       notes: "Referral dari NusaTech",
@@ -42,20 +49,29 @@ describe("toCustomerDto", () => {
   });
 
   it("passes through null optional fields as null, not undefined", () => {
-    const dto = toCustomerDto(makeRow({ email: null, address: null, notes: null, updatedById: null }));
+    const dto = toCustomerDto(makeRow({ taxId: null, address: null, notes: null, updatedById: null }), { ...contact, email: null, phoneRaw: null, phoneNormalized: null });
+    expect(dto.taxId).toBeNull();
     expect(dto.email).toBeNull();
+    expect(dto.phoneNormalized).toBeNull();
     expect(dto.address).toBeNull();
     expect(dto.notes).toBeNull();
     expect(dto.updatedById).toBeNull();
   });
 
+  it("stays readable when a customer has no primary contact row", () => {
+    const dto = toCustomerDto(makeRow(), null);
+    expect(dto).toMatchObject({ primaryContactId: null, contactPerson: "", phoneRaw: null, phoneNormalized: null, email: null });
+  });
+
   it("never leaks a field beyond the declared DTO shape", () => {
-    const dto = toCustomerDto(makeRow());
+    const dto = toCustomerDto(makeRow(), contact);
     expect(Object.keys(dto).sort()).toEqual(
       [
         "id",
         "organizationId",
         "companyName",
+        "taxId",
+        "primaryContactId",
         "contactPerson",
         "phoneRaw",
         "phoneNormalized",
@@ -72,6 +88,6 @@ describe("toCustomerDto", () => {
   });
 
   it("is safe to JSON.stringify (no bigint/Date field survives unconverted)", () => {
-    expect(() => JSON.stringify(toCustomerDto(makeRow()))).not.toThrow();
+    expect(() => JSON.stringify(toCustomerDto(makeRow(), contact))).not.toThrow();
   });
 });

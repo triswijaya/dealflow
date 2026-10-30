@@ -206,10 +206,8 @@ export const customers = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "restrict" }),
     companyName: text("company_name").notNull(),
-    contactPerson: text("contact_person").notNull(),
-    phoneRaw: text("phone_raw").notNull(),
-    phoneNormalized: text("phone_normalized").notNull(),
-    email: text("email"),
+    // CUS-01: NPWP, digits only, optional. Never a condition for a customer, deal or quotation.
+    taxId: text("tax_id"),
     address: text("address"),
     notes: text("notes"),
     // DATA-07/API-01: optimistic concurrency. API-01's own contract table
@@ -233,7 +231,55 @@ export const customers = pgTable(
     uniqueIndex("customers_organizationId_id_uidx").on(table.organizationId, table.id),
     index("customers_organizationId_idx").on(table.organizationId),
     index("customers_companyName_idx").on(table.companyName),
-    index("customers_phoneNormalized_idx").on(table.phoneNormalized),
+    check("customers_taxId_format_chk", sql`${table.taxId} IS NULL OR ${table.taxId} ~ '^[0-9]{15,16}$'`),
+  ],
+);
+
+// CUS-04: the people at a customer. Exactly one is primary; the customer's own
+// contact details are the primary contact's. Phone is stored as typed and
+// normalized (WA-01 links use the normalized form).
+export const contacts = pgTable(
+  "contacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    customerId: uuid("customer_id").notNull(),
+    name: text("name").notNull(),
+    role: text("role"),
+    phoneRaw: text("phone_raw"),
+    phoneNormalized: text("phone_normalized"),
+    email: text("email"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    // DATA-07: optimistic concurrency, same pattern as customers.
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    updatedById: text("updated_by_id").references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    // TENANT-03: a contact cannot point at a customer of another organization.
+    foreignKey({
+      name: "contacts_customer_tenant_fk",
+      columns: [table.organizationId, table.customerId],
+      foreignColumns: [customers.organizationId, customers.id],
+    }).onDelete("restrict"),
+    // Lets a deal carry a composite FK to (organizationId, id) here.
+    uniqueIndex("contacts_organizationId_id_uidx").on(table.organizationId, table.id),
+    // "Tepat satu kontak utama per customer".
+    uniqueIndex("contacts_customerId_primary_uidx").on(table.customerId).where(sql`${table.isPrimary}`),
+    index("contacts_organizationId_customerId_idx").on(table.organizationId, table.customerId),
+    index("contacts_organizationId_phoneNormalized_idx").on(table.organizationId, table.phoneNormalized),
+    // CUS-04: a phone and/or an email, and a phone is stored both ways or not at all.
+    check("contacts_phone_or_email_chk", sql`${table.phoneNormalized} IS NOT NULL OR ${table.email} IS NOT NULL`),
+    check("contacts_phone_pair_chk", sql`(${table.phoneRaw} IS NULL) = (${table.phoneNormalized} IS NULL)`),
   ],
 );
 
