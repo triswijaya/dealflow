@@ -1,5 +1,6 @@
 import { APIError } from "better-auth/api";
 import { renderQuotationPdf } from "@/server/pdf/quotation-document";
+import { quotationDocumentProps } from "@/server/quotations/pdf-props";
 import { getQuotationForPdf } from "@/server/quotations/quotations";
 import { getRequestId, logger } from "@/server/shared/logger";
 
@@ -21,33 +22,9 @@ export async function GET(request: Request, ctx: RouteContext<"/api/quotations/[
   const { quotationId } = await ctx.params;
 
   try {
-    const { quotation, items, seller, customer } = await getQuotationForPdf({
-      headers: request.headers,
-      quotationId,
-    });
-
-    const buffer = await renderQuotationPdf({
-      quotationNumber: quotation.quotationNumber,
-      revisionNumber: quotation.revisionNumber,
-      status: quotation.status,
-      issueDate: quotation.issueDate,
-      validUntil: quotation.validUntil,
-      seller,
-      customer,
-      items: items.map((item) => ({
-        description: item.description,
-        quantity: item.quantity,
-        unit: item.unit,
-        unitPrice: item.unitPrice,
-        subtotal: item.subtotal,
-      })),
-      subtotal: quotation.subtotal,
-      discount: quotation.discount,
-      tax: quotation.tax,
-      total: quotation.total,
-      notes: quotation.notes,
-      terms: quotation.terms,
-    });
+    const loaded = await getQuotationForPdf({ headers: request.headers, quotationId });
+    const { quotation } = loaded;
+    const buffer = await renderQuotationPdf(quotationDocumentProps(loaded));
 
     return new Response(new Uint8Array(buffer), {
       status: 200,

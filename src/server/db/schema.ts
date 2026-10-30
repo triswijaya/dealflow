@@ -1146,6 +1146,42 @@ export const refunds = pgTable(
   ],
 );
 
+// Business table (v2.0, ADR-0004). Side effects (an email to a customer, the daily
+// summary) are written here in the same transaction as the business change that
+// triggers them, tried right after commit, and swept by a cron if that failed. A
+// dedupe key per tenant makes a repeated trigger a no-op; a row that keeps failing
+// ends DEAD, where an Owner or Admin can see it. Status is a delivery fact, never a
+// business one: nothing reads it to decide whether an invoice is overdue.
+export const outboxEvents = pgTable(
+  "outbox_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    type: text("type").notNull(),
+    payload: jsonb("payload").notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    status: text("status").notNull().default("PENDING"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow().notNull(),
+    // A claimed row is invisible to other sweeps until this passes (a crashed worker frees it by time).
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    // A category and a short message, never a payload, a recipient or a secret.
+    lastError: text("last_error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdById: text("created_by_id").references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    uniqueIndex("outbox_events_organizationId_dedupeKey_uidx").on(table.organizationId, table.dedupeKey),
+    // The sweep reads only rows that still have work to do.
+    index("outbox_events_due_idx").on(table.nextAttemptAt).where(sql`${table.status} IN ('PENDING', 'FAILED')`),
+    index("outbox_events_organizationId_status_idx").on(table.organizationId, table.status),
+    check("outbox_events_status_chk", sql`${table.status} IN ('PENDING', 'SENT', 'FAILED', 'DEAD')`),
+  ],
+);
+
 // Business table (M2, API-05). A natural-key lookup table, same shape as
 // documentCounters: no separate id, the composite primary key IS the
 // identity. First seen for quotation revisions; invoice/payment (M3) will

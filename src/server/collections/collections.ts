@@ -340,14 +340,19 @@ async function reviewDue(organizationId: string, today: string): Promise<NonNull
  */
 export async function getWorkQueues(params: { headers: Headers }): Promise<WorkQueuesDto> {
   const actor = await requirePermission({ headers: params.headers, permission: { deal: ["read"] } });
-  const { today, timezone } = await organizationClock(actor.organizationId);
-  const money = actor.role === "OWNER" || actor.role === "ADMIN" || actor.role === "FINANCE";
-  const sales = actor.role === "OWNER" || actor.role === "ADMIN" || actor.role === "SALES";
+  return computeWorkQueues(actor.organizationId, actor.role);
+}
+
+/** The same queues for a role, without a session (the daily summary asks for the Owner's view). */
+export async function computeWorkQueues(organizationId: string, role: string): Promise<WorkQueuesDto> {
+  const { today, timezone } = await organizationClock(organizationId);
+  const money = role === "OWNER" || role === "ADMIN" || role === "FINANCE";
+  const sales = role === "OWNER" || role === "ADMIN" || role === "SALES";
   const [ready, collection, unallocated, review] = await Promise.all([
-    money ? readyToBill(actor.organizationId, today) : null,
-    money ? collectionQueue(actor.organizationId, today, timezone) : null,
-    money ? unallocatedMoney(actor.organizationId) : null,
-    sales ? reviewDue(actor.organizationId, today) : null,
+    money ? readyToBill(organizationId, today) : null,
+    money ? collectionQueue(organizationId, today, timezone) : null,
+    money ? unallocatedMoney(organizationId) : null,
+    sales ? reviewDue(organizationId, today) : null,
   ]);
   return { readyToBill: ready, collection, unallocatedMoney: unallocated, reviewDue: review };
 }

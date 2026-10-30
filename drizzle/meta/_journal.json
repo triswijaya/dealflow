@@ -211,6 +211,13 @@
       "when": 1793325210470,
       "tag": "0029_collection_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793325446173,
+      "tag": "0030_outbox_events",
+      "breakpoints": true
     }
   ]
 }

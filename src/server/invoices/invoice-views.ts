@@ -669,7 +669,13 @@ export async function findReadyBillingItemOfDeal(params: { headers: Headers; dea
 /** INV-05: everything the invoice PDF needs, from the frozen snapshots (the invoice is immutable once issued). */
 export async function getInvoiceForPdf(params: { headers: Headers; invoiceId: string }) {
   const actor = await requirePermission({ headers: params.headers, permission: { invoice: ["read"] } });
-  const id = z.string().uuid().safeParse(params.invoiceId);
+  return loadInvoiceForPdf(actor.organizationId, params.invoiceId);
+}
+
+/** The same read without a session, for the outbox handler that mails the PDF. */
+export async function loadInvoiceForPdf(organizationId: string, invoiceId: string) {
+  const actor = { organizationId };
+  const id = z.string().uuid().safeParse(invoiceId);
   if (!id.success) throw new APIError("NOT_FOUND", { message: "Invoice not found" });
   const [row] = await db
     .select({ invoice: invoices, orderNumber: orders.orderNumber })

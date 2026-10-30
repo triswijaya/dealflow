@@ -262,3 +262,14 @@ export async function findWhatsAppContact(organizationId: string, deal: { custom
   const primary = candidates.find((contact) => contact.isPrimary);
   return [dealContact, primary].find((contact) => contact?.phoneNormalized) ?? null;
 }
+
+/** The address a document goes to: the deal's or order's contact when it has an email, else the primary contact's, else any contact's. */
+export async function findContactEmail(organizationId: string, source: { customerId: string; contactId: string | null }) {
+  const candidates = await db
+    .select()
+    .from(contacts)
+    .where(and(eq(contacts.organizationId, organizationId), eq(contacts.customerId, source.customerId)))
+    .orderBy(desc(contacts.isPrimary), asc(contacts.createdAt), asc(contacts.id));
+  const chosen = candidates.find((contact) => contact.id === source.contactId && contact.email) ?? candidates.find((contact) => contact.isPrimary && contact.email) ?? candidates.find((contact) => contact.email);
+  return chosen?.email ?? null;
+}

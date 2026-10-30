@@ -10,6 +10,8 @@ export const serverEnvSchema = z.object({
   APP_URL: z.url(),
   EMAIL_FROM: z.email(),
   EMAIL_PROVIDER_API_KEY: z.string().min(1).optional(),
+  // Shared secret for the scheduled endpoints (OBS-05). Without it they refuse every call.
+  CRON_SECRET: z.string().min(16).optional(),
   SENTRY_DSN: z.url().optional(),
   SENTRY_AUTH_TOKEN: z.string().min(1).optional(),
   SENTRY_ORG: z.string().min(1).optional(),
@@ -36,6 +38,7 @@ const fieldDescriptions: Record<string, string> = {
   APP_URL: "invalid URL",
   EMAIL_FROM: "invalid email address",
   EMAIL_PROVIDER_API_KEY: "must not be empty",
+  CRON_SECRET: "must be at least 16 characters",
   SENTRY_DSN: "invalid URL",
   SENTRY_AUTH_TOKEN: "must not be empty",
   SENTRY_ORG: "must not be empty",

@@ -847,8 +847,14 @@ export async function transitionQuotationStatus(params: {
  */
 export async function getQuotationForPdf(params: { headers: Headers; quotationId: string }) {
   const actor = await requirePermission({ headers: params.headers, permission: { quotation: ["read"] } });
+  return loadQuotationForPdf(actor.organizationId, params.quotationId);
+}
+
+/** The same read without a session, for the outbox handler that mails the PDF (the organization is already known). */
+export async function loadQuotationForPdf(organizationId: string, quotationId: string) {
+  const actor = { organizationId };
   const quotation = await db.query.quotations.findFirst({
-    where: and(eq(quotations.id, params.quotationId), eq(quotations.organizationId, actor.organizationId)),
+    where: and(eq(quotations.id, quotationId), eq(quotations.organizationId, actor.organizationId)),
   });
   if (!quotation) {
     throw new APIError("NOT_FOUND", { message: "Quotation not found" });
