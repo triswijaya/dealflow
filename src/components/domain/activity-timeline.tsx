@@ -66,7 +66,24 @@ function describe(event: ActivityDto, ctx: { customerName?: string; dealTitle?: 
         </>
       );
     case "deal.won":
-      return <>menandai deal Menang{money(meta.wonValue) ? ` · ${money(meta.wonValue)}` : ""}</>;
+      return (
+        <>
+          menandai deal Menang{money(meta.wonValue) ? ` · ${money(meta.wonValue)}` : ""}
+          {text(meta.orderNumber) ? ` · pesanan ${text(meta.orderNumber)}` : ""}
+        </>
+      );
+    case "order.created":
+      return <>membuat pesanan {text(meta.orderNumber)}</>;
+    case "order.amended":
+      return <>mengamandemen pesanan {text(meta.orderNumber)}{text(meta.reason) ? ` · ${text(meta.reason)}` : ""}</>;
+    case "order.plan_changed":
+      return <>mengubah rencana termin pesanan {text(meta.orderNumber)}</>;
+    case "order.milestone_done":
+      return <>menandai milestone {text(meta.label)} selesai{text(meta.milestoneRef) ? ` (${text(meta.milestoneRef)})` : ""}</>;
+    case "order.cancelled":
+      return <>membatalkan pesanan {text(meta.orderNumber)}</>;
+    case "invoice.voided":
+      return <>membatalkan (void) {documentLink("invoice", meta.invoiceId, meta.invoiceNumber)}{text(meta.reason) ? ` · ${text(meta.reason)}` : ""}</>;
     case "deal.lost":
       return (
         <>

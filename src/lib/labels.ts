@@ -60,6 +60,7 @@ export const INVOICE_STATUS: Record<string, { label: string; tone: BadgeTone }> 
   PARTIALLY_PAID: { label: "Dibayar sebagian", tone: "info" },
   PAID: { label: "Lunas", tone: "success" },
   OVERDUE: { label: "Lewat jatuh tempo", tone: "danger" },
+  VOID: { label: "Dibatalkan", tone: "neutral" },
 };
 
 export const FOLLOW_UP_TYPES = [

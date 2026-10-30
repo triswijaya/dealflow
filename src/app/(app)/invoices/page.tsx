@@ -171,7 +171,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
                       <div>
                         <Link href={`/customers/${row.customerId}`}>{row.customerName}</Link>
                         <small>
-                          <Link href={`/deals/${row.dealId}`}>{row.dealTitle}</Link>
+                          {row.dealId ? <Link href={`/deals/${row.dealId}`}>{row.dealTitle}</Link> : row.dealTitle}
                         </small>
                       </div>
                     </td>

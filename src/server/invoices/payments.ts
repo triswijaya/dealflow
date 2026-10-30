@@ -131,6 +131,10 @@ export async function recordPayment(params: { headers: Headers; input: unknown }
     });
     const remainingBefore = invoiceRemainingAmount(invoice.total, paidBefore);
 
+    // PAY-02: payments on a voided invoice are refused.
+    if (invoice.voidedAt) {
+      throw new APIError("CONFLICT", { message: "This invoice is void" });
+    }
     // PAY-02: "Pembayaran pada invoice PAID ditolak."
     if (remainingBefore === 0n) {
       throw new APIError("CONFLICT", { message: "This invoice is already fully paid" });

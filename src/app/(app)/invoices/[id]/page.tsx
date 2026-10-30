@@ -50,7 +50,7 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
         badge={<Badge tone={info?.tone}>{invoice.status === "OVERDUE" ? "Lewat jatuh tempo" : (info?.label ?? invoice.status)}</Badge>}
         description={
           <>
-            {invoice.customer.companyName} · {dealsReady ? <Link href={`/deals/${invoice.dealId}`}>{invoice.dealTitle}</Link> : invoice.dealTitle} ·{" "}
+            {invoice.customer.companyName} · {dealsReady && invoice.dealId ? <Link href={`/deals/${invoice.dealId}`}>{invoice.dealTitle}</Link> : invoice.dealTitle} ·{" "}
             {invoice.sourceQuotation ? (
               <Link href={`/quotations/${invoice.sourceQuotation.id}`}>{invoice.sourceQuotation.quotationNumber}</Link>
             ) : (

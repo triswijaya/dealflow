@@ -3,12 +3,13 @@ import { eq } from "drizzle-orm";
 import type postgres from "postgres";
 import { createCustomer, updateCustomer } from "@/server/customers/customers";
 import { db } from "@/server/db/client";
-import { createDeal, transitionDeal } from "@/server/deals/deals";
+import { createDeal,  } from "@/server/deals/deals";
 import { customers, organizationSettings, quotations } from "@/server/db/schema";
 import { addMember, migrateTestDatabase, setupOrganization, type TestOrg } from "@/server/testing/org-helpers";
 import { createQuotation, reviseQuotation, transitionQuotationStatus } from "./quotations";
 import { getQuotationEditorContext, getQuotationDetail, listQuotationActivities, listQuotationRows, listQuotationVersions } from "./quotation-views";
 import { orgDay } from "@/server/testing/dates";
+import { transitionOrWin } from "@/server/testing/orders";
 
 describe("quotation read models", () => {
   let migrationClient: ReturnType<typeof postgres>;
@@ -26,7 +27,7 @@ describe("quotation read models", () => {
     const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName, contactPerson: "Budi Santoso", phone: "08123456789", email: "budi@example.test", address: "Jl. Industri 12" } });
     let deal = await createDeal({ headers: org.ownerHeaders, input: { customerId: customer.id, title, estimatedValue: "10000000", assignedToId: org.ownerUserId } });
     for (const toStatus of ["PROPOSAL"]) {
-      deal = await transitionDeal({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus } });
+      deal = await transitionOrWin({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus } });
     }
     return { customer, deal };
   }

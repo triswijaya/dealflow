@@ -17,11 +17,11 @@ import { useToast } from "@/components/ui/toast";
 import { formatDate, formatQuantity, formatRupiah } from "@/lib/format";
 import { QUOTATION_STATUS } from "@/lib/labels";
 import { cn } from "@/lib/utils";
-import type { InvoiceDraftContextDto, InvoiceSourceContentDto, InvoiceableDealDto } from "@/server/invoices/invoice-views";
+import type { InvoiceDraftContextDto, InvoiceSourceContentDto, InvoiceableItemDto } from "@/server/invoices/invoice-views";
 import { getInvoiceDraftContextAction, getInvoiceSourceContentAction, issueInvoiceAction, searchInvoiceableDealsAction } from "./actions";
 
 const MANUAL = "";
-const STEPS = ["Pilih deal & sumber", "Tinjau isi", "Konfirmasi"];
+const STEPS = ["Pilih termin & sumber", "Tinjau isi", "Konfirmasi"];
 const TEXT_LIMIT = 10_000;
 
 type Content = {
@@ -52,7 +52,7 @@ function contentFrom(source: InvoiceSourceContentDto | null, defaultTerms: strin
  * ones (a won deal, one invoice per deal, a source that has not changed);
  * the wizard lets the user see each of them before they matter.
  */
-export function InvoiceWizard({ initialDeals, initialContext, today }: { initialDeals: InvoiceableDealDto[]; initialContext: InvoiceDraftContextDto | null; today: string }) {
+export function InvoiceWizard({ initialDeals, initialContext, today }: { initialDeals: InvoiceableItemDto[]; initialContext: InvoiceDraftContextDto | null; today: string }) {
   const router = useRouter();
   const toast = useToast();
 
@@ -61,7 +61,7 @@ export function InvoiceWizard({ initialDeals, initialContext, today }: { initial
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sourceId, setSourceId] = useState(() => initialContext?.sources.find((source) => source.recommended)?.id ?? MANUAL);
-  const [dealPick, setDealPick] = useState<InvoiceableDealDto | null>(null);
+  const [dealPick, setDealPick] = useState<InvoiceableItemDto | null>(null);
 
   const [content, setContent] = useState<Content>(() => contentFrom(null, initialContext?.defaultTerms ?? null));
   const [rowCounter, setRowCounter] = useState(1);
@@ -82,13 +82,13 @@ export function InvoiceWizard({ initialDeals, initialContext, today }: { initial
   const totalNotPositive = calculation.calc?.ok === false && calculation.calc.code === "TOTAL_NOT_POSITIVE";
   const canContinue = !rowsInvalid && !dateError && !calculation.discountTooHigh && calculation.calc?.ok === true && !!issueDate && !!dueDate;
 
-  async function chooseDeal(deal: InvoiceableDealDto | null) {
+  async function chooseDeal(deal: InvoiceableItemDto | null) {
     setDealPick(deal);
     setContext(null);
     setError(null);
     if (!deal) return;
     setLoading(true);
-    const result = await getInvoiceDraftContextAction({ dealId: deal.id });
+    const result = await getInvoiceDraftContextAction({ billingItemId: deal.id });
     setLoading(false);
     if (!result.ok) {
       setError(result.error.message);
@@ -106,7 +106,7 @@ export function InvoiceWizard({ initialDeals, initialContext, today }: { initial
       return true;
     }
     setLoading(true);
-    const result = await getInvoiceSourceContentAction({ dealId: context.deal.id, quotationId: sourceId });
+    const result = await getInvoiceSourceContentAction({ dealId: context.target.dealId ?? "", quotationId: sourceId });
     setLoading(false);
     if (!result.ok) {
       setError(result.error.message);
@@ -139,7 +139,7 @@ export function InvoiceWizard({ initialDeals, initialContext, today }: { initial
     let result: Awaited<ReturnType<typeof issueInvoiceAction>>;
     try {
       result = await issueInvoiceAction({
-        dealId: context.deal.id,
+        billingItemId: context.target.id,
         quotationId: sourceId || undefined,
         expectedSourceEditVersion: sourceId ? content.editVersion : undefined,
         issueDate,
@@ -176,7 +176,7 @@ export function InvoiceWizard({ initialDeals, initialContext, today }: { initial
       return;
     }
     if (result.error.code === "CONFLICT" && /sudah memiliki invoice/i.test(result.error.message)) {
-      const refreshed = await getInvoiceDraftContextAction({ dealId: context.deal.id });
+      const refreshed = await getInvoiceDraftContextAction({ billingItemId: context.target.id });
       if (refreshed.ok) setContext(refreshed.data);
       setStep(1);
       return;
@@ -205,25 +205,25 @@ export function InvoiceWizard({ initialDeals, initialContext, today }: { initial
         <Card style={{ maxWidth: 760 }}>
           <div className="stack">
             {initialContext ? (
-              <Field label="Deal" htmlFor="invoice-deal">
-                <Input id="invoice-deal" value={`${initialContext.deal.title} · ${initialContext.deal.customerName}`} readOnly />
+              <Field label="Termin" htmlFor="invoice-deal">
+                <Input id="invoice-deal" value={`${initialContext.target.title} · ${initialContext.target.customerName}`} readOnly />
               </Field>
             ) : (
-              <Combobox<InvoiceableDealDto>
+              <Combobox<InvoiceableItemDto>
                 id="invoice-deal"
                 label="Deal Menang tanpa invoice"
                 required
-                placeholder="Cari deal menang"
-                noResults="Tidak ada deal menang yang siap ditagih."
+                placeholder="Cari termin siap tagih"
+                noResults="Tidak ada termin yang siap ditagih."
                 value={dealPick}
                 onChange={chooseDeal}
                 search={(query) => (query || initialDeals.length === 0 ? searchInvoiceableDealsAction({ query }) : Promise.resolve({ ok: true as const, data: initialDeals }))}
-                display={(deal) => `${deal.title} · ${deal.customerName} · ${formatRupiah(deal.wonValue)}${deal.wonAt ? ` · ${formatDate(deal.wonAt)}` : ""}`}
+                display={(deal) => `${deal.title} · ${deal.customerName} · ${formatRupiah(deal.amount)} · ${formatDate(deal.commitmentDate)}`}
                 renderOption={(deal) => (
                   <>
                     <b>{deal.title}</b>
                     <small>
-                      {deal.customerName} · {formatRupiah(deal.wonValue)}
+                      {deal.customerName} · {formatRupiah(deal.amount)}
                     </small>
                   </>
                 )}
@@ -279,7 +279,7 @@ export function InvoiceWizard({ initialDeals, initialContext, today }: { initial
             {error ? <Alert tone="error">{error}</Alert> : null}
           </div>
           <div className="footer">
-            <ButtonLink variant="tertiary" href={initialContext ? `/deals/${initialContext.deal.id}` : "/invoices"}>
+            <ButtonLink variant="tertiary" href={initialContext?.target.dealId ? `/deals/${initialContext.target.dealId}` : "/invoices"}>
               Batal
             </ButtonLink>
             <Button disabled={!context || Boolean(blockedByExisting)} pending={loading && Boolean(context)} pendingText="Memuat..." onClick={next1}>
@@ -388,8 +388,8 @@ export function InvoiceWizard({ initialDeals, initialContext, today }: { initial
       <Card style={{ maxWidth: 760 }}>
         <h2>Konfirmasi</h2>
         <dl>
-          <KeyValue label="Customer">{context.deal.customerName}</KeyValue>
-          <KeyValue label="Deal">{context.deal.title}</KeyValue>
+          <KeyValue label="Customer">{context.target.customerName}</KeyValue>
+          <KeyValue label="Termin">{context.target.title}</KeyValue>
           <KeyValue label="Sumber">{source ? source.quotationNumber : "Item manual"}</KeyValue>
           <KeyValue label="Tanggal terbit">{formatDate(issueDate)}</KeyValue>
           <KeyValue label="Jatuh tempo">{formatDate(dueDate)}</KeyValue>

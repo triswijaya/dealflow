@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import type { ActionResult } from "@/lib/action-result";
 import { createDeal, transitionDeal, updateDeal } from "@/server/deals/deals";
 import { listPipelineStageCards, type DealFilters, type PipelineCardDto } from "@/server/deals/deal-views";
+import { confirmWon } from "@/server/orders/orders";
 import { runAction } from "@/server/shared/action";
 
 export type DealFormValues = {
@@ -49,6 +50,24 @@ export async function saveDealAction(input: {
         : await createDeal({ headers: requestHeaders, input: payload });
     refresh(saved.id, saved.customerId);
     return { id: saved.id };
+  });
+}
+
+export async function confirmWonAction(input: {
+  dealId: string;
+  expectedVersion: number;
+  commitmentType: string;
+  commitmentRef?: string;
+}): Promise<ActionResult<{ status: string }>> {
+  return runAction(async () => {
+    const { deal } = await confirmWon({
+      headers: await headers(),
+      dealId: input.dealId,
+      expectedVersion: input.expectedVersion,
+      input: { commitmentType: input.commitmentType, commitmentRef: input.commitmentRef },
+    });
+    refresh(deal.id, deal.customerId);
+    return { status: deal.status };
   });
 }
 

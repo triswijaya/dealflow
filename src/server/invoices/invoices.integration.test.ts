@@ -7,11 +7,12 @@ import { auth } from "@/server/auth/auth";
 import { acceptInvitation, inviteMember } from "@/server/auth/members";
 import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer, updateCustomer } from "@/server/customers/customers";
-import { createDeal, transitionDeal } from "@/server/deals/deals";
+import { createDeal,  } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
 import { activities } from "@/server/db/schema";
 import { createQuotation, transitionQuotationStatus, updateQuotation } from "@/server/quotations/quotations";
-import { createInvoice, getInvoice, listInvoices } from "./invoices";
+import { getInvoice, listInvoices } from "./invoices";
+import { transitionOrWin, createInvoiceForDeal } from "@/server/testing/orders";
 
 async function sessionCookieFor(email: string, password: string): Promise<string> {
   // signIn.token (the JSON body) is not the same value the cookie needs; see
@@ -88,7 +89,7 @@ describe("invoices", () => {
     });
     for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]) {
       const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, deal.id) });
-      await transitionDeal({
+      await transitionOrWin({
         headers: new Headers({ cookie: owner.ownerCookie }),
         dealId: deal.id,
         expectedVersion: current!.version,
@@ -110,7 +111,7 @@ describe("invoices", () => {
 
   it("creates an invoice for a WON deal with manual items and no quotation (INV-01/AT-05)", async () => {
     const { ownerCookie, dealId, customerId } = await setupWonDeal();
-    const created = await createInvoice({
+    const created = await createInvoiceForDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: invoiceInput(dealId),
     });
@@ -147,7 +148,7 @@ describe("invoices", () => {
     });
 
     await expect(
-      createInvoice({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput(deal.id) }),
+      createInvoiceForDeal({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput(deal.id) }),
     ).rejects.toThrow(/WON/);
   });
 
@@ -156,11 +157,11 @@ describe("invoices", () => {
 
     const { memberCookie: salesCookie } = await setupMember(owner, "SALES");
     await expect(
-      createInvoice({ headers: new Headers({ cookie: salesCookie }), input: invoiceInput(owner.dealId) }),
+      createInvoiceForDeal({ headers: new Headers({ cookie: salesCookie }), input: invoiceInput(owner.dealId) }),
     ).rejects.toThrow();
 
     const { memberCookie: financeCookie } = await setupMember(owner, "FINANCE");
-    const created = await createInvoice({
+    const created = await createInvoiceForDeal({
       headers: new Headers({ cookie: financeCookie }),
       input: invoiceInput(owner.dealId),
     });
@@ -169,10 +170,10 @@ describe("invoices", () => {
 
   it("refuses a second invoice for the same deal (INV-04)", async () => {
     const { ownerCookie, dealId } = await setupWonDeal();
-    await createInvoice({ headers: new Headers({ cookie: ownerCookie }), input: invoiceInput(dealId) });
+    await createInvoiceForDeal({ headers: new Headers({ cookie: ownerCookie }), input: invoiceInput(dealId) });
 
     await expect(
-      createInvoice({ headers: new Headers({ cookie: ownerCookie }), input: invoiceInput(dealId) }),
+      createInvoiceForDeal({ headers: new Headers({ cookie: ownerCookie }), input: invoiceInput(dealId) }),
     ).rejects.toThrow(/already has invoice/);
   });
 
@@ -180,11 +181,11 @@ describe("invoices", () => {
     const { ownerCookie, dealId } = await setupWonDeal();
     const sharedKey = crypto.randomUUID();
 
-    const first = await createInvoice({
+    const first = await createInvoiceForDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: invoiceInput(dealId, { idempotencyKey: sharedKey }),
     });
-    const retry = await createInvoice({
+    const retry = await createInvoiceForDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: invoiceInput(dealId, { idempotencyKey: sharedKey }),
     });
@@ -195,7 +196,7 @@ describe("invoices", () => {
     expect(all.items).toHaveLength(1);
 
     await expect(
-      createInvoice({
+      createInvoiceForDeal({
         headers: new Headers({ cookie: ownerCookie }),
         input: invoiceInput(dealId, { idempotencyKey: sharedKey, dueDate: "2027-01-31" }),
       }),
@@ -220,13 +221,13 @@ describe("invoices", () => {
         },
       });
       const contactedBase = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, deal.id) });
-      const contacted = await transitionDeal({
+      const contacted = await transitionOrWin({
         headers: new Headers({ cookie: owner.ownerCookie }),
         dealId: deal.id,
         expectedVersion: contactedBase!.version,
         input: { toStatus: "PROPOSAL" },
       });
-      await transitionDeal({
+      await transitionOrWin({
         headers: new Headers({ cookie: owner.ownerCookie }),
         dealId: deal.id,
         expectedVersion: contacted.version,
@@ -250,7 +251,7 @@ describe("invoices", () => {
       });
       for (const toStatus of ["NEGOTIATION", "WON"]) {
         const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, deal.id) });
-        await transitionDeal({
+        await transitionOrWin({
           headers: new Headers({ cookie: owner.ownerCookie }),
           dealId: deal.id,
           expectedVersion: current!.version,
@@ -274,7 +275,7 @@ describe("invoices", () => {
         input: { companyName: "PT Berubah Nama", contactPerson: "Budi Santoso", phone: "08123456789" },
       });
 
-      const invoice = await createInvoice({
+      const invoice = await createInvoiceForDeal({
         headers: new Headers({ cookie: owner.ownerCookie }),
         input: invoiceInput(owner.dealId, {
           quotationId: owner.quotation.id,
@@ -314,7 +315,7 @@ describe("invoices", () => {
       });
       const advance = async (toStatus: string) => {
         const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, deal.id) });
-        await transitionDeal({
+        await transitionOrWin({
           headers: new Headers({ cookie: owner.ownerCookie }),
           dealId: deal.id,
           expectedVersion: current!.version,
@@ -336,7 +337,7 @@ describe("invoices", () => {
       const { ownerCookie, dealId, draft } = await setupWonDealWithDraftQuotation();
       expect(draft.frozenAt).toBeNull();
 
-      await createInvoice({
+      await createInvoiceForDeal({
         headers: new Headers({ cookie: ownerCookie }),
         input: invoiceInput(dealId, { quotationId: draft.id, expectedSourceEditVersion: draft.editVersion }),
       });
@@ -367,7 +368,7 @@ describe("invoices", () => {
       });
 
       await expect(
-        createInvoice({
+        createInvoiceForDeal({
           headers: new Headers({ cookie: ownerCookie }),
           input: invoiceInput(dealId, { quotationId: draft.id, expectedSourceEditVersion: staleEditVersion }),
         }),
@@ -378,7 +379,7 @@ describe("invoices", () => {
       const { ownerCookie, dealId, draft } = await setupWonDealWithDraftQuotation();
 
       await expect(
-        createInvoice({
+        createInvoiceForDeal({
           headers: new Headers({ cookie: ownerCookie }),
           input: invoiceInput(dealId, { quotationId: draft.id }),
         }),
@@ -401,7 +402,7 @@ describe("invoices", () => {
       const otherDealCurrent = await db.query.deals.findFirst({
         where: (d, { eq: eqOp }) => eqOp(d.id, otherDeal.id),
       });
-      await transitionDeal({
+      await transitionOrWin({
         headers: new Headers({ cookie: owner.ownerCookie }),
         dealId: otherDeal.id,
         expectedVersion: otherDealCurrent!.version,
@@ -413,7 +414,7 @@ describe("invoices", () => {
       });
 
       await expect(
-        createInvoice({
+        createInvoiceForDeal({
           headers: new Headers({ cookie: owner.ownerCookie }),
           input: invoiceInput(owner.dealId, {
             quotationId: foreignQuotation.id,
@@ -426,7 +427,7 @@ describe("invoices", () => {
 
   it("recomputes totals server-side and ignores a client-sent total (MONEY-06)", async () => {
     const { ownerCookie, dealId } = await setupWonDeal();
-    const created = await createInvoice({
+    const created = await createInvoiceForDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: invoiceInput(dealId, { total: "999999999", subtotal: "1" }),
     });
@@ -437,7 +438,7 @@ describe("invoices", () => {
   it("rejects a dueDate before the issueDate (§10.1)", async () => {
     const { ownerCookie, dealId } = await setupWonDeal();
     await expect(
-      createInvoice({
+      createInvoiceForDeal({
         headers: new Headers({ cookie: ownerCookie }),
         input: invoiceInput(dealId, { issueDate: "2026-10-19", dueDate: "2026-10-18" }),
       }),
@@ -446,7 +447,7 @@ describe("invoices", () => {
 
   it("logs an invoice.created activity without leaking the total (AUD-01/AUD-04)", async () => {
     const { ownerCookie, dealId } = await setupWonDeal();
-    const created = await createInvoice({
+    const created = await createInvoiceForDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: invoiceInput(dealId),
     });
@@ -466,14 +467,14 @@ describe("invoices", () => {
   it("returns not-found for an invoice in another organization, on read and list (TENANT-04)", async () => {
     const orgA = await setupWonDeal();
     const orgB = await setupWonDeal();
-    const created = await createInvoice({
+    const created = await createInvoiceForDeal({
       headers: new Headers({ cookie: orgA.ownerCookie }),
       input: invoiceInput(orgA.dealId),
     });
     // Org B gets its own invoice too, so the totalItems check below is a
     // real isolation proof (org A's count showing up in org B's total)
     // rather than a trivial 0 either way.
-    await createInvoice({
+    await createInvoiceForDeal({
       headers: new Headers({ cookie: orgB.ownerCookie }),
       input: invoiceInput(orgB.dealId),
     });
@@ -511,14 +512,14 @@ describe("invoices", () => {
       });
       for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]) {
         const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, deal.id) });
-        await transitionDeal({
+        await transitionOrWin({
           headers: new Headers({ cookie: owner.ownerCookie }),
           dealId: deal.id,
           expectedVersion: current!.version,
           input: { toStatus },
         });
       }
-      await createInvoice({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput(deal.id) });
+      await createInvoiceForDeal({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput(deal.id) });
     }
 
     const pageOne = await listInvoices({ headers: new Headers({ cookie: owner.ownerCookie }), page: 1, pageSize: 2 });
@@ -535,15 +536,15 @@ describe("invoices", () => {
     const secondDealA = await setupWonDeal();
     const orgB = await setupWonDeal();
 
-    const a1 = await createInvoice({
+    const a1 = await createInvoiceForDeal({
       headers: new Headers({ cookie: orgA.ownerCookie }),
       input: invoiceInput(orgA.dealId),
     });
-    const b1 = await createInvoice({
+    const b1 = await createInvoiceForDeal({
       headers: new Headers({ cookie: orgB.ownerCookie }),
       input: invoiceInput(orgB.dealId),
     });
-    const a2 = await createInvoice({
+    const a2 = await createInvoiceForDeal({
       headers: new Headers({ cookie: secondDealA.ownerCookie }),
       input: invoiceInput(secondDealA.dealId),
     });
@@ -558,7 +559,7 @@ describe("invoices", () => {
 
   it("reflects OVERDUE at read time once today passes the due date, without writing a status column (INV-07)", async () => {
     const { ownerCookie, dealId } = await setupWonDeal();
-    const created = await createInvoice({
+    const created = await createInvoiceForDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: invoiceInput(dealId, { issueDate: "2020-01-01", dueDate: "2020-01-31" }),
     });

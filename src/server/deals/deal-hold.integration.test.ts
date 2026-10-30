@@ -7,6 +7,7 @@ import { activities, deals } from "@/server/db/schema";
 import { createQuotation, transitionQuotationStatus } from "@/server/quotations/quotations";
 import { orgDay } from "@/server/testing/dates";
 import { addMember, migrateTestDatabase, setupOrganization, type TestOrg } from "@/server/testing/org-helpers";
+import { confirmWon } from "@/server/orders/orders";
 import { createDeal, putDealOnHold, reopenDeal, resumeDeal, transitionDeal } from "./deals";
 import { getPipelineBoard } from "./deal-views";
 import { getPipelineMetrics } from "@/server/dashboard/dashboard";
@@ -103,7 +104,7 @@ describe("deal on hold and reopen (DEAL-03)", () => {
 
       const other = await dealIn(org, { title: "Lain" });
       const otherHeld = await putDealOnHold({ headers: org.ownerHeaders, dealId: other.id, expectedVersion: other.version, input: { reason: "Tunggu", reviewDate: orgDay(5) } });
-      const won = await transitionDeal({ headers: org.ownerHeaders, dealId: other.id, expectedVersion: otherHeld.version, input: { toStatus: "WON" } });
+      const { deal: won } = await confirmWon({ headers: org.ownerHeaders, dealId: other.id, expectedVersion: otherHeld.version, input: { commitmentType: "WRITTEN_CONFIRMATION" } });
       expect(won).toMatchObject({ status: "WON", onHoldUntil: null });
     });
 
@@ -224,17 +225,12 @@ describe("deal on hold and reopen (DEAL-03)", () => {
       expect(prospect.status).toBe("PROSPECT");
     });
 
-    it("only reopens a lost deal", async () => {
+    it("only reopens a lost or won deal", async () => {
       const org = await setupOrganization();
       const open = await dealIn(org);
       await expect(
         reopenDeal({ headers: org.ownerHeaders, dealId: open.id, expectedVersion: open.version, input: { toStatus: "PROPOSAL", reason: "Coba" } }),
-      ).rejects.toThrow(/lost deal/);
-
-      const won = await transitionDeal({ headers: org.ownerHeaders, dealId: open.id, expectedVersion: open.version, input: { toStatus: "WON" } });
-      await expect(
-        reopenDeal({ headers: org.ownerHeaders, dealId: won.id, expectedVersion: won.version, input: { toStatus: "PROPOSAL", reason: "Coba" } }),
-      ).rejects.toThrow(/lost deal/);
+      ).rejects.toThrow(/lost or won deal/);
     });
 
     it("lets Owner/Admin reopen any lost deal and Sales only their own", async () => {

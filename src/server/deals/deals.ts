@@ -3,10 +3,11 @@ import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
-import { activities, contacts, customers, deals, followUps, member } from "@/server/db/schema";
+import { activities, billingItems, contacts, customers, deals, invoices, member, orders } from "@/server/db/schema";
 import { moneyAmountSchema } from "@/server/money/amount";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
+import { cancelOpenDealTasks } from "@/server/follow-ups/cancel";
 import { toDealDto } from "./dto";
 import { ACTIVE_STAGES, LOST_REASONS, stageNeedsValue } from "./stages";
 
@@ -22,6 +23,7 @@ const transitionInputSchema = z.discriminatedUnion("toStatus", [
       .or(z.literal(""))
       .transform((value) => value || null),
   }),
+  // WON is not a plain transition: see confirmWon in orders/orders.ts.
   z.object({ toStatus: z.literal("WON") }),
   z.object({
     toStatus: z.literal("LOST"),
@@ -314,9 +316,8 @@ export async function updateDeal(params: {
 
 /**
  * DEAL-03: an active deal moves to any other active stage, forward, skipping
- * or back; the target stage's required data applies. WON and LOST can be
- * reached from any active stage and have no way out here (reopen comes
- * later). A request for the current status is an idempotent no-op (no
+ * or back; the target stage's required data applies. LOST can be reached
+ * from any active stage; WON only through confirmWon. A request for the current status is an idempotent no-op (no
  * error, no new activity). DEAL-04: WON requires a positive estimated value
  * and freezes it into wonValue. DEAL-05: LOST requires one of the fixed
  * reasons. DATA-06/AUD-03: the status update and the activity row are
@@ -331,6 +332,11 @@ export async function transitionDeal(params: {
 }) {
   const actor = await requirePermission({ headers: params.headers, permission: { deal: ["transition"] } });
   const parsed = transitionInputSchema.parse(params.input);
+
+  // DEAL-04: winning a deal creates its first order with the commitment evidence (confirmWon).
+  if (parsed.toStatus === "WON") {
+    throw new APIError("BAD_REQUEST", { message: "Use confirmWon to mark a deal WON, it needs the commitment evidence" });
+  }
 
   const existing = await db.query.deals.findFirst({
     where: and(eq(deals.id, params.dealId), eq(deals.organizationId, actor.organizationId)),
@@ -350,7 +356,7 @@ export async function transitionDeal(params: {
   }
 
   // DEAL-03: a deal on hold stays where it is until resumed; closing it is still allowed.
-  if (existing.onHoldUntil && parsed.toStatus !== "WON" && parsed.toStatus !== "LOST") {
+  if (existing.onHoldUntil && parsed.toStatus !== "LOST") {
     throw new APIError("BAD_REQUEST", { message: "The deal is on hold, resume it before changing its stage" });
   }
 
@@ -365,13 +371,7 @@ export async function transitionDeal(params: {
     version: sql`${deals.version} + 1`,
   };
 
-  if (parsed.toStatus === "WON") {
-    if (existing.estimatedValue <= 0n) {
-      throw new APIError("BAD_REQUEST", { message: "Estimated value must be positive to mark a deal WON" });
-    }
-    statusFields.wonAt = now;
-    statusFields.wonValue = existing.estimatedValue;
-  } else if (parsed.toStatus === "LOST") {
+  if (parsed.toStatus === "LOST") {
     statusFields.lostAt = now;
     statusFields.lostReason = parsed.lostReason;
     statusFields.lostNote = parsed.lostNote;
@@ -397,36 +397,23 @@ export async function transitionDeal(params: {
     }
 
     // FUP-04: closing the deal cancels its open tasks in the same transaction.
-    const cancelled =
-      parsed.toStatus === "WON" || parsed.toStatus === "LOST"
-        ? await tx
-            .update(followUps)
-            .set({ cancelledAt: now, updatedById: actor.userId, version: sql`${followUps.version} + 1` })
-            .where(
-              and(
-                eq(followUps.organizationId, actor.organizationId),
-                eq(followUps.dealId, params.dealId),
-                isNull(followUps.completedAt),
-                isNull(followUps.cancelledAt),
-              ),
-            )
-            .returning({ id: followUps.id })
-        : [];
+    const cancelledTasks =
+      parsed.toStatus === "LOST"
+        ? await cancelOpenDealTasks(tx, { organizationId: actor.organizationId, dealId: params.dealId, actorId: actor.userId, at: now })
+        : 0;
 
-    const eventType = parsed.toStatus === "WON" ? "won" : parsed.toStatus === "LOST" ? "lost" : "stage_changed";
+    const eventType = parsed.toStatus === "LOST" ? "lost" : "stage_changed";
     // AUD-01 ("simpan lost_at dan event alasan") / AUD-02: the reason is
     // part of the event, not just a column on the deal row. wonValue is
     // bigint, stringified for the same reason as updateDeal's metadata.
     const metadata: Record<string, unknown> = { fromStatus: existing.status, toStatus: parsed.toStatus };
-    if (parsed.toStatus === "WON") {
-      metadata.wonValue = existing.estimatedValue.toString();
-    } else if (parsed.toStatus === "LOST") {
+    if (parsed.toStatus === "LOST") {
       metadata.lostReason = parsed.lostReason;
       metadata.lostNote = parsed.lostNote;
     } else if (parsed.note) {
       metadata.note = parsed.note;
     }
-    if (cancelled.length > 0) metadata.cancelledTasks = cancelled.length;
+    if (cancelledTasks > 0) metadata.cancelledTasks = cancelledTasks;
     await tx.insert(activities).values({
       organizationId: actor.organizationId,
       dealId: params.dealId,
@@ -471,6 +458,8 @@ async function applyDealChange(params: {
   fields: Partial<typeof deals.$inferInsert>;
   eventType: string;
   metadata: Record<string, unknown>;
+  /** Runs inside the transaction once the deal row is updated (and so locked); its result is merged into the event. */
+  after?: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0], updated: typeof deals.$inferSelect) => Promise<Record<string, unknown>>;
 }) {
   const { actor, existing } = params;
   return db.transaction(async (tx) => {
@@ -489,13 +478,14 @@ async function applyDealChange(params: {
     if (!updated) {
       throw new APIError("CONFLICT", { message: "Deal was modified by someone else, reload and try again" });
     }
+    const extra = params.after ? await params.after(tx, updated) : {};
     await tx.insert(activities).values({
       organizationId: actor.organizationId,
       dealId: existing.id,
       entityType: "deal",
       eventType: params.eventType,
       actorId: actor.userId,
-      metadata: params.metadata,
+      metadata: { ...params.metadata, ...extra },
       permissionCategory: "sales",
     });
     return toDealDto(updated);
@@ -555,36 +545,77 @@ export async function resumeDeal(params: { headers: Headers; dealId: string; exp
 }
 
 /**
- * DEAL-03: a LOST deal returns to the active stage of the caller's choice,
- * with a reason. Owner and Admin can reopen any deal, Sales only their own.
- * The lost fields are cleared on the deal; the lost event stays in the
- * timeline and the previous reason is copied into the reopen event.
+ * DEAL-03: a LOST or WON deal returns to the active stage of the caller's
+ * choice, with a reason. Owner and Admin can reopen any deal, Sales only their
+ * own lost ones; reopening a WON deal is for Owner and Admin only, and only
+ * while none of its orders has a live invoice (void them first). The orders of a
+ * reopened WON deal are cancelled in the same transaction. The lost or won
+ * fields are cleared on the deal; the event stays in the timeline and the
+ * previous values are copied into the reopen event.
  */
 export async function reopenDeal(params: { headers: Headers; dealId: string; expectedVersion: number; input: unknown }) {
   const actor = await requirePermission({ headers: params.headers, permission: { deal: ["transition"] } });
   const parsed = reopenInputSchema.parse(params.input);
   const existing = await findDealForUpdate(actor.organizationId, params.dealId);
 
-  if (existing.status !== "LOST") {
-    throw new APIError("BAD_REQUEST", { message: "Only a lost deal can be reopened" });
+  if (existing.status !== "LOST" && existing.status !== "WON") {
+    throw new APIError("BAD_REQUEST", { message: "Only a lost or won deal can be reopened" });
   }
-  if (actor.role === "SALES" && existing.assignedToId !== actor.userId) {
+  if (existing.status === "WON" && actor.role !== "OWNER" && actor.role !== "ADMIN") {
+    throw new APIError("FORBIDDEN", { message: "Only an owner or an admin can reopen a won deal" });
+  }
+  if (existing.status === "LOST" && actor.role === "SALES" && existing.assignedToId !== actor.userId) {
     throw new APIError("FORBIDDEN", { message: "Only an owner, an admin or the assigned sales can reopen this deal" });
   }
   assertStageValue(parsed.toStatus, existing.estimatedValue);
 
+  const wasWon = existing.status === "WON";
   return applyDealChange({
     actor,
     existing,
     expectedVersion: params.expectedVersion,
-    fields: { status: parsed.toStatus, stageEnteredAt: new Date(), lostAt: null, lostReason: null, lostNote: null },
+    fields: {
+      status: parsed.toStatus,
+      stageEnteredAt: new Date(),
+      lostAt: null,
+      lostReason: null,
+      lostNote: null,
+      ...(wasWon ? { wonAt: null, wonValue: null } : {}),
+    },
     eventType: "reopened",
     metadata: {
-      fromStatus: "LOST",
+      fromStatus: existing.status,
       toStatus: parsed.toStatus,
       reason: parsed.reason,
-      previousLostReason: existing.lostReason,
+      ...(wasWon ? { previousWonValue: existing.wonValue?.toString() ?? null } : { previousLostReason: existing.lostReason }),
     },
+    after: wasWon
+      ? async (tx) => {
+          // ADR-0002: a deal with a live invoice stays won; void the invoices first.
+          const [live] = await tx
+            .select({ id: invoices.id })
+            .from(invoices)
+            .innerJoin(orders, and(eq(orders.id, invoices.orderId), eq(orders.organizationId, invoices.organizationId)))
+            .where(and(eq(orders.organizationId, actor.organizationId), eq(orders.dealId, existing.id), isNull(invoices.voidedAt)))
+            .limit(1);
+          if (live) {
+            throw new APIError("BAD_REQUEST", { message: "A deal with invoices cannot be reopened, void the invoices first" });
+          }
+          const now = new Date();
+          const cancelled = await tx
+            .update(orders)
+            .set({ cancelledAt: now, cancelReason: `Deal reopened: ${parsed.reason}`, version: sql`${orders.version} + 1` })
+            .where(and(eq(orders.organizationId, actor.organizationId), eq(orders.dealId, existing.id), isNull(orders.cancelledAt)))
+            .returning({ id: orders.id, orderNumber: orders.orderNumber });
+          for (const order of cancelled) {
+            await tx
+              .update(billingItems)
+              .set({ cancelledAt: now })
+              .where(and(eq(billingItems.organizationId, actor.organizationId), eq(billingItems.orderId, order.id), isNull(billingItems.cancelledAt)));
+          }
+          return { cancelledOrders: cancelled.map((order) => order.orderNumber) };
+        }
+      : undefined,
   });
 }
 

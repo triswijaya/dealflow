@@ -17,9 +17,10 @@ export type AuditAction =
   | "member.joined"
   | "member.deactivated"
   | "member.reactivated"
-  | "member.role_changed";
+  | "member.role_changed"
+  | "invoice.voided";
 
-export type AuditTargetType = "organization" | "organization_settings" | "invitation" | "member";
+export type AuditTargetType = "organization" | "organization_settings" | "invitation" | "member" | "invoice";
 
 type Executor = Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db;
 

@@ -6,8 +6,9 @@ import { db } from "@/server/db/client";
 import { deals } from "@/server/db/schema";
 import { createFollowUp } from "@/server/follow-ups/follow-ups";
 import { addMember, migrateTestDatabase, setupOrganization, type TestOrg } from "@/server/testing/org-helpers";
-import { createDeal, putDealOnHold, transitionDeal } from "./deals";
+import { createDeal, putDealOnHold,  } from "./deals";
 import { getDealDetail, getPipelineBoard, listDealsNeedingAttention } from "./deal-views";
+import { transitionOrWin } from "@/server/testing/orders";
 
 describe("deal health signals (DEAL-09)", () => {
   let migrationClient: ReturnType<typeof postgres>;
@@ -74,7 +75,7 @@ describe("deal health signals (DEAL-09)", () => {
   it("gives won and lost deals no signals", async () => {
     const org = await setupOrganization();
     const created = await dealIn(org);
-    const won = await transitionDeal({ headers: org.ownerHeaders, dealId: created.id, expectedVersion: created.version, input: { toStatus: "WON" } });
+    const won = await transitionOrWin({ headers: org.ownerHeaders, dealId: created.id, expectedVersion: created.version, input: { toStatus: "WON" } });
     expect(won.status).toBe("WON");
     expect(await signalsOf(org, created.id)).toEqual([]);
   });
@@ -99,7 +100,7 @@ describe("deal health signals (DEAL-09)", () => {
       const healthy = await dealIn(org, { title: "Sehat" });
       await task(org, healthy.id, daysAhead(2));
       const closed = await dealIn(org, { title: "Tutup" });
-      await transitionDeal({ headers: org.ownerHeaders, dealId: closed.id, expectedVersion: closed.version, input: { toStatus: "LOST", lostReason: "NO_NEED" } });
+      await transitionOrWin({ headers: org.ownerHeaders, dealId: closed.id, expectedVersion: closed.version, input: { toStatus: "LOST", lostReason: "NO_NEED" } });
       const parked = await dealIn(org, { title: "Ditahan" });
       await putDealOnHold({ headers: org.ownerHeaders, dealId: parked.id, expectedVersion: parked.version, input: { reason: "Tunggu", reviewDate: "2099-01-01" } });
 

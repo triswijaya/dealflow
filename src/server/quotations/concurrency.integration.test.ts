@@ -5,12 +5,12 @@ import postgres from "postgres";
 import { auth } from "@/server/auth/auth";
 import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
-import { createDeal, transitionDeal, updateDeal } from "@/server/deals/deals";
+import { createDeal, updateDeal } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
 import { completeFollowUp, createFollowUp } from "@/server/follow-ups/follow-ups";
-import { createInvoice } from "@/server/invoices/invoices";
 import { recordPayment } from "@/server/invoices/payments";
 import { createQuotation, reviseQuotation, transitionQuotationStatus } from "./quotations";
+import { transitionOrWin, createInvoiceForDeal } from "@/server/testing/orders";
 
 // AT-07/AT-22: race scenarios the acceptance table requires and nothing
 // else in the suite exercised -- every other integration test calls these
@@ -220,13 +220,13 @@ describe("concurrency", () => {
   it("QUO-08: two concurrent SENT transitions on the same quotation yield exactly one winner and one clean CONFLICT", async () => {
     const { ownerCookie, dealId } = await setupOwnerWithDeal();
     const deal = await db.query.deals.findFirst({ where: (d, { eq }) => eq(d.id, dealId) });
-    const contacted = await transitionDeal({
+    const contacted = await transitionOrWin({
       headers: new Headers({ cookie: ownerCookie }),
       dealId,
       expectedVersion: deal!.version,
       input: { toStatus: "PROPOSAL" },
     });
-    await transitionDeal({
+    await transitionOrWin({
       headers: new Headers({ cookie: ownerCookie }),
       dealId,
       expectedVersion: contacted.version,
@@ -263,7 +263,7 @@ describe("concurrency", () => {
     const owner = await setupOwnerWithDeal();
     for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]) {
       const current = await db.query.deals.findFirst({ where: (d, { eq }) => eq(d.id, owner.dealId) });
-      await transitionDeal({
+      await transitionOrWin({
         headers: new Headers({ cookie: owner.ownerCookie }),
         dealId: owner.dealId,
         expectedVersion: current!.version,
@@ -282,8 +282,8 @@ describe("concurrency", () => {
     });
 
     const results = await Promise.allSettled([
-      createInvoice({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput() }),
-      createInvoice({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput() }),
+      createInvoiceForDeal({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput() }),
+      createInvoiceForDeal({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput() }),
     ]);
 
     const fulfilled = results.filter((r) => r.status === "fulfilled");
@@ -302,14 +302,14 @@ describe("concurrency", () => {
     const owner = await setupOwnerWithDeal();
     for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]) {
       const current = await db.query.deals.findFirst({ where: (d, { eq }) => eq(d.id, owner.dealId) });
-      await transitionDeal({
+      await transitionOrWin({
         headers: new Headers({ cookie: owner.ownerCookie }),
         dealId: owner.dealId,
         expectedVersion: current!.version,
         input: { toStatus },
       });
     }
-    const invoice = await createInvoice({
+    const invoice = await createInvoiceForDeal({
       headers: new Headers({ cookie: owner.ownerCookie }),
       input: {
         dealId: owner.dealId,

@@ -7,11 +7,12 @@ import { auth } from "@/server/auth/auth";
 import { acceptInvitation, inviteMember } from "@/server/auth/members";
 import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
-import { createDeal, transitionDeal } from "@/server/deals/deals";
+import { createDeal,  } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
 import { activities, payments } from "@/server/db/schema";
-import { createInvoice, getInvoice } from "./invoices";
+import { getInvoice } from "./invoices";
 import { listPayments, recordPayment } from "./payments";
+import { transitionOrWin, createInvoiceForDeal } from "@/server/testing/orders";
 
 async function sessionCookieFor(email: string, password: string): Promise<string> {
   // signIn.token (the JSON body) is not the same value the cookie needs; see
@@ -108,14 +109,14 @@ describe("payments", () => {
     });
     for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]) {
       const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, deal.id) });
-      await transitionDeal({
+      await transitionOrWin({
         headers: new Headers({ cookie: owner.ownerCookie }),
         dealId: deal.id,
         expectedVersion: current!.version,
         input: { toStatus },
       });
     }
-    const invoice = await createInvoice({
+    const invoice = await createInvoiceForDeal({
       headers: new Headers({ cookie: owner.ownerCookie }),
       input: {
         dealId: deal.id,

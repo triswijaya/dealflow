@@ -69,3 +69,8 @@ export function formatInvoiceNumber(year: number, sequence: number): string {
 export function formatRevisionNumber(baseNumber: string, revisionNumber: number): string {
   return `${baseNumber}-R${revisionNumber}`;
 }
+
+/** ORD-01: `SO-2026-00001`, with its own counter (documentType "SO"). */
+export function formatOrderNumber(year: number, sequence: number): string {
+  return `SO-${year}-${sequence.toString().padStart(MIN_SEQUENCE_DIGITS, "0")}`;
+}

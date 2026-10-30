@@ -6,7 +6,7 @@ import postgres from "postgres";
 import { auth } from "@/server/auth/auth";
 import { inviteMember, acceptInvitation } from "@/server/auth/members";
 import { registerOwner } from "@/server/auth/register-owner";
-import { createDeal, transitionDeal } from "@/server/deals/deals";
+import { createDeal,  } from "@/server/deals/deals";
 import {
   createCustomer,
   findSimilarCustomers,
@@ -17,6 +17,7 @@ import {
 } from "./customers";
 import { db } from "@/server/db/client";
 import { customers } from "@/server/db/schema";
+import { transitionOrWin } from "@/server/testing/orders";
 
 async function sessionCookieFor(email: string, password: string): Promise<string> {
   // signIn.token (the JSON body) is not the same value the cookie needs; the
@@ -360,10 +361,10 @@ describe("customers", () => {
       await newDeal("Aktif dua");
       let won = await newDeal("Akan menang");
       for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"] as const) {
-        won = await transitionDeal({ headers, dealId: won.id, expectedVersion: won.version, input: { toStatus } });
+        won = await transitionOrWin({ headers, dealId: won.id, expectedVersion: won.version, input: { toStatus } });
       }
       const lost = await newDeal("Akan kalah");
-      await transitionDeal({ headers, dealId: lost.id, expectedVersion: lost.version, input: { toStatus: "LOST", lostReason: "OTHER" } });
+      await transitionOrWin({ headers, dealId: lost.id, expectedVersion: lost.version, input: { toStatus: "LOST", lostReason: "OTHER" } });
 
       const owner = (await listCustomers({ headers })).items;
       const withDeals = owner.find((c) => c.id === customer.id)!;

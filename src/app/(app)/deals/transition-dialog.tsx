@@ -7,11 +7,18 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConflictDialog } from "@/components/ui/conflict-dialog";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
-import { Field, Textarea } from "@/components/ui/field";
+import { Field, Input, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { formatRupiah } from "@/lib/format";
 import { DEAL_STAGE, LOST_REASONS, NEXT_DEAL_STAGE, isActiveStage, type DealStage, type Role } from "@/lib/labels";
-import { transitionDealAction } from "./actions";
+import { confirmWonAction, transitionDealAction } from "./actions";
+
+const COMMITMENT_TYPES = [
+  { value: "PURCHASE_ORDER", label: "Purchase order (PO)" },
+  { value: "CONTRACT", label: "Kontrak" },
+  { value: "WRITTEN_CONFIRMATION", label: "Konfirmasi tertulis" },
+  { value: "PAYMENT", label: "Pembayaran (DP / lunas)" },
+] as const;
 
 export type TransitionDeal = {
   id: string;
@@ -69,6 +76,8 @@ function TransitionBody({ mode, deal, role, onClose }: { mode: TransitionMode; d
   const toast = useToast();
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
+  const [commitmentType, setCommitmentType] = useState<string>("");
+  const [commitmentRef, setCommitmentRef] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
@@ -76,17 +85,21 @@ function TransitionBody({ mode, deal, role, onClose }: { mode: TransitionMode; d
   const next: DealStage = mode === "won" ? "WON" : mode === "lost" ? "LOST" : isActiveStage(deal.status) ? NEXT_DEAL_STAGE[deal.status].to : "WON";
   const zeroValue = mode === "won" && BigInt(deal.estimatedValue) <= 0n;
   const noteTooLong = note.trim().length > NOTE_LIMIT;
-  const blocked = zeroValue || (mode === "lost" && (!reason || noteTooLong));
+  const blocked = zeroValue || (mode === "lost" && (!reason || noteTooLong)) || (mode === "won" && !commitmentType);
 
   async function submit() {
     setPending(true);
     setError(null);
-    const result = await transitionDealAction({
-      dealId: deal.id,
-      expectedVersion: deal.version,
-      toStatus: next,
-      ...(mode === "lost" ? { lostReason: reason, lostNote: note } : {}),
-    });
+    // DEAL-04: winning needs the evidence of the commitment, and creates the first order.
+    const result =
+      mode === "won"
+        ? await confirmWonAction({ dealId: deal.id, expectedVersion: deal.version, commitmentType, commitmentRef })
+        : await transitionDealAction({
+            dealId: deal.id,
+            expectedVersion: deal.version,
+            toStatus: next,
+            ...(mode === "lost" ? { lostReason: reason, lostNote: note } : {}),
+          });
     setPending(false);
 
     if (!result.ok) {
@@ -139,8 +152,24 @@ function TransitionBody({ mode, deal, role, onClose }: { mode: TransitionMode; d
                   <dd>Hari ini</dd>
                 </div>
               </dl>
+              <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+                <legend className="field-legend">
+                  Bukti komitmen <span className="red" aria-hidden="true">*</span>
+                </legend>
+                <div className="stack" style={{ gap: 8, marginTop: 8 }}>
+                  {COMMITMENT_TYPES.map((option) => (
+                    <label key={option.value} className="choice">
+                      <input type="radio" name="commitmentType" value={option.value} checked={commitmentType === option.value} onChange={() => setCommitmentType(option.value)} />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <Field label="Nomor PO / kontrak" htmlFor="won-ref" hint="Opsional">
+                <Input id="won-ref" value={commitmentRef} onChange={(event) => setCommitmentRef(event.target.value)} maxLength={200} />
+              </Field>
               <Alert tone="warning">
-                Nilai menang dikunci saat ini dan tidak berubah walau nilai estimasi diedit. Deal akan menjadi final.
+                Menang membuat pesanan dengan satu termin 100%. Nilai menang dikunci dan deal menjadi final; pesanan bisa diamandemen setelahnya.
               </Alert>
               <small>Quotation yang diterima tidak diperlukan untuk menang.</small>
             </>

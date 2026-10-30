@@ -7,7 +7,7 @@ import { auth } from "@/server/auth/auth";
 import { inviteMember, acceptInvitation } from "@/server/auth/members";
 import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
-import { createDeal, putDealOnHold, reopenDeal, transitionDeal, updateDeal } from "@/server/deals/deals";
+import { createDeal, putDealOnHold, reopenDeal, updateDeal } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
 import { activities, customers, deals, organizationSettings, quotations } from "@/server/db/schema";
 import { organizationDateString } from "@/server/shared/organization-date";
@@ -20,6 +20,7 @@ import {
   transitionQuotationStatus,
   updateQuotation,
 } from "./quotations";
+import { transitionOrWin } from "@/server/testing/orders";
 
 async function sessionCookieFor(email: string, password: string): Promise<string> {
   // signIn.token (the JSON body) is not the same value the cookie needs; see
@@ -194,14 +195,14 @@ describe("quotations", () => {
   it("rejects a quotation for a WON or LOST deal (QUO-01: deal aktif)", async () => {
     const won = await setupOwnerWithDeal();
     const wonDeal = await db.query.deals.findFirst({ where: eq(deals.id, won.dealId) });
-    await transitionDeal({ headers: new Headers({ cookie: won.ownerCookie }), dealId: won.dealId, expectedVersion: wonDeal!.version, input: { toStatus: "WON" } });
+    await transitionOrWin({ headers: new Headers({ cookie: won.ownerCookie }), dealId: won.dealId, expectedVersion: wonDeal!.version, input: { toStatus: "WON" } });
     await expect(
       createQuotation({ headers: new Headers({ cookie: won.ownerCookie }), input: quotationInput(won.dealId) }),
     ).rejects.toThrow(/closed deal/);
 
     const lost = await setupOwnerWithDeal();
     const lostDeal = await db.query.deals.findFirst({ where: eq(deals.id, lost.dealId) });
-    await transitionDeal({ headers: new Headers({ cookie: lost.ownerCookie }), dealId: lost.dealId, expectedVersion: lostDeal!.version, input: { toStatus: "LOST", lostReason: "NO_NEED" } });
+    await transitionOrWin({ headers: new Headers({ cookie: lost.ownerCookie }), dealId: lost.dealId, expectedVersion: lostDeal!.version, input: { toStatus: "LOST", lostReason: "NO_NEED" } });
     await expect(
       createQuotation({ headers: new Headers({ cookie: lost.ownerCookie }), input: quotationInput(lost.dealId) }),
     ).rejects.toThrow(/closed deal/);
@@ -725,7 +726,7 @@ describe("quotations", () => {
 
       let deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
       for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"] as const) {
-        await transitionDeal({
+        await transitionOrWin({
           headers: new Headers({ cookie: ownerCookie }),
           dealId,
           expectedVersion: deal!.version,
@@ -823,7 +824,7 @@ describe("quotations", () => {
 
     async function advanceDealToProposal(ownerCookie: string, dealId: string) {
       const deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
-      await transitionDeal({
+      await transitionOrWin({
         headers: new Headers({ cookie: ownerCookie }),
         dealId,
         expectedVersion: deal!.version,
@@ -886,7 +887,7 @@ describe("quotations", () => {
       const created = await createQuotation({ headers: new Headers({ cookie: ownerCookie }), input: quotationInput(dealId) });
 
       const deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
-      await transitionDeal({
+      await transitionOrWin({
         headers: new Headers({ cookie: ownerCookie }),
         dealId,
         expectedVersion: deal!.version,
@@ -906,7 +907,7 @@ describe("quotations", () => {
     describe("deal rules (QUO-09, QUO-11)", () => {
       const lose = async (ownerCookie: string, dealId: string) => {
         const deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
-        await transitionDeal({ headers: new Headers({ cookie: ownerCookie }), dealId, expectedVersion: deal!.version, input: { toStatus: "LOST", lostReason: "NO_RESPONSE" } });
+        await transitionOrWin({ headers: new Headers({ cookie: ownerCookie }), dealId, expectedVersion: deal!.version, input: { toStatus: "LOST", lostReason: "NO_RESPONSE" } });
       };
       const dealOf = (dealId: string) => db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
       const accept = (ownerCookie: string, quotation: { id: string; editVersion: number }) =>
@@ -933,14 +934,14 @@ describe("quotations", () => {
         const negotiating = await setupOwnerWithDeal();
         const sent = await sendQuotation(negotiating.ownerCookie, negotiating.dealId, { validUntil: FUTURE_VALID_UNTIL });
         const deal = await dealOf(negotiating.dealId);
-        await transitionDeal({ headers: new Headers({ cookie: negotiating.ownerCookie }), dealId: negotiating.dealId, expectedVersion: deal!.version, input: { toStatus: "NEGOTIATION" } });
+        await transitionOrWin({ headers: new Headers({ cookie: negotiating.ownerCookie }), dealId: negotiating.dealId, expectedVersion: deal!.version, input: { toStatus: "NEGOTIATION" } });
         await accept(negotiating.ownerCookie, sent);
         expect((await dealOf(negotiating.dealId))!.status).toBe("COMMITMENT");
 
         const won = await setupOwnerWithDeal();
         const wonSent = await sendQuotation(won.ownerCookie, won.dealId, { validUntil: FUTURE_VALID_UNTIL });
         const wonDeal = await dealOf(won.dealId);
-        await transitionDeal({ headers: new Headers({ cookie: won.ownerCookie }), dealId: won.dealId, expectedVersion: wonDeal!.version, input: { toStatus: "WON" } });
+        await transitionOrWin({ headers: new Headers({ cookie: won.ownerCookie }), dealId: won.dealId, expectedVersion: wonDeal!.version, input: { toStatus: "WON" } });
         await accept(won.ownerCookie, wonSent);
         expect((await dealOf(won.dealId))!.status).toBe("WON");
 
@@ -989,7 +990,7 @@ describe("quotations", () => {
         const { ownerCookie, dealId } = await setupOwnerWithDeal();
         const sent = await sendQuotation(ownerCookie, dealId, { validUntil: FUTURE_VALID_UNTIL });
         const deal = await dealOf(dealId);
-        await transitionDeal({ headers: new Headers({ cookie: ownerCookie }), dealId, expectedVersion: deal!.version, input: { toStatus: "WON" } });
+        await transitionOrWin({ headers: new Headers({ cookie: ownerCookie }), dealId, expectedVersion: deal!.version, input: { toStatus: "WON" } });
 
         const revised = await reviseQuotation({
           headers: new Headers({ cookie: ownerCookie }),
@@ -1017,7 +1018,7 @@ describe("quotations", () => {
     it("does not change the deal stage again once it is already past PROSPECT", async () => {
       const { ownerCookie, dealId } = await setupOwnerWithDeal();
       const deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
-      await transitionDeal({
+      await transitionOrWin({
         headers: new Headers({ cookie: ownerCookie }),
         dealId,
         expectedVersion: deal!.version,
@@ -1083,7 +1084,7 @@ describe("quotations", () => {
 
       let deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
       for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"] as const) {
-        await transitionDeal({
+        await transitionOrWin({
           headers: new Headers({ cookie: ownerCookie }),
           dealId,
           expectedVersion: deal!.version,

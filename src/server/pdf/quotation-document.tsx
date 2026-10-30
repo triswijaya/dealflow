@@ -105,6 +105,13 @@ export type QuotationDocumentProps = {
   total: bigint;
   notes: string | null;
   terms: string | null;
+  /** The same layout serves invoices (INV-05): the title, the second date's label and the watermark change. */
+  documentTitle?: string;
+  secondDateLabel?: string;
+  /** Overrides the DRAFT watermark: "VOID" on a voided invoice. */
+  watermark?: string | null;
+  /** The line under the number, replacing "Revisi ke-n". */
+  subtitle?: string | null;
 };
 
 /**
@@ -114,14 +121,14 @@ export type QuotationDocumentProps = {
  * (getQuotationForPdf) to have already resolved correctly.
  */
 export function QuotationDocument(props: QuotationDocumentProps) {
-  const isDraft = props.status === "DRAFT";
+  const watermark = props.watermark !== undefined ? props.watermark : props.status === "DRAFT" ? "DRAFT" : null;
 
   return (
     <Document>
       <Page size="A4" style={styles.page} wrap>
-        {isDraft && (
+        {watermark && (
           <Text style={styles.watermark} fixed>
-            DRAFT
+            {watermark}
           </Text>
         )}
 
@@ -134,9 +141,13 @@ export function QuotationDocument(props: QuotationDocumentProps) {
             </Text>
           </View>
           <View style={styles.docTitleBlock}>
-            <Text style={styles.docTitle}>QUOTATION</Text>
+            <Text style={styles.docTitle}>{props.documentTitle ?? "QUOTATION"}</Text>
             <Text style={styles.docNumber}>{props.quotationNumber}</Text>
-            {props.revisionNumber > 1 && <Text style={styles.docRevision}>Revisi ke-{props.revisionNumber - 1}</Text>}
+            {props.subtitle !== undefined ? (
+              props.subtitle && <Text style={styles.docRevision}>{props.subtitle}</Text>
+            ) : (
+              props.revisionNumber > 1 && <Text style={styles.docRevision}>Revisi ke-{props.revisionNumber - 1}</Text>
+            )}
           </View>
         </View>
 
@@ -156,7 +167,7 @@ export function QuotationDocument(props: QuotationDocumentProps) {
             </View>
             <Text style={styles.dateValue}>{formatIndonesianDate(props.issueDate)}</Text>
             <View style={[styles.dateRow, { marginTop: 8 }]}>
-              <Text style={styles.metaLabel}>Berlaku Sampai: </Text>
+              <Text style={styles.metaLabel}>{props.secondDateLabel ?? "Berlaku Sampai"}: </Text>
             </View>
             <Text style={styles.dateValue}>{formatIndonesianDate(props.validUntil)}</Text>
           </View>
@@ -242,4 +253,27 @@ export function QuotationDocument(props: QuotationDocumentProps) {
 /** Renders entirely in memory (OBS-04): never touches the filesystem. */
 export function renderQuotationPdf(props: QuotationDocumentProps): Promise<Buffer> {
   return renderToBuffer(<QuotationDocument {...props} />);
+}
+
+export type InvoiceDocumentProps = Omit<QuotationDocumentProps, "quotationNumber" | "revisionNumber" | "status" | "validUntil" | "documentTitle" | "secondDateLabel" | "watermark" | "subtitle"> & {
+  invoiceNumber: string;
+  dueDate: string;
+  voided: boolean;
+  orderNumber: string;
+};
+
+/** INV-05: an invoice PDF through the same module; a voided invoice is marked VOID and nothing else changes. */
+export function renderInvoicePdf(props: InvoiceDocumentProps): Promise<Buffer> {
+  const { invoiceNumber, dueDate, voided, orderNumber, ...rest } = props;
+  return renderQuotationPdf({
+    ...rest,
+    quotationNumber: invoiceNumber,
+    revisionNumber: 1,
+    status: "INVOICE",
+    validUntil: dueDate,
+    documentTitle: "INVOICE",
+    secondDateLabel: "Jatuh Tempo",
+    watermark: voided ? "VOID" : null,
+    subtitle: `Pesanan ${orderNumber}`,
+  });
 }

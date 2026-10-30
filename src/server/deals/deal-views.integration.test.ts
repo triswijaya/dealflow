@@ -6,7 +6,7 @@ import { createCustomer } from "@/server/customers/customers";
 import { db } from "@/server/db/client";
 import { activities, deals, followUps } from "@/server/db/schema";
 import { addMember, migrateTestDatabase, setupOrganization, type TestOrg } from "@/server/testing/org-helpers";
-import { createDeal, transitionDeal } from "./deals";
+import { createDeal,  } from "./deals";
 import {
   getDealDetail,
   getPipelineBoard,
@@ -16,6 +16,7 @@ import {
   listPipelineStageCards,
   PIPELINE_COLUMN_LIMIT,
 } from "./deal-views";
+import { transitionOrWin } from "@/server/testing/orders";
 
 describe("deal read models", () => {
   let migrationClient: ReturnType<typeof postgres>;
@@ -44,7 +45,7 @@ describe("deal read models", () => {
   async function advance(org: TestOrg, deal: { id: string; version: number }, path: string[]) {
     let current = deal;
     for (const toStatus of path) {
-      current = await transitionDeal({ headers: org.ownerHeaders, dealId: current.id, expectedVersion: current.version, input: { toStatus } });
+      current = await transitionOrWin({ headers: org.ownerHeaders, dealId: current.id, expectedVersion: current.version, input: { toStatus } });
     }
     return current as typeof current & { version: number };
   }
@@ -234,7 +235,7 @@ describe("deal read models", () => {
       const org = await setupOrganization();
       const customer = await customerFor(org);
       const deal = await dealFor(org, customer.id);
-      await transitionDeal({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus: "LOST", lostReason: "NO_RESPONSE", lostNote: "Tidak membalas" } });
+      await transitionOrWin({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus: "LOST", lostReason: "NO_RESPONSE", lostNote: "Tidak membalas" } });
       const detail = await getDealDetail({ headers: org.ownerHeaders, dealId: deal.id });
       expect(detail.status).toBe("LOST");
       expect(detail.lostReason).toBe("NO_RESPONSE");

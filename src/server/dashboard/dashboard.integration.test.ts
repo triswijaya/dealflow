@@ -4,18 +4,18 @@ import type postgres from "postgres";
 import { createCustomer } from "@/server/customers/customers";
 import { db } from "@/server/db/client";
 import { deals } from "@/server/db/schema";
-import { createDeal, transitionDeal } from "@/server/deals/deals";
+import { createDeal,  } from "@/server/deals/deals";
 import { listRecentActivities } from "@/server/deals/deal-views";
 import { zonedLocalToInstant } from "@/lib/format";
 import { completeFollowUp, createFollowUp } from "@/server/follow-ups/follow-ups";
 import { countTodayCustomers } from "@/server/follow-ups/follow-up-views";
-import { createInvoice } from "@/server/invoices/invoices";
 import { getReceivedThisMonth, listNearestDueInvoices, listRecentPayments } from "@/server/invoices/invoice-views";
 import { recordPayment } from "@/server/invoices/payments";
 import { organizationDateString } from "@/server/shared/organization-date";
 import { addMember, migrateTestDatabase, setupOrganization, type TestOrg } from "@/server/testing/org-helpers";
 import { getPipelineMetrics, getWonThisMonth } from "./dashboard";
 import { orgDay } from "@/server/testing/dates";
+import { transitionOrWin, createInvoiceForDeal } from "@/server/testing/orders";
 
 const TZ = "Asia/Jakarta";
 const day = orgDay;
@@ -33,7 +33,7 @@ describe("dashboard metrics", () => {
     const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName, contactPerson: "X", phone: "08123456789" } });
     let deal = await createDeal({ headers: org.ownerHeaders, input: { customerId: customer.id, title, estimatedValue: value, assignedToId: org.ownerUserId } });
     for (const toStatus of path) {
-      deal = await transitionDeal({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus } });
+      deal = await transitionOrWin({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus } });
     }
     return { customer, deal };
   }
@@ -93,7 +93,7 @@ describe("dashboard metrics", () => {
     const org = await setupOrganization();
     const issue = async (title: string, dueDate: string) => {
       const { deal } = await newDeal(org, title, "30000000", WON);
-      return createInvoice({ headers: org.ownerHeaders, input: { dealId: deal.id, issueDate: day(-10), dueDate, items: [{ description: "Paket", quantity: "1", unit: "paket", unitPrice: "30000000" }], idempotencyKey: crypto.randomUUID() } });
+      return createInvoiceForDeal({ headers: org.ownerHeaders, input: { dealId: deal.id, issueDate: day(-10), dueDate, items: [{ description: "Paket", quantity: "1", unit: "paket", unitPrice: "30000000" }], idempotencyKey: crypto.randomUUID() } });
     };
     const late = await issue("Terlambat", day(-2));
     const soon = await issue("Segera", day(3));
@@ -121,7 +121,7 @@ describe("dashboard metrics", () => {
     const sales = await addMember(org, "SALES", "Andi");
     const finance = await addMember(org, "FINANCE", "Dewi");
     const { deal } = await newDeal(org, "Menang", "30000000", WON);
-    await createInvoice({ headers: org.ownerHeaders, input: { dealId: deal.id, dueDate: day(10), items: [{ description: "Paket", quantity: "1", unit: "paket", unitPrice: "30000000" }], idempotencyKey: crypto.randomUUID() } });
+    await createInvoiceForDeal({ headers: org.ownerHeaders, input: { dealId: deal.id, dueDate: day(10), items: [{ description: "Paket", quantity: "1", unit: "paket", unitPrice: "30000000" }], idempotencyKey: crypto.randomUUID() } });
 
     const kinds = async (headers: Headers) => (await listRecentActivities({ headers, limit: 20 })).map((event) => `${event.entityType}.${event.eventType}`);
     expect(await kinds(org.ownerHeaders)).toContain("invoice.created");

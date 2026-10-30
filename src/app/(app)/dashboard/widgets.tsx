@@ -14,7 +14,7 @@ import { getPipelineMetrics } from "@/server/dashboard/dashboard";
 import { logger } from "@/server/shared/logger";
 import { listDealRows, listRecentActivities } from "@/server/deals/deal-views";
 import { getFollowUpCounts, listFollowUpRows } from "@/server/follow-ups/follow-up-views";
-import { listInvoiceableDeals, listNearestDueInvoices, listRecentPayments } from "@/server/invoices/invoice-views";
+import { listInvoiceableItems, listNearestDueInvoices, listRecentPayments } from "@/server/invoices/invoice-views";
 import { FollowUpItem } from "../follow-ups/follow-up-item";
 import { WidgetError } from "./widget-error";
 
@@ -239,7 +239,7 @@ export async function FeedWidget({ timezone, title = "Kabar dari tim" }: { timez
 export async function ReadyToInvoiceWidget() {
   return guard(
     "Siap ditagih",
-    async () => listInvoiceableDeals({ headers: await headers() }),
+    async () => listInvoiceableItems({ headers: await headers() }),
     (ready) => (
       <section className="region">
         <h2>Siap ditagih</h2>
@@ -248,8 +248,8 @@ export async function ReadyToInvoiceWidget() {
             size="region"
             tone="success"
             icon={CircleCheck}
-            title="Semua deal menang sudah ditagih"
-            description="Deal menang yang baru akan muncul di sini sampai invoice diterbitkan."
+            title="Semua termin siap sudah ditagih"
+            description="Termin yang siap ditagih akan muncul di sini sampai invoice diterbitkan."
             action={
               <ButtonLink variant="tertiary" href="/invoices">
                 Lihat invoice
@@ -263,16 +263,15 @@ export async function ReadyToInvoiceWidget() {
                 <div>
                   <h3>{deal.title}</h3>
                   <p>
-                    {deal.customerName} · {formatRupiah(deal.wonValue)}
-                    {deal.wonAt ? ` · menang ${formatDate(deal.wonAt)}` : ""}
+                    {deal.customerName} · {formatRupiah(deal.amount)} · pesanan {formatDate(deal.commitmentDate)}
                   </p>
                 </div>
-                <ButtonLink variant="secondary" href={`/invoices/new?dealId=${deal.id}`}>
+                <ButtonLink variant="secondary" href={`/invoices/new?billingItemId=${deal.id}`}>
                   Buat invoice
                 </ButtonLink>
               </div>
             ))}
-            {ready.length > 4 ? <small>dan {ready.length - 4} deal lain.</small> : null}
+            {ready.length > 4 ? <small>dan {ready.length - 4} termin lain.</small> : null}
           </>
         )}
       </section>

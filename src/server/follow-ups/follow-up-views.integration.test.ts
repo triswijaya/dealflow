@@ -1,12 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type postgres from "postgres";
 import { createCustomer } from "@/server/customers/customers";
-import { createDeal, transitionDeal } from "@/server/deals/deals";
+import { createDeal,  } from "@/server/deals/deals";
 import { addMember, migrateTestDatabase, setupOrganization, type TestOrg } from "@/server/testing/org-helpers";
 import { zonedLocalToInstant } from "@/lib/format";
 import { organizationDateString } from "@/server/shared/organization-date";
 import { completeFollowUp, createFollowUp } from "./follow-ups";
 import { getFollowUpBadgeCount, getFollowUpCounts, getFollowUpRow, listFollowUpRows } from "./follow-up-views";
+import { transitionOrWin } from "@/server/testing/orders";
 
 const TZ = "Asia/Jakarta";
 
@@ -67,7 +68,7 @@ describe("follow-up read models", () => {
     await completeFollowUp({ headers: org.ownerHeaders, followUpId: done.id, expectedVersion: done.version, input: { completedAt: yesterday.toISOString() } });
     await createFollowUp({ headers: org.ownerHeaders, input: { dealId: active.id, type: "CALL", note: "belum", followUpAt: at(dayOffset(t, 2), "09:00").toISOString() } });
     await createFollowUp({ headers: org.ownerHeaders, input: { dealId: closing.id, type: "CALL", note: "sisa", followUpAt: at(dayOffset(t, 1), "09:00").toISOString() } });
-    await transitionDeal({ headers: org.ownerHeaders, dealId: closing.id, expectedVersion: closing.version, input: { toStatus: "LOST", lostReason: "OTHER" } });
+    await transitionOrWin({ headers: org.ownerHeaders, dealId: closing.id, expectedVersion: closing.version, input: { toStatus: "LOST", lostReason: "OTHER" } });
 
     const counts = await getFollowUpCounts({ headers: org.ownerHeaders });
     expect(counts).toEqual({ today: 0, overdue: 0, upcoming: 1, done: 1 });

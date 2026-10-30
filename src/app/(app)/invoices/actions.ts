@@ -7,16 +7,16 @@ import { createInvoice } from "@/server/invoices/invoices";
 import {
   getInvoiceDraftContext,
   getInvoiceSourceContent,
-  listInvoiceableDeals,
+  listInvoiceableItems,
   type InvoiceDraftContextDto,
   type InvoiceSourceContentDto,
-  type InvoiceableDealDto,
+  type InvoiceableItemDto,
 } from "@/server/invoices/invoice-views";
 import { recordPayment } from "@/server/invoices/payments";
 import { runAction } from "@/server/shared/action";
 
 export type IssueInvoiceValues = {
-  dealId: string;
+  billingItemId: string;
   quotationId?: string;
   expectedSourceEditVersion?: number;
   issueDate: string;
@@ -29,10 +29,10 @@ export type IssueInvoiceValues = {
   idempotencyKey: string;
 };
 
-function refresh(dealId: string, invoiceId?: string) {
+function refresh(dealId: string | null, invoiceId?: string) {
   revalidatePath("/invoices");
   if (invoiceId) revalidatePath(`/invoices/${invoiceId}`);
-  revalidatePath(`/deals/${dealId}`);
+  if (dealId) revalidatePath(`/deals/${dealId}`);
   revalidatePath("/dashboard");
 }
 
@@ -66,12 +66,12 @@ export async function recordPaymentAction(input: {
   });
 }
 
-export async function searchInvoiceableDealsAction(input: { query: string }): Promise<ActionResult<InvoiceableDealDto[]>> {
-  return runAction(async () => listInvoiceableDeals({ headers: await headers(), query: input.query }));
+export async function searchInvoiceableDealsAction(input: { query: string }): Promise<ActionResult<InvoiceableItemDto[]>> {
+  return runAction(async () => listInvoiceableItems({ headers: await headers(), query: input.query }));
 }
 
-export async function getInvoiceDraftContextAction(input: { dealId: string }): Promise<ActionResult<InvoiceDraftContextDto>> {
-  return runAction(async () => getInvoiceDraftContext({ headers: await headers(), dealId: input.dealId }));
+export async function getInvoiceDraftContextAction(input: { billingItemId: string }): Promise<ActionResult<InvoiceDraftContextDto>> {
+  return runAction(async () => getInvoiceDraftContext({ headers: await headers(), billingItemId: input.billingItemId }));
 }
 
 export async function getInvoiceSourceContentAction(input: { dealId: string; quotationId: string }): Promise<ActionResult<InvoiceSourceContentDto>> {

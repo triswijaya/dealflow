@@ -1,4 +1,4 @@
-export type InvoiceStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE";
+export type InvoiceStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "VOID";
 
 /**
  * §10.2 / INV-06 / INV-07: an invoice's status is always derived, never
@@ -7,7 +7,8 @@ export type InvoiceStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE";
  * displayed value can never drift from the payments and the calendar, and
  * correctness does not depend on a cron running at midnight.
  *
- * Priority is exactly the order §10.2 lists:
+ * Priority is exactly the order §10.3 lists:
+ *   voided                       -> VOID       (INV-06: above everything)
  *   paid_amount >= total          -> PAID       (highest, wins even if overdue)
  *   not settled and today > due   -> OVERDUE     (beats UNPAID/PARTIALLY_PAID)
  *   0 < paid_amount < total       -> PARTIALLY_PAID
@@ -25,9 +26,12 @@ export type InvoiceStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE";
  * using a strict `>`.
  */
 export function invoiceEffectiveStatus(
-  params: { total: bigint; paidAmount: bigint; dueDate: string },
+  params: { total: bigint; paidAmount: bigint; dueDate: string; voided?: boolean },
   todayOrg: string,
 ): InvoiceStatus {
+  if (params.voided) {
+    return "VOID";
+  }
   if (params.paidAmount >= params.total) {
     return "PAID";
   }
@@ -38,7 +42,8 @@ export function invoiceEffectiveStatus(
 }
 
 /** §10.2: `remaining_amount = max(total - paid_amount, 0)`. */
-export function invoiceRemainingAmount(total: bigint, paidAmount: bigint): bigint {
+export function invoiceRemainingAmount(total: bigint, paidAmount: bigint, voided = false): bigint {
+  if (voided) return 0n;
   const remaining = total - paidAmount;
   return remaining > 0n ? remaining : 0n;
 }

@@ -18,6 +18,7 @@ const statement = {
   followUp: ["read", "write"],
   invoice: ["read", "write"],
   payment: ["read", "write"],
+  order: ["read", "write"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -34,6 +35,7 @@ export const roles = {
     followUp: ["read", "write"],
     invoice: ["read", "write"],
     payment: ["read", "write"],
+    order: ["read", "write"],
   }),
   ADMIN: ac.newRole({
     organization: ["update"],
@@ -45,12 +47,14 @@ export const roles = {
     followUp: ["read", "write"],
     invoice: ["read", "write"],
     payment: ["read", "write"],
+    order: ["read", "write"],
   }),
   SALES: ac.newRole({
     customer: ["read", "write"],
     deal: ["read", "write", "transition"],
     quotation: ["read", "write"],
     followUp: ["read", "write"],
+    order: ["read", "write"],
   }),
   // §6.2: Finance can read every customer (not filtered), and can read
   // deals too, but only WON ones -- that filter happens in the deals
@@ -82,5 +86,6 @@ export const roles = {
     deal: ["read"],
     invoice: ["read", "write"],
     payment: ["read", "write"],
+    order: ["read", "write"],
   }),
 };

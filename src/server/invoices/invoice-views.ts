@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, ilike, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
-import { activities, customers, deals, invoiceItems, invoices, organizationSettings, payments, quotationItems, quotations, user } from "@/server/db/schema";
+import { activities, billingItems, customers, deals, invoiceItems, invoices, orders, organizationSettings, payments, quotationItems, quotations, user } from "@/server/db/schema";
+import { billingItemStatus } from "@/server/orders/billing";
 import { toIsoDto, toMoneyDto } from "@/server/shared/dto";
 import type { CustomerSnapshot, SellerSnapshot } from "@/server/shared/document-snapshots";
 import { organizationClock } from "@/server/shared/organization-clock";
@@ -17,7 +18,7 @@ import { invoiceEffectiveStatus, invoiceRemainingAmount } from "./effective-stat
 // needs (customer, deal, payments, who did what) and does the list filtering
 // on the derived status in SQL, so a page of results is a page of the filter.
 
-const STATUSES = ["UNPAID", "PARTIALLY_PAID", "PAID", "OVERDUE"] as const;
+const STATUSES = ["UNPAID", "PARTIALLY_PAID", "PAID", "OVERDUE", "VOID"] as const;
 const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD");
 
 const filterSchema = z.object({
@@ -49,6 +50,12 @@ type PaidSub = ReturnType<typeof paidSubquery>;
 
 /** §10.2's derived status, as a SQL condition (so filtering and paging agree with what the row shows). */
 function statusCondition(status: (typeof STATUSES)[number], paid: PaidSub, today: string): SQL {
+  // INV-06: VOID is above everything; every other status is for live invoices only.
+  if (status === "VOID") return sql`${invoices.voidedAt} is not null`;
+  return sql`${invoices.voidedAt} is null and (${liveStatusCondition(status, paid, today)})`;
+}
+
+function liveStatusCondition(status: Exclude<(typeof STATUSES)[number], "VOID">, paid: PaidSub, today: string): SQL {
   const paidAmount = sql`coalesce(${paid.paid}, 0)`;
   switch (status) {
     case "PAID":
@@ -67,7 +74,9 @@ export type InvoiceRowDto = {
   invoiceNumber: string;
   customerId: string;
   customerName: string;
-  dealId: string;
+  dealId: string | null;
+  orderId: string;
+  orderNumber: string;
   dealTitle: string;
   issueDate: string;
   dueDate: string;
@@ -94,7 +103,7 @@ export async function listInvoiceRows(params: { headers: Headers; page?: number;
   if (filters.dueTo) conditions.push(sql`${invoices.dueDate} <= ${filters.dueTo}::date`);
   if (filters.query) {
     const pattern = `%${escapeLike(filters.query)}%`;
-    conditions.push(or(ilike(invoices.invoiceNumber, pattern), ilike(deals.title, pattern), ilike(customers.companyName, pattern)));
+    conditions.push(or(ilike(invoices.invoiceNumber, pattern), ilike(deals.title, pattern), ilike(orders.title, pattern), ilike(orders.orderNumber, pattern), ilike(customers.companyName, pattern)));
   }
   const where = and(...conditions);
 
@@ -102,12 +111,14 @@ export async function listInvoiceRows(params: { headers: Headers; page?: number;
     db
       .select({
         invoice: invoices,
-        dealTitle: deals.title,
+        dealTitle: sql<string>`coalesce(${deals.title}, ${orders.title})`,
+        orderNumber: orders.orderNumber,
         customerName: customers.companyName,
         paid: sql<string>`coalesce(${paid.paid}, 0)::text`,
       })
       .from(invoices)
-      .innerJoin(deals, and(eq(deals.id, invoices.dealId), eq(deals.organizationId, invoices.organizationId)))
+      .innerJoin(orders, and(eq(orders.id, invoices.orderId), eq(orders.organizationId, invoices.organizationId)))
+      .leftJoin(deals, and(eq(deals.id, invoices.dealId), eq(deals.organizationId, invoices.organizationId)))
       .innerJoin(customers, and(eq(customers.id, invoices.customerId), eq(customers.organizationId, invoices.organizationId)))
       .leftJoin(paid, eq(paid.invoiceId, invoices.id))
       .where(where)
@@ -118,13 +129,14 @@ export async function listInvoiceRows(params: { headers: Headers; page?: number;
     db
       .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(invoices)
-      .innerJoin(deals, and(eq(deals.id, invoices.dealId), eq(deals.organizationId, invoices.organizationId)))
+      .innerJoin(orders, and(eq(orders.id, invoices.orderId), eq(orders.organizationId, invoices.organizationId)))
+      .leftJoin(deals, and(eq(deals.id, invoices.dealId), eq(deals.organizationId, invoices.organizationId)))
       .innerJoin(customers, and(eq(customers.id, invoices.customerId), eq(customers.organizationId, invoices.organizationId)))
       .leftJoin(paid, eq(paid.invoiceId, invoices.id))
       .where(where),
   ]);
 
-  const items: InvoiceRowDto[] = rows.map(({ invoice, dealTitle, customerName, paid: paidText }) => {
+  const items: InvoiceRowDto[] = rows.map(({ invoice, dealTitle, orderNumber, customerName, paid: paidText }) => {
     const paidAmount = BigInt(paidText);
     return {
       id: invoice.id,
@@ -132,13 +144,15 @@ export async function listInvoiceRows(params: { headers: Headers; page?: number;
       customerId: invoice.customerId,
       customerName,
       dealId: invoice.dealId,
+      orderId: invoice.orderId,
+      orderNumber,
       dealTitle,
       issueDate: invoice.issueDate,
       dueDate: invoice.dueDate,
       total: toMoneyDto(invoice.total),
       paidAmount: toMoneyDto(paidAmount),
-      remainingAmount: toMoneyDto(invoiceRemainingAmount(invoice.total, paidAmount)),
-      status: invoiceEffectiveStatus({ total: invoice.total, paidAmount, dueDate: invoice.dueDate }, today),
+      remainingAmount: toMoneyDto(invoiceRemainingAmount(invoice.total, paidAmount, invoice.voidedAt !== null)),
+      status: invoiceEffectiveStatus({ total: invoice.total, paidAmount, dueDate: invoice.dueDate, voided: invoice.voidedAt !== null }, today),
     };
   });
   return buildPaginatedDto(items, page, pageSize, count);
@@ -175,7 +189,7 @@ export async function getInvoiceSummary(params: { headers: Headers }): Promise<I
     })
     .from(invoices)
     .leftJoin(paid, eq(paid.invoiceId, invoices.id))
-    .where(eq(invoices.organizationId, actor.organizationId));
+    .where(and(eq(invoices.organizationId, actor.organizationId), isNull(invoices.voidedAt)));
 
   return {
     outstandingTotal: row?.outstandingTotal ?? "0",
@@ -206,8 +220,15 @@ export type InvoicePaymentDto = {
 export type InvoiceDetailDto = {
   id: string;
   invoiceNumber: string;
-  dealId: string;
+  dealId: string | null;
   dealTitle: string;
+  orderId: string;
+  orderNumber: string;
+  billingItemId: string;
+  billingItemLabel: string;
+  voidedAt: string | null;
+  voidReason: string | null;
+  replacesInvoiceId: string | null;
   customerId: string;
   issueDate: string;
   dueDate: string;
@@ -236,9 +257,11 @@ export async function getInvoiceDetail(params: { headers: Headers; invoiceId: st
   if (!id.success) throw new APIError("NOT_FOUND", { message: "Invoice not found" });
 
   const [row] = await db
-    .select({ invoice: invoices, dealTitle: deals.title, createdByName: creator.name })
+    .select({ invoice: invoices, dealTitle: sql<string>`coalesce(${deals.title}, ${orders.title})`, orderNumber: orders.orderNumber, billingItemLabel: billingItems.label, createdByName: creator.name })
     .from(invoices)
-    .innerJoin(deals, and(eq(deals.id, invoices.dealId), eq(deals.organizationId, invoices.organizationId)))
+    .innerJoin(orders, and(eq(orders.id, invoices.orderId), eq(orders.organizationId, invoices.organizationId)))
+    .innerJoin(billingItems, and(eq(billingItems.id, invoices.billingItemId), eq(billingItems.organizationId, invoices.organizationId)))
+    .leftJoin(deals, and(eq(deals.id, invoices.dealId), eq(deals.organizationId, invoices.organizationId)))
     .leftJoin(creator, eq(creator.id, invoices.createdById))
     .where(and(eq(invoices.id, id.data), eq(invoices.organizationId, actor.organizationId)))
     .limit(1);
@@ -275,6 +298,13 @@ export async function getInvoiceDetail(params: { headers: Headers; invoiceId: st
     invoiceNumber: invoice.invoiceNumber,
     dealId: invoice.dealId,
     dealTitle: row.dealTitle,
+    orderId: invoice.orderId,
+    orderNumber: row.orderNumber,
+    billingItemId: invoice.billingItemId,
+    billingItemLabel: row.billingItemLabel,
+    voidedAt: invoice.voidedAt ? toIsoDto(invoice.voidedAt) : null,
+    voidReason: invoice.voidReason,
+    replacesInvoiceId: invoice.replacesInvoiceId,
     customerId: invoice.customerId,
     issueDate: invoice.issueDate,
     dueDate: invoice.dueDate,
@@ -284,9 +314,9 @@ export async function getInvoiceDetail(params: { headers: Headers; invoiceId: st
     total: toMoneyDto(invoice.total),
     notes: invoice.notes,
     terms: invoice.terms,
-    status: invoiceEffectiveStatus({ total: invoice.total, paidAmount, dueDate: invoice.dueDate }, today),
+    status: invoiceEffectiveStatus({ total: invoice.total, paidAmount, dueDate: invoice.dueDate, voided: invoice.voidedAt !== null }, today),
     paidAmount: toMoneyDto(paidAmount),
-    remainingAmount: toMoneyDto(invoiceRemainingAmount(invoice.total, paidAmount)),
+    remainingAmount: toMoneyDto(invoiceRemainingAmount(invoice.total, paidAmount, invoice.voidedAt !== null)),
     createdByName: row.createdByName,
     seller: invoice.sellerSnapshot as SellerSnapshot,
     customer: invoice.customerSnapshot as CustomerSnapshot,
@@ -319,7 +349,7 @@ export async function listInvoiceActivities(params: { headers: Headers; invoiceI
   if (!id.success) throw new APIError("NOT_FOUND", { message: "Invoice not found" });
   const invoice = await db.query.invoices.findFirst({
     where: and(eq(invoices.id, id.data), eq(invoices.organizationId, actor.organizationId)),
-    columns: { id: true, dealId: true },
+    columns: { id: true, orderId: true },
   });
   if (!invoice) throw new APIError("NOT_FOUND", { message: "Invoice not found" });
 
@@ -331,7 +361,7 @@ export async function listInvoiceActivities(params: { headers: Headers; invoiceI
     .where(
       and(
         eq(activities.organizationId, actor.organizationId),
-        eq(activities.dealId, invoice.dealId),
+        eq(activities.orderId, invoice.orderId),
         eq(activities.permissionCategory, "finance"),
         sql`${activities.metadata}->>'invoiceId' = ${invoice.id}`,
       ),
@@ -350,35 +380,56 @@ export async function listInvoiceActivities(params: { headers: Headers; invoiceI
 }
 
 // ---------------------------------------------------------------------------
-// Creating an invoice (I-02): which deals qualify and what a source offers
+// Creating an invoice (I-02): which billing items qualify and what a source offers
 
-export type InvoiceableDealDto = { id: string; title: string; customerName: string; wonValue: string; wonAt: string | null };
+export type InvoiceableItemDto = {
+  /** The billing item's id. */
+  id: string;
+  label: string;
+  /** "Order title · billing item label", for pickers. */
+  title: string;
+  orderId: string;
+  orderNumber: string;
+  dealId: string | null;
+  customerName: string;
+  amount: string;
+  commitmentDate: string;
+};
 
-/** INV-01: only a won deal without an invoice can be billed. */
-export async function listInvoiceableDeals(params: { headers: Headers; query?: string }): Promise<InvoiceableDealDto[]> {
+/** INV-01: a billing item whose trigger is met and that has no live invoice, on an order that is not cancelled. */
+function readyItemCondition(organizationId: string, today: string): SQL {
+  return sql`${billingItems.organizationId} = ${organizationId}
+    and ${billingItems.cancelledAt} is null
+    and ${orders.cancelledAt} is null
+    and (${billingItems.trigger} = 'ON_ORDER'
+      or (${billingItems.trigger} = 'ON_DATE' and ${billingItems.dueOn} <= ${today}::date)
+      or (${billingItems.trigger} = 'ON_MILESTONE' and ${billingItems.milestoneDoneAt} is not null))
+    and not exists (select 1 from ${invoices} where ${invoices.billingItemId} = ${billingItems.id} and ${invoices.voidedAt} is null)`;
+}
+
+export async function listInvoiceableItems(params: { headers: Headers; query?: string }): Promise<InvoiceableItemDto[]> {
   const actor = await requirePermission({ headers: params.headers, permission: { invoice: ["write"] } });
   const query = z.string().trim().max(200).optional().parse(params.query);
   const pattern = query ? `%${escapeLike(query)}%` : undefined;
+  const { today } = await organizationClock(actor.organizationId);
   const rows = await db
-    .select({ deal: deals, customerName: customers.companyName })
-    .from(deals)
-    .innerJoin(customers, and(eq(customers.id, deals.customerId), eq(customers.organizationId, deals.organizationId)))
-    .where(
-      and(
-        eq(deals.organizationId, actor.organizationId),
-        eq(deals.status, "WON"),
-        sql`not exists (select 1 from ${invoices} where ${invoices.dealId} = ${deals.id} and ${invoices.organizationId} = ${actor.organizationId})`,
-        pattern ? or(ilike(deals.title, pattern), ilike(customers.companyName, pattern)) : undefined,
-      ),
-    )
-    .orderBy(desc(deals.wonAt), desc(deals.id))
+    .select({ item: billingItems, order: orders, customerName: customers.companyName })
+    .from(billingItems)
+    .innerJoin(orders, and(eq(orders.id, billingItems.orderId), eq(orders.organizationId, billingItems.organizationId)))
+    .innerJoin(customers, and(eq(customers.id, orders.customerId), eq(customers.organizationId, orders.organizationId)))
+    .where(and(readyItemCondition(actor.organizationId, today), pattern ? or(ilike(orders.title, pattern), ilike(orders.orderNumber, pattern), ilike(billingItems.label, pattern), ilike(customers.companyName, pattern)) : undefined))
+    .orderBy(desc(orders.commitmentDate), asc(orders.id), asc(billingItems.sortOrder), asc(billingItems.id))
     .limit(25);
-  return rows.map(({ deal, customerName }) => ({
-    id: deal.id,
-    title: deal.title,
+  return rows.map(({ item, order, customerName }) => ({
+    id: item.id,
+    label: item.label,
+    title: `${order.title} · ${item.label}`,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    dealId: order.dealId,
     customerName,
-    wonValue: toMoneyDto(deal.wonValue ?? deal.estimatedValue),
-    wonAt: deal.wonAt ? toIsoDto(deal.wonAt) : null,
+    amount: toMoneyDto(item.amount),
+    commitmentDate: order.commitmentDate,
   }));
 }
 
@@ -395,8 +446,9 @@ export type InvoiceSourceOptionDto = {
 };
 
 export type InvoiceDraftContextDto = {
-  deal: { id: string; title: string; customerName: string; wonValue: string; wonAt: string | null };
-  /** Set when the deal already has an invoice: the wizard opens that one instead. */
+  /** The billing item being invoiced; its amount is the invoice total (INV-03). */
+  target: InvoiceableItemDto;
+  /** Set when the item already has a live invoice: the wizard opens that one instead. */
   existingInvoice: { id: string; invoiceNumber: string } | null;
   sources: InvoiceSourceOptionDto[];
   defaultTerms: string | null;
@@ -404,39 +456,45 @@ export type InvoiceDraftContextDto = {
 };
 
 /**
- * What the wizard needs about a deal before it asks anything: that it is won,
- * whether it was already billed, and which quotations could be the source.
- * Finance reaches quotations only through here (§6.2: read access to the
- * source of a won deal's invoice, not general quotation access).
+ * What the wizard needs about a billing item before it asks anything: that it
+ * is ready, whether it was already billed, and which quotations of the order's
+ * deal could be the source. Finance reaches quotations only through here (§6.2:
+ * read access to the source of a won deal's invoice, not general quotation access).
  */
-export async function getInvoiceDraftContext(params: { headers: Headers; dealId: string }): Promise<InvoiceDraftContextDto> {
+export async function getInvoiceDraftContext(params: { headers: Headers; billingItemId: string }): Promise<InvoiceDraftContextDto> {
   const actor = await requirePermission({ headers: params.headers, permission: { invoice: ["write"] } });
-  const id = z.string().uuid().safeParse(params.dealId);
-  if (!id.success) throw new APIError("NOT_FOUND", { message: "Deal not found" });
+  const id = z.string().uuid().safeParse(params.billingItemId);
+  if (!id.success) throw new APIError("NOT_FOUND", { message: "Billing item not found" });
   const { today } = await organizationClock(actor.organizationId);
 
   const [row] = await db
-    .select({ deal: deals, customerName: customers.companyName })
-    .from(deals)
-    .innerJoin(customers, and(eq(customers.id, deals.customerId), eq(customers.organizationId, deals.organizationId)))
-    .where(and(eq(deals.id, id.data), eq(deals.organizationId, actor.organizationId)))
+    .select({ item: billingItems, order: orders, customerName: customers.companyName })
+    .from(billingItems)
+    .innerJoin(orders, and(eq(orders.id, billingItems.orderId), eq(orders.organizationId, billingItems.organizationId)))
+    .innerJoin(customers, and(eq(customers.id, orders.customerId), eq(customers.organizationId, orders.organizationId)))
+    .where(and(eq(billingItems.id, id.data), eq(billingItems.organizationId, actor.organizationId)))
     .limit(1);
-  if (!row) throw new APIError("NOT_FOUND", { message: "Deal not found" });
-  if (row.deal.status !== "WON") {
-    throw new APIError("BAD_REQUEST", { message: "An invoice can only be created for a WON deal" });
+  if (!row) throw new APIError("NOT_FOUND", { message: "Billing item not found" });
+  if (row.order.cancelledAt || row.item.cancelledAt) {
+    throw new APIError("BAD_REQUEST", { message: "The order is cancelled" });
   }
 
   const [existing] = await db
     .select({ id: invoices.id, invoiceNumber: invoices.invoiceNumber })
     .from(invoices)
-    .where(and(eq(invoices.dealId, row.deal.id), eq(invoices.organizationId, actor.organizationId)))
+    .where(and(eq(invoices.billingItemId, row.item.id), eq(invoices.organizationId, actor.organizationId), isNull(invoices.voidedAt)))
     .limit(1);
+  if (!existing && billingItemStatus({ ...row.item, hasLiveInvoice: false }, today) !== "READY") {
+    throw new APIError("BAD_REQUEST", { message: "This billing item is not ready to be invoiced" });
+  }
 
-  const quotationRows = await db
-    .select()
-    .from(quotations)
-    .where(and(eq(quotations.organizationId, actor.organizationId), eq(quotations.dealId, row.deal.id), ne(quotations.status, "REJECTED")))
-    .orderBy(desc(quotations.createdAt), desc(quotations.id));
+  const quotationRows = row.order.dealId
+    ? await db
+        .select()
+        .from(quotations)
+        .where(and(eq(quotations.organizationId, actor.organizationId), eq(quotations.dealId, row.order.dealId), ne(quotations.status, "REJECTED")))
+        .orderBy(desc(quotations.createdAt), desc(quotations.id))
+    : [];
   const recommended = quotationRows.find((quotation) => quotation.isLatest && quotation.status === "ACCEPTED") ?? quotationRows.find((quotation) => quotation.isLatest && quotation.status === "SENT");
 
   const settings = await db.query.organizationSettings.findFirst({
@@ -445,12 +503,16 @@ export async function getInvoiceDraftContext(params: { headers: Headers; dealId:
   });
 
   return {
-    deal: {
-      id: row.deal.id,
-      title: row.deal.title,
+    target: {
+      id: row.item.id,
+      label: row.item.label,
+      title: `${row.order.title} · ${row.item.label}`,
+      orderId: row.order.id,
+      orderNumber: row.order.orderNumber,
+      dealId: row.order.dealId,
       customerName: row.customerName,
-      wonValue: toMoneyDto(row.deal.wonValue ?? row.deal.estimatedValue),
-      wonAt: row.deal.wonAt ? toIsoDto(row.deal.wonAt) : null,
+      amount: toMoneyDto(row.item.amount),
+      commitmentDate: row.order.commitmentDate,
     },
     existingInvoice: existing ?? null,
     sources: quotationRows.map((quotation) => ({
@@ -528,9 +590,9 @@ export async function listNearestDueInvoices(params: { headers: Headers; limit?:
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
       customerName,
-      remainingAmount: toMoneyDto(invoiceRemainingAmount(invoice.total, paidAmount)),
+      remainingAmount: toMoneyDto(invoiceRemainingAmount(invoice.total, paidAmount, invoice.voidedAt !== null)),
       dueDate: invoice.dueDate,
-      status: invoiceEffectiveStatus({ total: invoice.total, paidAmount, dueDate: invoice.dueDate }, today),
+      status: invoiceEffectiveStatus({ total: invoice.total, paidAmount, dueDate: invoice.dueDate, voided: invoice.voidedAt !== null }, today),
     };
   });
 }
@@ -570,4 +632,61 @@ export async function getReceivedThisMonth(params: { headers: Headers }): Promis
     .from(payments)
     .where(and(eq(payments.organizationId, actor.organizationId), sql`${payments.paymentDate} >= ${monthStart}::date`, sql`${payments.paymentDate} < ${nextMonth}::date`));
   return { total: row?.total ?? "0", count: row?.count ?? 0 };
+}
+
+/** The deal page's "Buat invoice" button: the first billing item of the deal's orders that is ready to be invoiced. */
+export async function findReadyBillingItemOfDeal(params: { headers: Headers; dealId: string }): Promise<string | null> {
+  const actor = await requirePermission({ headers: params.headers, permission: { invoice: ["write"] } });
+  const dealId = z.string().uuid().safeParse(params.dealId);
+  if (!dealId.success) return null;
+  const { today } = await organizationClock(actor.organizationId);
+  const [row] = await db
+    .select({ id: billingItems.id })
+    .from(billingItems)
+    .innerJoin(orders, and(eq(orders.id, billingItems.orderId), eq(orders.organizationId, billingItems.organizationId)))
+    .where(and(readyItemCondition(actor.organizationId, today), eq(orders.dealId, dealId.data)))
+    .orderBy(asc(orders.createdAt), asc(billingItems.sortOrder), asc(billingItems.id))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/** INV-05: everything the invoice PDF needs, from the frozen snapshots (the invoice is immutable once issued). */
+export async function getInvoiceForPdf(params: { headers: Headers; invoiceId: string }) {
+  const actor = await requirePermission({ headers: params.headers, permission: { invoice: ["read"] } });
+  const id = z.string().uuid().safeParse(params.invoiceId);
+  if (!id.success) throw new APIError("NOT_FOUND", { message: "Invoice not found" });
+  const [row] = await db
+    .select({ invoice: invoices, orderNumber: orders.orderNumber })
+    .from(invoices)
+    .innerJoin(orders, and(eq(orders.id, invoices.orderId), eq(orders.organizationId, invoices.organizationId)))
+    .where(and(eq(invoices.id, id.data), eq(invoices.organizationId, actor.organizationId)))
+    .limit(1);
+  if (!row) throw new APIError("NOT_FOUND", { message: "Invoice not found" });
+  const { invoice } = row;
+  const items = await db.query.invoiceItems.findMany({
+    where: eq(invoiceItems.invoiceId, invoice.id),
+    orderBy: (item, { asc: ascOp }) => ascOp(item.sortOrder),
+  });
+  return {
+    invoiceNumber: invoice.invoiceNumber,
+    orderNumber: row.orderNumber,
+    dueDate: invoice.dueDate,
+    voided: invoice.voidedAt !== null,
+    issueDate: invoice.issueDate,
+    seller: invoice.sellerSnapshot as SellerSnapshot,
+    customer: invoice.customerSnapshot as CustomerSnapshot,
+    items: items.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unit: item.unit,
+      unitPrice: item.unitPrice,
+      subtotal: item.subtotal,
+    })),
+    subtotal: invoice.subtotal,
+    discount: invoice.discount,
+    tax: invoice.tax,
+    total: invoice.total,
+    notes: invoice.notes,
+    terms: invoice.terms,
+  };
 }

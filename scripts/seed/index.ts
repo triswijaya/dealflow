@@ -9,6 +9,8 @@ import { db } from "@/server/db/client";
 import { quotations, user } from "@/server/db/schema";
 import { createFollowUp } from "@/server/follow-ups/follow-ups";
 import { createInvoice } from "@/server/invoices/invoices";
+import { findReadyBillingItemOfDeal } from "@/server/invoices/invoice-views";
+import { confirmWon } from "@/server/orders/orders";
 import { recordPayment } from "@/server/invoices/payments";
 import { createQuotation, getQuotation, reviseQuotation, transitionQuotationStatus, updateQuotation } from "@/server/quotations/quotations";
 import { organizationDateString } from "@/server/shared/organization-date";
@@ -141,7 +143,10 @@ function buildItems(total: number, template: TemplateName, size = 8) {
 
 async function moveTo(actor: Actor, dealId: string, target: Stage) {
   const deal = await getDeal({ headers: actor.headers, dealId });
-  if (deal.status !== target) await transitionDeal({ headers: actor.headers, dealId, expectedVersion: deal.version, input: { toStatus: target } });
+  if (deal.status === target) return;
+  // Winning needs the evidence of the commitment, and makes the first order.
+  if (target === "WON") await confirmWon({ headers: actor.headers, dealId, expectedVersion: deal.version, input: { commitmentType: "PURCHASE_ORDER", commitmentRef: `PO-${dealId.slice(0, 8).toUpperCase()}` } });
+  else await transitionDeal({ headers: actor.headers, dealId, expectedVersion: deal.version, input: { toStatus: target } });
 }
 
 async function setQuotationStatus(actor: Actor, quotationId: string, toStatus: "SENT" | "ACCEPTED" | "REJECTED") {
@@ -214,6 +219,7 @@ async function ageDeal(dealId: string, days: number) {
   await db.execute(sql`update activities set created_at = created_at - ${back} where deal_id = ${dealId}`);
   await db.execute(sql`update deals set created_at = created_at - ${back}, updated_at = updated_at - ${back}, last_activity_at = last_activity_at - ${back}, won_at = won_at - ${back}, lost_at = lost_at - ${back} where id = ${dealId}`);
   await db.execute(sql`update quotations set created_at = created_at - ${back}, updated_at = updated_at - ${back}, sent_at = sent_at - ${back}, accepted_at = accepted_at - ${back}, rejected_at = rejected_at - ${back}, frozen_at = frozen_at - ${back} where deal_id = ${dealId}`);
+  await db.execute(sql`update orders set created_at = created_at - ${back}, commitment_date = commitment_date - ${days}::int where deal_id = ${dealId}`);
   await db.execute(sql`update invoices set created_at = created_at - ${back}, updated_at = updated_at - ${back} where deal_id = ${dealId}`);
   // A logged interaction cannot have been created after it happened.
   await db.execute(sql`update follow_ups set created_at = least(created_at - ${back}, coalesce(completed_at, created_at - ${back})), updated_at = least(updated_at - ${back}, coalesce(completed_at, updated_at - ${back})) where deal_id = ${dealId}`);
@@ -244,10 +250,12 @@ function storyAge(spec: DealSpec, index: number): number {
 
 async function seedInvoice(finance: Actor, spec: DealSpec, anchor: string, dealId: string, kind: InvoiceKind) {
   const plan = INVOICES[kind];
+  const billingItemId = await findReadyBillingItemOfDeal({ headers: finance.headers, dealId });
+  if (!billingItemId) throw new Error(`Deal ${dealId} has no billing item ready to invoice`);
   const invoice = await createInvoice({
     headers: finance.headers,
     input: {
-      dealId,
+      billingItemId,
       issueDate: addDays(anchor, plan.issue),
       dueDate: addDays(anchor, plan.due),
       items: buildItems(spec.value, spec.template!, spec.size),

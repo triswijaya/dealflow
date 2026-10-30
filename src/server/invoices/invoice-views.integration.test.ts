@@ -1,10 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type postgres from "postgres";
 import { createCustomer } from "@/server/customers/customers";
-import { createDeal, getDeal, transitionDeal } from "@/server/deals/deals";
+import { createDeal, getDeal,  } from "@/server/deals/deals";
 import { createQuotation, transitionQuotationStatus } from "@/server/quotations/quotations";
 import { addMember, migrateTestDatabase, setupOrganization, type TestOrg } from "@/server/testing/org-helpers";
-import { createInvoice } from "./invoices";
 import {
   getInvoiceDetail,
   getInvoiceSourceContent,
@@ -12,10 +11,11 @@ import {
   getInvoiceDraftContext,
   listInvoiceActivities,
   listInvoiceRows,
-  listInvoiceableDeals,
+  listInvoiceableItems,
 } from "./invoice-views";
 import { recordPayment } from "./payments";
 import { orgDay } from "@/server/testing/dates";
+import { createInvoiceForDeal, firstBillingItemOfDeal, transitionOrWin } from "@/server/testing/orders";
 
 const day = orgDay;
 
@@ -32,13 +32,13 @@ describe("invoice read models", () => {
     const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName, contactPerson: "dr. Lestari", phone: "08161234567" } });
     let deal = await createDeal({ headers: org.ownerHeaders, input: { customerId: customer.id, title, estimatedValue: "30000000", assignedToId: org.ownerUserId } });
     for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"]) {
-      deal = await transitionDeal({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus } });
+      deal = await transitionOrWin({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus } });
     }
     return { customer, deal };
   }
 
   const issue = (org: TestOrg, dealId: string, overrides: Record<string, unknown> = {}) =>
-    createInvoice({
+    createInvoiceForDeal({
       headers: org.ownerHeaders,
       input: { dealId, dueDate: day(20), items: [{ description: "Paket", quantity: "1", unit: "paket", unitPrice: "30000000" }], idempotencyKey: crypto.randomUUID(), ...overrides },
     });
@@ -170,7 +170,7 @@ describe("invoice read models", () => {
   });
 
   describe("creating an invoice", () => {
-    it("lists only won deals that have no invoice yet", async () => {
+    it("lists only billing items that are ready and have no live invoice", async () => {
       const org = await setupOrganization();
       const billed = await wonDeal(org, "Sudah ditagih");
       const ready = await wonDeal(org, "Siap ditagih");
@@ -178,10 +178,12 @@ describe("invoice read models", () => {
       const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName: "PT Aktif", contactPerson: "X", phone: "08123456789" } });
       await createDeal({ headers: org.ownerHeaders, input: { customerId: customer.id, title: "Masih aktif", estimatedValue: "1000000", assignedToId: org.ownerUserId } });
 
-      const deals = await listInvoiceableDeals({ headers: org.ownerHeaders });
-      expect(deals.map((deal) => deal.id)).toEqual([ready.deal.id]);
-      expect(deals[0]).toMatchObject({ title: "Siap ditagih", customerName: "Klinik Sehat", wonValue: "30000000" });
-      expect(await listInvoiceableDeals({ headers: org.ownerHeaders, query: "tidak ada" })).toEqual([]);
+      const items = await listInvoiceableItems({ headers: org.ownerHeaders });
+      const readyItem = (await firstBillingItemOfDeal(ready.deal.id))!.item;
+      expect(items.map((item) => item.id)).toEqual([readyItem.id]);
+      expect(items[0]).toMatchObject({ customerName: "Klinik Sehat", amount: "30000000", dealId: ready.deal.id });
+      expect(items[0]!.title).toContain("Siap ditagih");
+      expect(await listInvoiceableItems({ headers: org.ownerHeaders, query: "tidak ada" })).toEqual([]);
     });
 
     it("offers the deal's quotations as sources, recommends the accepted latest, and lets Finance read the content", async () => {
@@ -190,7 +192,7 @@ describe("invoice read models", () => {
       const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName: "PT Maju", contactPerson: "Budi", phone: "08123456789" } });
       let deal = await createDeal({ headers: org.ownerHeaders, input: { customerId: customer.id, title: "CCTV", estimatedValue: "13500000", assignedToId: org.ownerUserId } });
       for (const toStatus of ["PROPOSAL"]) {
-        deal = await transitionDeal({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus } });
+        deal = await transitionOrWin({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { toStatus } });
       }
       const quotation = await createQuotation({
         headers: org.ownerHeaders,
@@ -201,10 +203,10 @@ describe("invoice read models", () => {
       // Sending moved the deal to QUOTATION by itself; walk it on to WON.
       for (const toStatus of ["NEGOTIATION", "WON"]) {
         const current = await getDeal({ headers: org.ownerHeaders, dealId: deal.id });
-        await transitionDeal({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: current.version, input: { toStatus } });
+        await transitionOrWin({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: current.version, input: { toStatus } });
       }
 
-      const context = await getInvoiceDraftContext({ headers: finance.headers, dealId: deal.id });
+      const context = await getInvoiceDraftContext({ headers: finance.headers, billingItemId: (await firstBillingItemOfDeal(deal.id))!.item.id });
       expect(context.existingInvoice).toBeNull();
       expect(context.sources).toHaveLength(1);
       expect(context.sources[0]).toMatchObject({ id: quotation.id, status: accepted.status, recommended: true, total: "13500000" });
@@ -215,15 +217,13 @@ describe("invoice read models", () => {
       expect(content.editVersion).toBeGreaterThan(0);
     });
 
-    it("refuses a deal that is not won, flags one already billed, and hides another deal's quotation", async () => {
+    it("refuses an unknown billing item, flags one already billed, and hides another deal's quotation", async () => {
       const org = await setupOrganization();
-      const open = await createCustomer({ headers: org.ownerHeaders, input: { companyName: "PT Terbuka", contactPerson: "X", phone: "08123456789" } });
-      const openDeal = await createDeal({ headers: org.ownerHeaders, input: { customerId: open.id, title: "Terbuka", estimatedValue: "1000000", assignedToId: org.ownerUserId } });
-      await expect(getInvoiceDraftContext({ headers: org.ownerHeaders, dealId: openDeal.id })).rejects.toThrow(/WON/);
+      await expect(getInvoiceDraftContext({ headers: org.ownerHeaders, billingItemId: "00000000-0000-4000-8000-000000000000" })).rejects.toThrow(/not found/i);
 
       const { deal } = await wonDeal(org, "Ditagih");
       const invoice = await issue(org, deal.id);
-      const context = await getInvoiceDraftContext({ headers: org.ownerHeaders, dealId: deal.id });
+      const context = await getInvoiceDraftContext({ headers: org.ownerHeaders, billingItemId: (await firstBillingItemOfDeal(deal.id))!.item.id });
       expect(context.existingInvoice).toEqual({ id: invoice.id, invoiceNumber: invoice.invoiceNumber });
 
       await expect(getInvoiceSourceContent({ headers: org.ownerHeaders, dealId: deal.id, quotationId: "00000000-0000-4000-8000-000000000000" })).rejects.toThrow(/not found/i);

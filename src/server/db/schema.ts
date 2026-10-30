@@ -414,7 +414,9 @@ export const activities = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "restrict" }),
-    dealId: uuid("deal_id").notNull(),
+    // A deal's timeline, or (for a direct order) the order's own.
+    dealId: uuid("deal_id"),
+    orderId: uuid("order_id"),
     entityType: text("entity_type").notNull(),
     eventType: text("event_type").notNull(),
     // Nullable: a future system-generated event (e.g. an automated reminder)
@@ -432,8 +434,15 @@ export const activities = pgTable(
       columns: [table.organizationId, table.dealId],
       foreignColumns: [deals.organizationId, deals.id],
     }).onDelete("restrict"),
+    foreignKey({
+      name: "activities_order_tenant_fk",
+      columns: [table.organizationId, table.orderId],
+      foreignColumns: [orders.organizationId, orders.id],
+    }).onDelete("restrict"),
     // DATA-03: activities tenant+deal+created_at.
     index("activities_organizationId_dealId_createdAt_idx").on(table.organizationId, table.dealId, table.createdAt),
+    index("activities_organizationId_orderId_createdAt_idx").on(table.organizationId, table.orderId, table.createdAt),
+    check("activities_subject_chk", sql`${table.dealId} IS NOT NULL OR ${table.orderId} IS NOT NULL`),
   ],
 );
 
@@ -704,6 +713,139 @@ export const quotationItems = pgTable(
 // paid/status jika dipakai" (optional), and PAY-03 computes the balance
 // fresh under the row lock anyway, so a cached copy would add an
 // invalidation path without buying correctness.
+// Business table (v2.0, ORD-01). A purchase commitment: the evidence that a
+// customer will buy, not an invoice and not money. Created by confirmWon,
+// addOrderToDeal or createDirectOrder; the running value is the original value
+// plus the signed amendments, never stored.
+export const orders = pgTable(
+  "orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    customerId: uuid("customer_id").notNull(),
+    // Null for a direct order (a buyer who never went through the pipeline).
+    dealId: uuid("deal_id"),
+    contactId: uuid("contact_id"),
+    // "SO-2026-00001", numbered like quotations and invoices with its own counter.
+    orderNumber: text("order_number").notNull(),
+    title: text("title").notNull(),
+    scope: text("scope"),
+    commitmentType: text("commitment_type").notNull(),
+    commitmentRef: text("commitment_ref"),
+    commitmentDate: date("commitment_date", { mode: "string" }).notNull(),
+    originalValue: bigint("original_value", { mode: "bigint" }).notNull(),
+    sourceQuotationId: uuid("source_quotation_id"),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelReason: text("cancel_reason"),
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    foreignKey({
+      name: "orders_customer_tenant_fk",
+      columns: [table.organizationId, table.customerId],
+      foreignColumns: [customers.organizationId, customers.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "orders_deal_tenant_fk",
+      columns: [table.organizationId, table.dealId],
+      foreignColumns: [deals.organizationId, deals.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "orders_contact_customer_fk",
+      columns: [table.organizationId, table.customerId, table.contactId],
+      foreignColumns: [contacts.organizationId, contacts.customerId, contacts.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "orders_quotation_tenant_fk",
+      columns: [table.organizationId, table.sourceQuotationId],
+      foreignColumns: [quotations.organizationId, quotations.id],
+    }).onDelete("restrict"),
+    uniqueIndex("orders_organizationId_id_uidx").on(table.organizationId, table.id),
+    uniqueIndex("orders_organizationId_number_uidx").on(table.organizationId, table.orderNumber),
+    index("orders_organizationId_dealId_idx").on(table.organizationId, table.dealId),
+    index("orders_organizationId_customerId_idx").on(table.organizationId, table.customerId),
+    index("orders_organizationId_commitmentDate_idx").on(table.organizationId, table.commitmentDate),
+    check(
+      "orders_commitmentType_chk",
+      sql`${table.commitmentType} IN ('PURCHASE_ORDER', 'CONTRACT', 'WRITTEN_CONFIRMATION', 'PAYMENT', 'LEGACY')`,
+    ),
+    check("orders_originalValue_range_chk", sql`${table.originalValue} > 0 AND ${table.originalValue} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`),
+  ],
+);
+
+// ORD-03: signed value changes (extra work, reduced work), append-only.
+export const orderAmendments = pgTable(
+  "order_amendments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    orderId: uuid("order_id").notNull(),
+    delta: bigint("delta", { mode: "bigint" }).notNull(),
+    reason: text("reason").notNull(),
+    reference: text("reference"),
+    effectiveDate: date("effective_date", { mode: "string" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    foreignKey({
+      name: "order_amendments_order_tenant_fk",
+      columns: [table.organizationId, table.orderId],
+      foreignColumns: [orders.organizationId, orders.id],
+    }).onDelete("restrict"),
+    index("order_amendments_organizationId_orderId_idx").on(table.organizationId, table.orderId),
+    check("order_amendments_delta_chk", sql`${table.delta} <> 0 AND abs(${table.delta}) <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`),
+  ],
+);
+
+// BIL-01: the billing plan of an order. Their non-cancelled amounts add up to
+// the order's running value (BIL-02); status is derived when read (BIL-03).
+export const billingItems = pgTable(
+  "billing_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    orderId: uuid("order_id").notNull(),
+    label: text("label").notNull(),
+    amount: bigint("amount", { mode: "bigint" }).notNull(),
+    trigger: text("trigger").notNull(),
+    dueOn: date("due_on", { mode: "string" }),
+    isRetention: boolean("is_retention").notNull().default(false),
+    milestoneDoneAt: timestamp("milestone_done_at", { withTimezone: true }),
+    milestoneRef: text("milestone_ref"),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdById: text("created_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    foreignKey({
+      name: "billing_items_order_tenant_fk",
+      columns: [table.organizationId, table.orderId],
+      foreignColumns: [orders.organizationId, orders.id],
+    }).onDelete("restrict"),
+    uniqueIndex("billing_items_organizationId_id_uidx").on(table.organizationId, table.id),
+    index("billing_items_organizationId_orderId_idx").on(table.organizationId, table.orderId),
+    check("billing_items_trigger_chk", sql`${table.trigger} IN ('ON_ORDER', 'ON_DATE', 'ON_MILESTONE')`),
+    check("billing_items_dueOn_chk", sql`(${table.trigger} = 'ON_DATE') = (${table.dueOn} IS NOT NULL)`),
+    check("billing_items_amount_range_chk", sql`${table.amount} > 0 AND ${table.amount} <= ${sql.raw(MAX_MONEY_AMOUNT_SQL)}`),
+  ],
+);
+
 export const invoices = pgTable(
   "invoices",
   {
@@ -711,8 +853,17 @@ export const invoices = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "restrict" }),
-    dealId: uuid("deal_id").notNull(),
+    // Optional since a direct order has no deal.
+    dealId: uuid("deal_id"),
     customerId: uuid("customer_id").notNull(),
+    // INV-01: an invoice bills exactly one billing item of one order.
+    orderId: uuid("order_id").notNull(),
+    billingItemId: uuid("billing_item_id").notNull(),
+    // INV-08: void keeps the invoice, its number and its content; a replacement points back.
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidedById: text("voided_by_id").references(() => user.id, { onDelete: "restrict" }),
+    voidReason: text("void_reason"),
+    replacesInvoiceId: uuid("replaces_invoice_id"),
     // INV-04: server-generated "INV-2026-00001", same numbering policy as
     // quotations (§8.2), sharing documentCounters via documentType.
     invoiceNumber: text("invoice_number").notNull(),
@@ -773,10 +924,27 @@ export const invoices = pgTable(
     }).onDelete("restrict"),
     // Lets invoice_items carry a composite FK to (organizationId, id).
     uniqueIndex("invoices_organizationId_id_uidx").on(table.organizationId, table.id),
-    // INV-04: "Unique (organization_id, deal_id) mencegah dua invoice untuk
-    // satu deal." The last line of defence behind createInvoice's own
-    // idempotency handling.
-    uniqueIndex("invoices_organizationId_dealId_uidx").on(table.organizationId, table.dealId),
+    foreignKey({
+      name: "invoices_order_tenant_fk",
+      columns: [table.organizationId, table.orderId],
+      foreignColumns: [orders.organizationId, orders.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "invoices_billing_item_tenant_fk",
+      columns: [table.organizationId, table.billingItemId],
+      foreignColumns: [billingItems.organizationId, billingItems.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "invoices_replaces_tenant_fk",
+      columns: [table.organizationId, table.replacesInvoiceId],
+      foreignColumns: [table.organizationId, table.id],
+    }).onDelete("restrict"),
+    // INV-04: at most one live invoice per billing item. The last line of
+    // defence behind the locks createInvoice takes.
+    uniqueIndex("invoices_billingItemId_live_uidx").on(table.billingItemId).where(sql`${table.voidedAt} IS NULL`),
+    index("invoices_organizationId_orderId_idx").on(table.organizationId, table.orderId),
+    index("invoices_organizationId_dealId_idx").on(table.organizationId, table.dealId),
+    check("invoices_void_pair_chk", sql`(${table.voidedAt} IS NULL) = (${table.voidReason} IS NULL)`),
     // DATA-02: nomor invoice unik per tenant.
     uniqueIndex("invoices_organizationId_number_uidx").on(table.organizationId, table.invoiceNumber),
     // DATA-03: invoices tenant+customer/due_date.

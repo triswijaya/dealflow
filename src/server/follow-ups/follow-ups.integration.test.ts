@@ -7,10 +7,11 @@ import { auth } from "@/server/auth/auth";
 import { inviteMember, acceptInvitation } from "@/server/auth/members";
 import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
-import { createDeal, reopenDeal, transitionDeal } from "@/server/deals/deals";
+import { createDeal, reopenDeal,  } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
 import { activities, deals, followUps } from "@/server/db/schema";
 import { completeFollowUp, createFollowUp, getFollowUp, listActiveFollowUps, listFollowUps, updateFollowUp } from "./follow-ups";
+import { transitionOrWin } from "@/server/testing/orders";
 
 async function sessionCookieFor(email: string, password: string): Promise<string> {
   // signIn.token (the JSON body) is not the same value the cookie needs; see
@@ -100,14 +101,14 @@ describe("follow-ups", () => {
 
   async function advanceDealToLost(ownerCookie: string, dealId: string) {
     let deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
-    await transitionDeal({
+    await transitionOrWin({
       headers: new Headers({ cookie: ownerCookie }),
       dealId,
       expectedVersion: deal!.version,
       input: { toStatus: "PROPOSAL" },
     });
     deal = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
-    await transitionDeal({
+    await transitionOrWin({
       headers: new Headers({ cookie: ownerCookie }),
       dealId,
       expectedVersion: deal!.version,

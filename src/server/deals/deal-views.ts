@@ -605,7 +605,7 @@ export async function listRecentActivities(params: { headers: Headers; limit?: n
     actorName,
     createdAt: toIsoDto(activity.createdAt),
     metadata: (activity.metadata as Record<string, unknown> | null) ?? null,
-    dealId: activity.dealId,
+    dealId: activity.dealId!,
     dealTitle,
     customerName,
   }));

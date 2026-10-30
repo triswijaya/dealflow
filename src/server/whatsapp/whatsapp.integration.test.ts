@@ -7,11 +7,12 @@ import { auth } from "@/server/auth/auth";
 import { inviteMember, acceptInvitation } from "@/server/auth/members";
 import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
-import { createDeal, transitionDeal } from "@/server/deals/deals";
+import { createDeal,  } from "@/server/deals/deals";
 import { db } from "@/server/db/client";
 import { activities } from "@/server/db/schema";
 import { createQuotation, transitionQuotationStatus } from "@/server/quotations/quotations";
 import { buildFollowUpWhatsAppMessage, recordWhatsAppOpened } from "./whatsapp";
+import { transitionOrWin } from "@/server/testing/orders";
 
 async function sessionCookieFor(email: string, password: string): Promise<string> {
   // signIn.token (the JSON body) is not the same value the cookie needs; see
@@ -91,7 +92,7 @@ describe("whatsapp", () => {
   async function advanceDealToQualified(ownerCookie: string, dealId: string) {
     for (const toStatus of ["PROPOSAL"] as const) {
       const current = await db.query.deals.findFirst({ where: (d, { eq: eqOp }) => eqOp(d.id, dealId) });
-      await transitionDeal({
+      await transitionOrWin({
         headers: new Headers({ cookie: ownerCookie }),
         dealId,
         expectedVersion: current!.version,

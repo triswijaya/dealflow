@@ -25,7 +25,9 @@ export type InvoiceItemDto = {
 export type InvoiceDto = {
   id: string;
   organizationId: string;
-  dealId: string;
+  dealId: string | null;
+  orderId: string;
+  billingItemId: string;
   customerId: string;
   invoiceNumber: string;
   quotationId: string | null;
@@ -39,6 +41,9 @@ export type InvoiceDto = {
   notes: string | null;
   terms: string | null;
   status: string;
+  voidedAt: string | null;
+  voidReason: string | null;
+  replacesInvoiceId: string | null;
   paidAmount: string;
   remainingAmount: string;
   sellerSnapshot: SellerSnapshot | null;
@@ -96,6 +101,8 @@ export function toInvoiceDto(row: InvoiceRow, items: InvoiceItemRow[], paidAmoun
     id: row.id,
     organizationId: row.organizationId,
     dealId: row.dealId,
+    orderId: row.orderId,
+    billingItemId: row.billingItemId,
     customerId: row.customerId,
     invoiceNumber: row.invoiceNumber,
     quotationId: row.quotationId,
@@ -108,9 +115,12 @@ export function toInvoiceDto(row: InvoiceRow, items: InvoiceItemRow[], paidAmoun
     currency: row.currency,
     notes: row.notes,
     terms: row.terms,
-    status: invoiceEffectiveStatus({ total: row.total, paidAmount, dueDate: row.dueDate }, todayOrg),
+    status: invoiceEffectiveStatus({ total: row.total, paidAmount, dueDate: row.dueDate, voided: row.voidedAt !== null }, todayOrg),
+    voidedAt: row.voidedAt ? toIsoDto(row.voidedAt) : null,
+    voidReason: row.voidReason,
+    replacesInvoiceId: row.replacesInvoiceId,
     paidAmount: toMoneyDto(paidAmount),
-    remainingAmount: toMoneyDto(invoiceRemainingAmount(row.total, paidAmount)),
+    remainingAmount: toMoneyDto(invoiceRemainingAmount(row.total, paidAmount, row.voidedAt !== null)),
     sellerSnapshot: row.sellerSnapshot,
     customerSnapshot: row.customerSnapshot,
     createdAt: toIsoDto(row.createdAt),
@@ -147,7 +157,7 @@ export function toPaymentResultDto(
     invoiceNumber: invoice.invoiceNumber,
     total: toMoneyDto(invoice.total),
     paidAmount: toMoneyDto(paidAmount),
-    remainingAmount: toMoneyDto(invoiceRemainingAmount(invoice.total, paidAmount)),
-    status: invoiceEffectiveStatus({ total: invoice.total, paidAmount, dueDate: invoice.dueDate }, todayOrg),
+    remainingAmount: toMoneyDto(invoiceRemainingAmount(invoice.total, paidAmount, invoice.voidedAt !== null)),
+    status: invoiceEffectiveStatus({ total: invoice.total, paidAmount, dueDate: invoice.dueDate, voided: invoice.voidedAt !== null }, todayOrg),
   };
 }

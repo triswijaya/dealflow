@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/ui/misc";
 import { one } from "@/lib/url";
-import { getInvoiceDraftContext, listInvoiceableDeals } from "@/server/invoices/invoice-views";
+import { findReadyBillingItemOfDeal, getInvoiceDraftContext, listInvoiceableItems } from "@/server/invoices/invoice-views";
 import { load, requireWorkspace } from "../../workspace";
 import { InvoiceWizard } from "../invoice-wizard";
 
@@ -12,19 +12,23 @@ export const metadata: Metadata = { title: "Buat invoice · DealFlow" };
 export default async function NewInvoicePage({ searchParams }: PageProps<"/invoices/new">) {
   // Sales have no invoice access (§6.2).
   const workspace = await requireWorkspace(["OWNER", "ADMIN", "FINANCE"]);
-  const dealId = one((await searchParams).dealId);
+  const params = await searchParams;
+  const dealId = one(params.dealId);
+  // From a deal page: its first billing item that is ready; otherwise the picker, or a given item.
+  const billingItemId = one(params.billingItemId) ?? (dealId ? await load((headers) => findReadyBillingItemOfDeal({ headers, dealId })) : undefined);
 
-  const context = dealId ? await load((headers) => getInvoiceDraftContext({ headers, dealId })) : null;
-  const deals = dealId ? [] : await load((headers) => listInvoiceableDeals({ headers }));
+  const context = billingItemId ? await load((headers) => getInvoiceDraftContext({ headers, billingItemId })) : null;
+  const deals = billingItemId || dealId ? [] : await load((headers) => listInvoiceableItems({ headers }));
+  const nothingReady = !billingItemId && (Boolean(dealId) || deals.length === 0);
 
   return (
     <>
-      <PageHeader title="Buat invoice" description="Terbitkan tagihan dari deal yang sudah menang." />
-      {!dealId && deals.length === 0 ? (
+      <PageHeader title="Buat invoice" description="Terbitkan tagihan dari termin pesanan yang sudah siap." />
+      {nothingReady ? (
         <EmptyState
           icon={Receipt}
-          title="Tidak ada deal yang siap ditagih"
-          description="Invoice hanya dapat dibuat dari deal Menang yang belum memiliki invoice."
+          title="Tidak ada termin yang siap ditagih"
+          description="Invoice dibuat dari termin pesanan yang sudah siap ditagih dan belum punya invoice."
           action={
             <ButtonLink variant="tertiary" href="/deals?stage=WON">
               Lihat deal menang

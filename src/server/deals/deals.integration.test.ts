@@ -7,6 +7,7 @@ import { auth } from "@/server/auth/auth";
 import { inviteMember, acceptInvitation } from "@/server/auth/members";
 import { registerOwner } from "@/server/auth/register-owner";
 import { createCustomer } from "@/server/customers/customers";
+import { winDeal } from "@/server/testing/orders";
 import { createDeal, getDeal, listDeals, transitionDeal, updateDeal } from "./deals";
 import { db } from "@/server/db/client";
 import { activities, deals } from "@/server/db/schema";
@@ -454,14 +455,14 @@ describe("deals", () => {
     expect(financeList.items[0]?.id).toBe(wonDeal.id);
   });
 
-  it("walks PROSPECT -> PROPOSAL -> NEGOTIATION -> COMMITMENT -> WON, logging an activity per step", async () => {
+  it("walks PROSPECT -> PROPOSAL -> NEGOTIATION -> COMMITMENT, then wins with a confirmed order, logging an event per step", async () => {
     const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
     let deal = await createDeal({
       headers: new Headers({ cookie: ownerCookie }),
       input: dealInput(customerId, { assignedToId: ownerUserId }),
     });
 
-    for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"] as const) {
+    for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT"] as const) {
       deal = await transitionDeal({
         headers: new Headers({ cookie: ownerCookie }),
         dealId: deal.id,
@@ -470,6 +471,8 @@ describe("deals", () => {
       });
       expect(deal.status).toBe(toStatus);
     }
+    ({ deal } = await winDeal(new Headers({ cookie: ownerCookie }), deal.id));
+    expect(deal.status).toBe("WON");
 
     expect(deal.wonAt).not.toBeNull();
     expect(deal.wonValue).toBe("30000000");
@@ -505,13 +508,15 @@ describe("deals", () => {
     );
   });
 
-  it("can win a deal straight from any active stage", async () => {
+  it("can win a deal straight from any active stage, and winning is not a plain transition (DEAL-04)", async () => {
     const { ownerCookie, customerId, ownerUserId } = await setupOwnerWithCustomer();
-    const created = await createDeal({
-      headers: new Headers({ cookie: ownerCookie }),
-      input: dealInput(customerId, { assignedToId: ownerUserId }),
-    });
-    const won = await transitionDeal({ headers: new Headers({ cookie: ownerCookie }), dealId: created.id, expectedVersion: created.version, input: { toStatus: "WON" } });
+    const headers = new Headers({ cookie: ownerCookie });
+    const created = await createDeal({ headers, input: dealInput(customerId, { assignedToId: ownerUserId }) });
+
+    await expect(transitionDeal({ headers, dealId: created.id, expectedVersion: created.version, input: { toStatus: "WON" } })).rejects.toThrow(/confirmWon/);
+    expect((await db.query.deals.findFirst({ where: eq(deals.id, created.id) }))).toMatchObject({ status: "PROSPECT", version: 1 });
+
+    const { deal: won } = await winDeal(headers, created.id);
     expect(won.status).toBe("WON");
     expect(won.wonValue).toBe("30000000");
   });
@@ -674,14 +679,7 @@ describe("deals", () => {
       input: dealInput(customerId, { assignedToId: ownerUserId, estimatedValue: "0" }),
     });
 
-    await expect(
-      transitionDeal({
-        headers: new Headers({ cookie: ownerCookie }),
-        dealId: deal.id,
-        expectedVersion: deal.version,
-        input: { toStatus: "WON" },
-      }),
-    ).rejects.toThrow(/positive/);
+    await expect(winDeal(new Headers({ cookie: ownerCookie }), deal.id)).rejects.toThrow(/positive/);
   });
 
   it("rejects a transition with a stale version, and does not leave an orphaned activity", async () => {
@@ -751,7 +749,7 @@ describe("deals", () => {
       input: dealInput(customerId, { assignedToId: ownerUserId }),
     });
     let deal = created;
-    for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT", "WON"] as const) {
+    for (const toStatus of ["PROPOSAL", "NEGOTIATION", "COMMITMENT"] as const) {
       deal = await transitionDeal({
         headers: new Headers({ cookie: ownerCookie }),
         dealId: deal.id,
@@ -759,6 +757,7 @@ describe("deals", () => {
         input: { toStatus },
       });
     }
+    ({ deal } = await winDeal(new Headers({ cookie: ownerCookie }), deal.id));
 
     await expect(
       updateDeal({
