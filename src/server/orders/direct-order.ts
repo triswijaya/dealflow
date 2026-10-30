@@ -7,14 +7,6 @@ import { organizationClock } from "@/server/shared/organization-clock";
 import { APIError } from "better-auth/api";
 import { directOrderSchema, getOrder, insertDirectOrder } from "./orders";
 
-// Optional parts of the one-submit flow (ORD-02): what to invoice and what was paid.
-const invoicePartSchema = createInvoiceInputSchema
-  .omit({ billingItemId: true, items: true, quotationId: true, expectedSourceEditVersion: true, replacesInvoiceId: true })
-  .extend({ items: createInvoiceInputSchema.shape.items.optional(), dueDate: createInvoiceInputSchema.shape.dueDate.optional() });
-const paymentPartSchema = recordPaymentInputSchema
-  .omit({ invoiceId: true, amount: true, paymentDate: true })
-  .extend({ amount: recordPaymentInputSchema.shape.amount.optional(), paymentDate: recordPaymentInputSchema.shape.paymentDate.optional() });
-
 const inputSchema = z.object({ order: z.unknown(), invoice: z.unknown().optional(), payment: z.unknown().optional() });
 
 /**
@@ -28,8 +20,9 @@ export async function createDirectOrderWithBilling(params: { headers: Headers; i
   const actor = await requirePermission({ headers: params.headers, permission: { order: ["write"] } });
   const parts = inputSchema.parse(params.input);
   const orderInput = directOrderSchema.parse(parts.order);
-  const invoicePart = parts.invoice === undefined ? null : invoicePartSchema.parse(parts.invoice);
-  const paymentPart = parts.payment === undefined ? null : paymentPartSchema.parse(parts.payment);
+  // The optional parts are validated once, merged with what the order decides (item, invoice, amounts).
+  const invoicePart = parts.invoice === undefined ? null : z.record(z.string(), z.unknown()).parse(parts.invoice);
+  const paymentPart = parts.payment === undefined ? null : z.record(z.string(), z.unknown()).parse(parts.payment);
   if (paymentPart && !invoicePart) {
     throw new APIError("BAD_REQUEST", { message: "A payment needs an invoice to settle" });
   }
@@ -54,6 +47,7 @@ export async function createDirectOrderWithBilling(params: { headers: Headers; i
         billingItemId: item.id,
         dueDate: invoicePart.dueDate ?? clock.today,
         items: invoicePart.items ?? [{ description: order.title, quantity: "1", unit: "paket", unitPrice: item.amount.toString() }],
+        quotationId: undefined,
       }),
     );
     if (!paymentPart) return { orderId: order.id, invoiceId: invoice.id, paymentId: null };
@@ -65,7 +59,7 @@ export async function createDirectOrderWithBilling(params: { headers: Headers; i
       recordPaymentInputSchema.parse({
         ...paymentPart,
         invoiceId: invoice.id,
-        amount: (paymentPart.amount ?? BigInt(invoice.total)).toString(),
+        amount: paymentPart.amount ?? invoice.total,
         paymentDate: paymentPart.paymentDate ?? clock.today,
       }),
     );

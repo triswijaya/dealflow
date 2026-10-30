@@ -10,7 +10,8 @@ vi.mock("@/server/email/send-email", async () => {
     ...actual,
     sendEmail: vi.fn(async (message: (typeof sent)[number]) => {
       if (failWith) throw failWith;
-      sent.push(message);
+      // Account mails (verification, invitations) go through the same function; only the outbox's own mails are recorded.
+      if (/^(Quotation|Invoice|Ringkasan)/.test(message.subject)) sent.push(message);
     }),
   };
 });
@@ -305,21 +306,21 @@ describe("transactional outbox (ADR-0004)", () => {
       const admin = await addMember(org, "ADMIN", "Maya");
       const sales = await addMember(org, "SALES", "Andi");
       void sales;
-      const quiet = await enqueueDailySummaries();
-      expect(quiet.organizations).toBeGreaterThan(0);
+      const quiet = await enqueueDailySummaries({ organizationId: org.organizationId });
+      expect(quiet.organizations).toBe(1);
       expect(await db.query.outboxEvents.findMany({ where: and(eq(outboxEvents.organizationId, org.organizationId), eq(outboxEvents.type, DAILY_SUMMARY_EMAIL)) })).toHaveLength(0);
 
       const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName: "PT Siap", phone: "08123456789" } });
       await createDirectOrder({ headers: org.ownerHeaders, input: { customerId: customer.id, title: "Siap tagih", commitmentType: "CONTRACT", value: "5000000" } });
 
-      await enqueueDailySummaries();
+      await enqueueDailySummaries({ organizationId: org.organizationId });
       const queued = await db.query.outboxEvents.findMany({ where: and(eq(outboxEvents.organizationId, org.organizationId), eq(outboxEvents.type, DAILY_SUMMARY_EMAIL)) });
       expect(queued).toHaveLength(2);
       expect(queued.map((event) => (event.payload as { to: string }).to).sort()).toHaveLength(2);
       expect((queued[0]!.payload as { text: string }).text).toContain("1 termin siap ditagih");
 
       // The cron may run twice in a day: nobody is mailed twice.
-      const again = await enqueueDailySummaries();
+      const again = await enqueueDailySummaries({ organizationId: org.organizationId });
       expect(again.enqueued).toBe(0);
       expect(await db.query.outboxEvents.findMany({ where: and(eq(outboxEvents.organizationId, org.organizationId), eq(outboxEvents.type, DAILY_SUMMARY_EMAIL)) })).toHaveLength(2);
 
@@ -335,7 +336,7 @@ describe("transactional outbox (ADR-0004)", () => {
       await deactivateMember({ memberId: admin.memberId, headers: org.ownerHeaders });
       const customer = await createCustomer({ headers: org.ownerHeaders, input: { companyName: "PT Siap", phone: "08123456789" } });
       await createDirectOrder({ headers: org.ownerHeaders, input: { customerId: customer.id, title: "Siap tagih", commitmentType: "CONTRACT", value: "5000000" } });
-      await enqueueDailySummaries();
+      await enqueueDailySummaries({ organizationId: org.organizationId });
       const queued = await db.query.outboxEvents.findMany({ where: and(eq(outboxEvents.organizationId, org.organizationId), eq(outboxEvents.type, DAILY_SUMMARY_EMAIL)) });
       expect(queued).toHaveLength(1);
     });

@@ -13,8 +13,11 @@ import { enqueueOutbox } from "./outbox";
  * no mail. The dedupe key holds the organization's date and the recipient, so
  * running the cron twice in a day (or retrying it) mails nobody twice.
  */
-export async function enqueueDailySummaries(): Promise<{ organizations: number; enqueued: number }> {
-  const organizations = await db.select({ id: organization.id, name: organization.name }).from(organization);
+export async function enqueueDailySummaries(options: { organizationId?: string } = {}): Promise<{ organizations: number; enqueued: number }> {
+  const organizations = await db
+    .select({ id: organization.id, name: organization.name })
+    .from(organization)
+    .where(options.organizationId ? eq(organization.id, options.organizationId) : undefined);
   let enqueued = 0;
 
   for (const org of organizations) {

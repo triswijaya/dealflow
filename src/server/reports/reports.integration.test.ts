@@ -223,7 +223,7 @@ describe("report figures, exports and reconcile (§11.1, OPS)", () => {
       const found = await withDamage(org, async (tx) => {
         await tx.update(billingItems).set({ amount: 9_000_000n }).where(eq(billingItems.id, order.billingItems[0]!.id));
         // The unique index would stop a second live invoice; dropping the void marker simulates one slipping in.
-        await tx.execute(sql`drop index invoices_billingItemId_live_uidx`);
+        await tx.execute(sql`drop index "invoices_billingItemId_live_uidx"`);
         await tx.insert(invoices).values({ ...(await tx.query.invoices.findFirst({ where: eq(invoices.id, invoice.id) }))!, id: crypto.randomUUID(), invoiceNumber: "INV-COPY-1" });
       });
       expect(found.map((finding) => finding.check).sort()).toEqual(["live_invoice_equals_item", "one_live_invoice_per_item", "order_plan_matches_value"]);

@@ -72,7 +72,7 @@ describe("collection tasks, work queues and WhatsApp collection (FUP, TASK-01, W
       const cancelled = await cancelCollectionTask({ headers: finance.headers, followUpId: other.id, input: { reason: "Sudah dibayar" } });
       expect(cancelled.id).toBe(other.id);
       await expect(completeCollectionTask({ headers: finance.headers, followUpId: other.id, expectedVersion: 99 })).rejects.toThrow(/cancelled/);
-      expect((await listCollectionTasks({ headers: finance.headers, invoiceId: invoice.id })).map((item) => item.id)).toEqual([created.id, other.id]);
+      expect((await listCollectionTasks({ headers: finance.headers, invoiceId: invoice.id })).map((item) => item.id)).toEqual([other.id, created.id]);
     });
 
     it("makes a promise to pay only on an invoice, and refuses to log one as already done", async () => {

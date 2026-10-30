@@ -134,8 +134,10 @@ describe("orders, billing items and invoices (ADR-0002)", () => {
       const other = await openDeal(org, { title: "Lain" });
       const foreign = await createQuotation({ headers: org.ownerHeaders, input: { dealId: other.id, validUntil: orgDay(14), items: [{ description: "X", quantity: "1", unit: "pcs", unitPrice: "1000" }] } });
 
-      await expect(confirmWon({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { commitmentType: "PURCHASE_ORDER", sourceQuotationId: foreign.id } })).rejects.toThrow(/not found/i);
-      const { order } = await confirmWon({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: deal.version, input: { commitmentType: "PURCHASE_ORDER", sourceQuotationId: draft.id } });
+      // Creating the quotations bumped the deal's version, so read it again.
+      const version = (await db.query.deals.findFirst({ where: eq(deals.id, deal.id) }))!.version;
+      await expect(confirmWon({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: version, input: { commitmentType: "PURCHASE_ORDER", sourceQuotationId: foreign.id } })).rejects.toThrow(/not found/i);
+      const { order } = await confirmWon({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: version, input: { commitmentType: "PURCHASE_ORDER", sourceQuotationId: draft.id } });
       expect(order.sourceQuotationId).toBe(draft.id);
       const frozen = await db.query.quotations.findFirst({ where: eq(quotations.id, draft.id) });
       expect(frozen!.frozenAt).not.toBeNull();
@@ -517,7 +519,7 @@ describe("orders, billing items and invoices (ADR-0002)", () => {
 
       await expect(reopenDeal({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: won.version, input })).rejects.toThrow(/void the invoices/);
       expect(await db.query.deals.findFirst({ where: eq(deals.id, deal.id) })).toMatchObject({ status: "WON", version: won.version });
-      expect((await getOrder({ headers: org.ownerHeaders, orderId: order.id })).status).toBe("ACTIVE");
+      expect((await getOrder({ headers: org.ownerHeaders, orderId: order.id })).status).toBe("FULLY_BILLED");
 
       await voidInvoice({ headers: org.ownerHeaders, invoiceId: invoice.id, input: { reason: "Batal" } });
       expect((await reopenDeal({ headers: org.ownerHeaders, dealId: deal.id, expectedVersion: won.version, input })).status).toBe("PROPOSAL");

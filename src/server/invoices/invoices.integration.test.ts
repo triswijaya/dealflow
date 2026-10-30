@@ -131,7 +131,7 @@ describe("invoices", () => {
     expect((created.customerSnapshot as { companyName: string }).companyName).toBe("PT Maju Jaya");
   });
 
-  it("rejects an invoice for a deal that is not WON (INV-01)", async () => {
+  it("has nothing to invoice for a deal that is not WON: no order, so no billing item (INV-01)", async () => {
     const owner = await setupOwner();
     const customer = await createCustomer({
       headers: new Headers({ cookie: owner.ownerCookie }),
@@ -149,7 +149,7 @@ describe("invoices", () => {
 
     await expect(
       createInvoiceForDeal({ headers: new Headers({ cookie: owner.ownerCookie }), input: invoiceInput(deal.id) }),
-    ).rejects.toThrow(/WON/);
+    ).rejects.toThrow(/billing item/i);
   });
 
   it("allows FINANCE and rejects SALES (§6.2, AT-19)", async () => {

@@ -259,7 +259,7 @@ async function collectionQueue(organizationId: string, today: string, timezone: 
   const openTask = sql`${followUps.invoiceId} = ${invoices.id} and ${followUps.completedAt} is null and ${followUps.cancelledAt} is null`;
   const brokenPromise = sql`exists (select 1 from ${followUps} where ${openTask} and ${followUps.type} = 'PROMISE_TO_PAY' and ${followUps.followUpAt} < ${startOfToday})`;
   const anyOpenTask = sql`exists (select 1 from ${followUps} where ${openTask})`;
-  const dueSoonBy = sql`(${today}::date + ${DUE_SOON_DAYS})`;
+  const dueSoonBy = sql`(${today}::date + ${DUE_SOON_DAYS}::int)`;
   const where = and(
     eq(invoices.organizationId, organizationId),
     isNull(invoices.voidedAt),
