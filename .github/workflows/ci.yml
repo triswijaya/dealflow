@@ -89,6 +89,10 @@ jobs:
           pnpm db:migrate
           pnpm db:seed --reset
 
+      # The invariants of orders, invoices and money, checked again from the data.
+      - name: Reconcile
+        run: pnpm reconcile
+
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
