@@ -1,7 +1,7 @@
 /* DealFlow app design system: "Inkwash" (see DESIGN.md at the repo root).
-   A white, hairline-divided work surface inset into a softly tinted shell.
-   Ink (black) carries every primary and selected state; pastel washes carry
-   status and category; type is medium-weight and small; everything is round.
+   A light sidebar beside a cool grey work area; content sits on white cards.
+   Ink carries every primary and selected state; soft washes carry status;
+   SaaS density: 14px body, 24px titles, 32-36px controls (Prototype/dealflow-v2.html).
 
    Tokens live in inkwash.css. Components read semantic tokens, never raw
    values. Scoped under .df so it never touches the marketing page, and kept
@@ -19,13 +19,13 @@
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
 }
 .df h1,.df h2,.df h3,.df p,.df dl{margin:0}
-.df h1{font-size:var(--fs-title-lg);line-height:var(--lh-title-lg);font-weight:500;letter-spacing:var(--ls-title-lg);color:var(--text-primary)}
-.df h2{font-size:var(--fs-title-md);line-height:var(--lh-title-md);font-weight:500;letter-spacing:var(--ls-title-md);color:var(--text-primary)}
-.df h3{font-size:var(--fs-title-sm);line-height:var(--lh-title-sm);font-weight:500;color:var(--text-primary)}
+.df h1{font-size:var(--fs-title-lg);line-height:var(--lh-title-lg);font-weight:700;letter-spacing:var(--ls-title-lg);color:var(--text-primary)}
+.df h2{font-size:var(--fs-title-md);line-height:var(--lh-title-md);font-weight:600;letter-spacing:var(--ls-title-md);color:var(--text-primary)}
+.df h3{font-size:var(--fs-title-sm);line-height:var(--lh-title-sm);font-weight:600;color:var(--text-primary)}
 .df p+p{margin-top:8px}
 .df dl{margin-top:8px}
 .df dl:first-child{margin-top:0}
-.df b,.df strong{font-weight:500}
+.df b,.df strong{font-weight:600}
 .df a{color:inherit;text-decoration:none}
 .df a:hover{text-decoration:underline;text-underline-offset:2px}
 .df button,.df input,.df select,.df textarea{font:inherit;color:inherit}
@@ -61,49 +61,51 @@
 .df .line{height:1px;background:var(--border-divider);margin:16px 0}
 
 /* ------------------------------------------------------------------ */
-/* 2. Shell: a tinted desk, the sidebar on it, one white panel inset    */
+/* 2. Shell: light sidebar, grey work area, white cards                */
 /* ------------------------------------------------------------------ */
 .df .skip-link{position:absolute;left:-999px;top:12px;z-index:200;height:32px;display:inline-flex;align-items:center;padding:0 14px;background:var(--ink);color:var(--on-ink);border-radius:var(--radius-full);font-size:13px;font-weight:500}
 .df .skip-link:focus{left:24px}
 .df .app{display:grid;grid-template-columns:var(--sidebar-w) minmax(0,1fr);height:100dvh;overflow:hidden;transition:grid-template-columns var(--duration-layout) var(--ease-standard)}
 .df .app[data-collapsed="true"]{grid-template-columns:var(--sidebar-w-collapsed) minmax(0,1fr)}
 
-.df .sidebar{display:flex;flex-direction:column;min-height:0;padding:var(--sidebar-pad);overflow-x:hidden;overflow-y:auto;scrollbar-width:none}
-.df .sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;height:40px;margin-bottom:28px}
-.df .brand{display:inline-flex;align-items:center;gap:10px;min-height:36px;font-size:15px;line-height:20px;font-weight:500;letter-spacing:-.01em;color:var(--text-primary)}
+.df .sidebar{display:flex;flex-direction:column;min-height:0;padding:var(--sidebar-pad);overflow-x:hidden;overflow-y:auto;scrollbar-width:none;background:var(--surface-sidebar);border-right:1px solid var(--border-subtle)}
+.df .sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;height:36px;margin:0 0 20px 4px}
+.df .brand{display:inline-flex;align-items:center;gap:10px;min-height:32px;font-size:15px;line-height:20px;font-weight:700;letter-spacing:-.02em;color:var(--text-primary)}
 .df a.brand:hover{text-decoration:none}
-.df .brand-mark{width:36px;height:36px;flex-shrink:0;display:grid;place-items:center;border-radius:var(--radius-md);background:var(--ink);color:var(--on-ink)}
-.df .brand-mark svg{width:18px;height:18px;stroke-width:1.75}
+.df .brand-mark{width:30px;height:30px;flex-shrink:0;display:grid;place-items:center;border-radius:var(--radius-sm);background:var(--ink);color:var(--on-ink)}
+.df .brand-mark svg{width:16px;height:16px;stroke-width:1.75}
 .df .brand-text{display:flex;flex-direction:column;min-width:0}
 .df .brand-text small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .df .collapse-toggle{flex-shrink:0}
 .df .nav-group{display:flex;flex-direction:column;gap:var(--nav-item-gap)}
-.df .nav-group+.nav-group{margin-top:var(--space-8)}
-.df .nav-label{margin:0 0 8px;padding-left:12px;font-size:12px;line-height:16px;font-weight:400;color:var(--text-secondary);white-space:nowrap}
+.df .nav-group+.nav-group{margin-top:var(--space-5)}
+.df .nav-label{margin:0 0 6px;padding-left:10px;font-size:12px;line-height:16px;font-weight:500;color:var(--text-tertiary);white-space:nowrap}
 .df .sidebar nav{display:flex;flex-direction:column;gap:var(--nav-item-gap)}
-.df .navitem{display:flex;align-items:center;gap:10px;height:var(--nav-item-h);padding:0 12px;border-radius:var(--radius-full);color:var(--text-primary);font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard)}
-.df .navitem svg{width:18px;height:18px;color:var(--text-primary)}
-.df .navitem:hover{background:var(--action-ghost-hover);text-decoration:none}
+.df .navitem{display:flex;align-items:center;gap:10px;height:var(--nav-item-h);padding:0 10px;border-radius:var(--radius-sm);color:var(--text-secondary);font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard)}
+.df .navitem svg{width:18px;height:18px;color:var(--neutral-400)}
+.df .navitem:hover{background:var(--neutral-75);color:var(--text-primary);text-decoration:none}
 .df .navitem:active{background:var(--action-ghost-pressed)}
-.df .navitem.active{background:var(--neutral-0);box-shadow:var(--shadow-xs)}
+.df .navitem.active{background:var(--neutral-0);color:var(--text-primary);box-shadow:0 0 0 1px var(--border-subtle),var(--shadow-xs)}
+.df .navitem.active svg{color:var(--text-primary)}
 .df .navitem .count{margin-left:auto}
 .df .navtext{overflow:hidden;text-overflow:ellipsis}
-.df .sidebar-foot{margin-top:auto;display:flex;flex-direction:column;gap:var(--space-6);padding-top:var(--space-8)}
+.df .sidebar-foot{margin-top:auto;display:flex;flex-direction:column;gap:var(--space-3);padding-top:var(--space-6)}
+.df .sidebar-foot .usermenu{padding-top:var(--space-3);border-top:1px solid var(--border-subtle)}
 .df .usermenu{position:relative}
 .df .user-chip{display:flex;align-items:center;gap:10px;width:100%;padding:4px;border:0;border-radius:var(--radius-lg);background:transparent;text-align:left;transition:background-color var(--duration-fast) var(--ease-standard)}
 .df .user-chip:hover{background:var(--action-ghost-hover)}
-.df .user-chip .avatar{width:40px;height:40px;font-size:14px;font-weight:500}
+.df .user-chip .avatar{width:32px;height:32px;font-size:12px;font-weight:600}
 .df .user-chip .usertext{flex:1;min-width:0}
-.df .user-chip strong{display:block;font-size:14px;line-height:20px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.df .user-chip strong{display:block;font-size:14px;line-height:20px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .df .user-chip small{display:block}
 .df .user-chip .chev{width:16px;height:16px;color:var(--neutral-500)}
 .df .usermenu .menu-content{min-width:240px}
 
 /* The panel is the only thing that scrolls (DESIGN.md 8.1). */
-.df .panel{display:flex;flex-direction:column;min-width:0;margin:var(--shell-gutter) var(--shell-gutter) var(--shell-gutter) 0;background:var(--surface-panel);border-radius:var(--radius-xl);overflow:hidden}
-.df .panel-scroll{flex:1;min-height:0;overflow:auto;scroll-padding-top:84px}
-.df .topbar-wrap{position:sticky;top:0;z-index:var(--z-sticky);padding:var(--topbar-inset) var(--topbar-inset) 0;background:var(--surface-panel)}
-.df .topbar{height:var(--topbar-h);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 10px 0 16px;background:var(--neutral-0);border:1px solid var(--border-subtle);border-radius:var(--radius-lg)}
+.df .panel{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.df .panel-scroll{flex:1;min-height:0;overflow:auto;scroll-padding-top:72px}
+.df .topbar-wrap{position:sticky;top:0;z-index:var(--z-sticky);padding:0 var(--content-inset);background:color-mix(in srgb,var(--surface-shell) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px)}
+.df .topbar{max-width:var(--content-max);height:var(--topbar-h);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px}
 .df .topbar-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .df .breadcrumb{display:flex;align-items:center;gap:6px;min-width:0;font-size:13px;line-height:20px;color:var(--text-tertiary)}
 .df .breadcrumb>*{white-space:nowrap}
@@ -111,21 +113,21 @@
 .df .breadcrumb svg{width:12px;height:12px;color:var(--neutral-400)}
 .df .breadcrumb [aria-current]{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary);font-weight:500}
 .df .breadcrumb [aria-current] svg{width:16px;height:16px;color:var(--text-primary)}
-.df .global-search{position:relative;display:flex;align-items:center;gap:8px;width:280px;max-width:40vw;height:var(--control-md);padding:0 6px 0 12px;border:1px solid transparent;border-radius:var(--radius-full);background:var(--neutral-75);color:var(--text-tertiary);transition:background-color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),box-shadow var(--duration-fast) var(--ease-standard)}
-.df .global-search:hover{background:var(--neutral-100)}
+.df .global-search{position:relative;display:flex;align-items:center;gap:8px;width:300px;max-width:40vw;height:var(--control-lg);padding:0 6px 0 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--neutral-0);color:var(--text-tertiary);transition:background-color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),box-shadow var(--duration-fast) var(--ease-standard)}
+.df .global-search:hover{border-color:var(--neutral-300)}
 .df .global-search:focus-within{background:var(--neutral-0);border-color:var(--ink);box-shadow:var(--input-halo)}
 .df .global-search>svg{width:16px;height:16px;color:var(--text-secondary)}
 .df .global-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:13px;line-height:20px;color:var(--text-primary)}
 .df .global-search input:focus-visible{outline:0}
 .df .global-search input::placeholder{color:var(--text-tertiary)}
 .df .global-search input[type=search]::-webkit-search-cancel-button{cursor:pointer}
-.df .kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:var(--radius-xs);background:var(--neutral-0);box-shadow:var(--shadow-xs);color:var(--text-secondary);font:500 11px/20px var(--font-sans);white-space:nowrap}
-.df .main{padding:0 0 var(--space-12)}
+.df .kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:var(--radius-xs);background:var(--neutral-50);box-shadow:inset 0 0 0 1px var(--border-subtle);color:var(--text-secondary);font:500 11px/20px var(--font-sans);white-space:nowrap}
+.df .main{max-width:calc(var(--content-max) + var(--content-inset) * 2);margin:0 auto;padding:0 0 var(--space-12)}
 /* Everything text-leading starts at the 24px content inset. The page header
    and anything marked .bleed run edge to edge, as tables do. */
-.df .main>*:not(.pagehead):not(.table-wrap):not(.bleed){margin-left:var(--content-inset);margin-right:var(--content-inset)}
+.df .main>*:not(.pagehead){margin-left:var(--content-inset);margin-right:var(--content-inset)}
 .df .main>.pagehead{margin-bottom:var(--section-gap)}
-.df .main>.stepper{margin-top:var(--space-6)}
+.df .main>.stepper{margin-top:var(--grid-gap)}
 .df .main>.shell-notices{margin-top:var(--space-6);margin-bottom:0}
 .df .shell-notices{display:flex;flex-direction:column;gap:8px}
 .df .mobile-top,.df .bottomnav,.df .mobilebar,.df .mobile-stage-tabs{display:none}
@@ -133,10 +135,10 @@
 /* ------------------------------------------------------------------ */
 /* 3. Page header (variant A) and section headers                       */
 /* ------------------------------------------------------------------ */
-.df .pagehead{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:28px var(--content-inset) var(--space-6);border-bottom:1px solid var(--border-divider)}
+.df .pagehead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:12px var(--content-inset) 0}
 .df .pagehead>div:first-child{min-width:0}
-.df .pagehead p{margin-top:4px;max-width:720px;font-size:13px;line-height:20px;color:var(--text-secondary)}
-.df .pagehead .actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.df .pagehead p{margin-top:4px;max-width:720px;font-size:14px;line-height:20px;color:var(--text-secondary)}
+.df .pagehead .actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-left:auto}
 .df .date-chip svg{width:14px;height:14px}
 .df .pagehead>.detail-head{display:flex;align-items:flex-start;gap:12px}
 .df .detail-head .iconbtn{margin-top:-2px}
@@ -153,14 +155,14 @@
 /* ------------------------------------------------------------------ */
 /* 4. Buttons, icon buttons, menus, segmented controls                  */
 /* ------------------------------------------------------------------ */
-.df .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:var(--control-md);padding:0 14px;border:1px solid transparent;border-radius:var(--radius-full);background:transparent;font-size:13px;line-height:20px;font-weight:500;text-align:center;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
+.df .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:var(--control-md);padding:0 14px;border:1px solid transparent;border-radius:var(--radius-md);background:transparent;font-size:13px;line-height:20px;font-weight:600;text-align:center;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
 .df .btn svg{width:14px;height:14px}
 .df .btn:hover{text-decoration:none}
 .df .primary{background:var(--action-primary);color:var(--on-ink)}
 .df .primary:hover{background:var(--action-primary-hover)}
 .df .primary:active{background:var(--ink-pressed)}
-.df .secondary{background:var(--neutral-0);border-color:var(--border-subtle);color:var(--text-primary)}
-.df .secondary:hover{background:var(--neutral-50);border-color:var(--neutral-200)}
+.df .secondary{background:var(--neutral-0);border-color:var(--border-subtle);color:var(--text-primary);box-shadow:var(--shadow-xs)}
+.df .secondary:hover{background:var(--neutral-0);border-color:var(--neutral-300)}
 .df .secondary:active{background:var(--neutral-75)}
 .df .tertiary{padding:0 12px;color:var(--text-secondary)}
 .df .tertiary:hover{background:var(--action-ghost-hover);color:var(--text-primary)}
@@ -175,25 +177,25 @@
 .df .primary:disabled{background:var(--neutral-150)}
 .df .btn[aria-busy=true]{cursor:progress}
 /* Circle soft icon button: pager arrows, inline actions. */
-.df .iconbtn{width:var(--control-md);height:var(--control-md);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:var(--radius-full);background:var(--neutral-75);color:var(--neutral-800);transition:background-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
+.df .iconbtn{width:var(--control-md);height:var(--control-md);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:var(--radius-md);background:var(--neutral-75);color:var(--neutral-800);transition:background-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
 .df .iconbtn svg{width:16px;height:16px}
 .df .iconbtn:hover{background:var(--neutral-100);text-decoration:none}
 .df .iconbtn:active{background:var(--neutral-150)}
 .df .iconbtn:disabled{background:var(--neutral-50);color:var(--text-disabled)}
 /* Square bordered icon button: the topbar. */
-.df .iconbtn.square{position:relative;width:var(--control-lg);height:var(--control-lg);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--neutral-0)}
+.df .iconbtn.square{position:relative;width:var(--control-lg);height:var(--control-lg);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--neutral-0);color:var(--text-secondary)}
 .df .iconbtn.square svg{width:18px;height:18px}
 .df .iconbtn.square:hover{background:var(--neutral-50)}
-.df .signal{position:absolute;right:7px;bottom:7px;width:6px;height:6px;border-radius:50%;background:var(--signal);box-shadow:0 0 0 2px var(--neutral-0)}
+.df .signal{position:absolute;right:7px;top:7px;width:7px;height:7px;border-radius:50%;background:var(--status-danger-glyph);box-shadow:0 0 0 2px var(--neutral-0)}
 /* Inside rows and cards an icon button is ghost, so a column of them stays quiet. */
 .df td .iconbtn,.df .deal-card .iconbtn,.df .password .iconbtn,.df .dialog-close,.df .toast .iconbtn,.df .editor-table .iconbtn,.df .picker-clear,.df .collapse-toggle{background:transparent;color:var(--text-secondary)}
 .df td .iconbtn:hover,.df .deal-card .iconbtn:hover,.df .password .iconbtn:hover,.df .dialog-close:hover,.df .editor-table .iconbtn:hover,.df .picker-clear:hover,.df .collapse-toggle:hover{background:var(--action-ghost-hover);color:var(--text-primary)}
 .df .footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:var(--space-6)}
 
-.df .seg{display:inline-flex;align-items:center;gap:0;height:var(--control-md);padding:3px;border-radius:var(--radius-full);background:var(--neutral-75)}
-.df .seg .btn{height:26px;padding:0 12px;border:0;box-shadow:none;background:transparent;color:var(--text-secondary);font-size:12px;line-height:16px}
+.df .seg{display:inline-flex;align-items:center;gap:2px;height:var(--control-lg);padding:3px;border-radius:var(--radius-md);background:var(--neutral-100)}
+.df .seg .btn{height:30px;padding:0 12px;border:0;border-radius:var(--radius-sm);box-shadow:none;background:transparent;color:var(--text-secondary);font-size:13px;line-height:16px;font-weight:500}
 .df .seg .btn:hover{color:var(--text-primary);background:transparent}
-.df .seg .secondary{background:var(--neutral-0);color:var(--text-primary);box-shadow:var(--shadow-xs)}
+.df .seg .secondary{background:var(--neutral-0);color:var(--text-primary);box-shadow:0 0 0 1px var(--border-subtle),var(--shadow-xs)}
 .df .seg .secondary:hover{background:var(--neutral-0)}
 
 .df .menu{position:relative;display:inline-block}
@@ -223,7 +225,7 @@
 .df .field input::placeholder,.df .field textarea::placeholder,.df .editor-table input::placeholder{color:var(--text-tertiary)}
 .df .field input:hover,.df .field select:hover,.df .field textarea:hover{border-color:var(--neutral-400)}
 .df .field input:focus,.df .field select:focus,.df .field textarea:focus,.df .editor-table input:focus,.df .editor-table textarea:focus,.df .pagination select:focus{border-color:var(--ink);outline:0;box-shadow:var(--input-halo)}
-.df .field input[readonly],.df .field textarea[readonly]{background:var(--neutral-50);border-color:transparent}
+.df .field input[readonly],.df .field textarea[readonly]{background:var(--neutral-75);border-color:var(--border-subtle)}
 .df .field input:disabled,.df .field select:disabled,.df .field textarea:disabled{background:var(--neutral-50);border-color:var(--neutral-150);color:var(--text-disabled)}
 .df .field textarea{height:auto;min-height:96px;padding:10px 12px;resize:vertical}
 .df .field select,.df .pagination select{appearance:none;-webkit-appearance:none;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238A8A8A' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
@@ -265,23 +267,22 @@
 /* 6. Chips and tabs: pills you press                                  */
 /* ------------------------------------------------------------------ */
 .df .chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.df .chip{display:inline-flex;align-items:center;gap:6px;height:var(--control-md);padding:0 14px;border:0;border-radius:var(--radius-full);background:var(--action-soft);color:var(--text-secondary);font-size:13px;line-height:20px;font-weight:500;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
-.df a.chip:hover,.df button.chip:hover{background:var(--action-soft-hover);color:var(--text-primary);text-decoration:none}
-.df .chip.active{background:var(--ink);color:var(--on-ink)}
+.df .chip{display:inline-flex;align-items:center;gap:6px;height:var(--control-md);padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--neutral-0);box-shadow:inset 0 0 0 1px var(--border-subtle);color:var(--text-secondary);font-size:13px;line-height:20px;font-weight:500;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
+.df a.chip:hover,.df button.chip:hover{background:var(--neutral-50);color:var(--text-primary);text-decoration:none}
+.df .chip.active{background:var(--ink);color:var(--on-ink);box-shadow:none}
 .df a.chip.active:hover{background:var(--ink-hover);color:var(--on-ink)}
 .df .chip svg{width:14px;height:14px}
 /* The view switch (list / board) is a segmented control. */
 .df .chips.seg{flex-wrap:nowrap;gap:0}
-.df .tabs{display:flex;gap:6px;margin-bottom:var(--space-5);overflow-x:auto;scrollbar-width:none}
-.df .tabs a,.df .tabs button{display:inline-flex;align-items:center;height:var(--control-md);padding:0 14px;border:0;border-radius:var(--radius-full);background:var(--action-soft);color:var(--text-secondary);font-size:13px;line-height:20px;font-weight:500;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
-.df .tabs a:hover,.df .tabs button:hover{background:var(--action-soft-hover);color:var(--text-primary);text-decoration:none}
-.df .tabs .active{background:var(--ink);color:var(--on-ink)}
-.df .tabs .active:hover{background:var(--ink-hover);color:var(--on-ink)}
+.df .tabs{display:flex;gap:2px;width:max-content;max-width:100%;margin-bottom:var(--space-4);padding:3px;border-radius:var(--radius-md);background:var(--neutral-100);overflow-x:auto;scrollbar-width:none}
+.df .tabs a,.df .tabs button{display:inline-flex;align-items:center;height:30px;padding:0 12px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--text-secondary);font-size:13px;line-height:20px;font-weight:500;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
+.df .tabs a:hover,.df .tabs button:hover{background:transparent;color:var(--text-primary);text-decoration:none}
+.df .tabs .active,.df .tabs .active:hover{background:var(--neutral-0);color:var(--text-primary);box-shadow:0 0 0 1px var(--border-subtle),var(--shadow-xs)}
 
 /* ------------------------------------------------------------------ */
 /* 7. Surfaces: card, key-value, state blocks, alerts, badges, avatars  */
 /* ------------------------------------------------------------------ */
-.df .card{min-width:0;padding:var(--space-5);background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl)}
+.df .card{min-width:0;padding:var(--card-pad);background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card)}
 .df .card>h2,.df .card>h3{margin-bottom:var(--space-3)}
 .df .kv{display:grid;grid-template-columns:140px minmax(0,1fr);gap:12px;align-items:center;min-height:36px;padding:8px 0;font-size:13px;line-height:20px}
 .df .kv dt{font-size:12px;line-height:16px;color:var(--text-tertiary)}
@@ -289,13 +290,13 @@
 .df .kv dd a{font-weight:500}
 .df .kv dd a:hover{text-decoration:underline}
 /* Deal facts: one region between two hairlines, divided into columns. */
-.df .dealmeta{border-bottom:1px solid var(--border-divider)}
-.df .dealmeta dl{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:0;padding:0 var(--content-inset)}
-.df .dealmeta .kv{display:block;min-height:0;padding:var(--space-4) var(--space-5);border-left:1px solid var(--border-divider)}
-.df .dealmeta .kv:first-child{padding-left:0;border-left:0}
+.df .dealmeta{overflow:hidden}
+.df .dealmeta dl{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:0}
+.df .dealmeta .kv{display:block;min-height:0;padding:var(--space-4) var(--card-pad);border-left:1px solid var(--border-divider)}
+.df .dealmeta .kv:first-child{border-left:0}
 .df .dealmeta dt{margin-bottom:4px;font-size:12px}
 .df .dealmeta dd{font-size:13px;font-weight:500}
-.df .dealmeta dd strong{font-size:24px!important;line-height:32px;font-weight:500;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.df .dealmeta dd strong{font-size:22px!important;line-height:30px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 /* A state block: soft icon chip, title, description, actions, centred.
    Page size under a page header; region size inside a section or tab. */
 .df .empty{display:flex;flex-direction:column;align-items:center;padding:var(--space-16) var(--space-6);text-align:center}
@@ -325,7 +326,7 @@
 .df .alert .btn.tertiary{height:auto;padding:0;color:var(--text-primary);text-decoration:underline;text-underline-offset:2px}
 .df .alert .btn.tertiary:hover{background:transparent}
 /* Status badge: a soft fill, a glyph and a label, never colour alone. */
-.df .badge{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px 0 6px;border:0;border-radius:var(--radius-full);background:var(--status-neutral-soft);color:var(--text-primary);font-size:11px;line-height:16px;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
+.df .badge{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px 0 6px;border:0;border-radius:var(--radius-xs);background:var(--status-neutral-soft);color:var(--text-primary);font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
 .df .badge svg{width:12px;height:12px;stroke-width:2;color:var(--status-neutral-glyph)}
 .df .b-info{background:var(--status-info-soft)}
 .df .b-info svg{color:var(--status-info-glyph)}
@@ -360,13 +361,13 @@
 /* First run: numbered steps (8.12 step indicator) in place of empty metrics. */
 .df .setup-lead{max-width:560px;margin:-4px 0 var(--space-5);font-size:13px;line-height:20px}
 .df .setup-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--grid-gap);margin:0;padding:0;list-style:none}
-.df .setup-step{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:var(--space-5);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);background:var(--neutral-0)}
+.df .setup-step{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:var(--card-pad);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);background:var(--neutral-0);box-shadow:var(--shadow-card)}
 .df .setup-step h3{margin-top:var(--space-3);font-size:14px;line-height:20px}
 .df .setup-step p{flex:1;font-size:13px;line-height:20px;color:var(--text-secondary)}
 .df .setup-step .btn{margin-top:var(--space-4)}
 .df .step-num{display:grid;place-items:center;width:24px;height:24px;border-radius:var(--radius-full);background:var(--surface-muted);color:var(--text-secondary);font-size:12px;line-height:16px;font-weight:500}
 .df .setup-step:first-child .step-num{background:var(--ink);color:var(--on-ink)}
-.df .metric-card{display:flex;flex-direction:column;justify-content:space-between;gap:var(--space-6);min-width:0;min-height:144px;padding:var(--space-5);background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);color:inherit;transition:border-color var(--duration-fast) var(--ease-standard)}
+.df .metric-card{display:flex;flex-direction:column;justify-content:space-between;gap:var(--space-6);min-width:0;min-height:136px;padding:var(--card-pad);background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);color:inherit;transition:border-color var(--duration-fast) var(--ease-standard)}
 .df a.metric-card:hover{border-color:var(--neutral-200);text-decoration:none}
 .df .metric-head{display:flex;align-items:flex-start;gap:8px}
 .df .metric-head .marker{margin-top:1px}
@@ -379,7 +380,7 @@
 .df .marker[data-hue=butter]{background:var(--butter-400)}
 .df .marker[data-hue=coral]{background:var(--coral-400)}
 .df .marker[data-hue=copper]{background:var(--copper-400)}
-.df .metric-value{display:block;font-size:var(--fs-title-lg);line-height:var(--lh-title-lg);font-weight:500;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-primary)}
+.df .metric-value{display:block;font-size:28px;line-height:34px;font-weight:600;letter-spacing:-.025em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-primary)}
 .df .metric-label{display:block;min-height:40px;margin-top:2px;font-size:13px;line-height:20px;color:var(--text-secondary)}
 .df .metric-card.is-danger .metric-value{color:var(--coral-800)}
 .df .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:var(--grid-gap)}
@@ -420,13 +421,20 @@
 .df a.chart-foot:hover{color:var(--text-primary)}
 
 /* Main region and a right rail, divided by one hairline (DESIGN.md 8.6). */
-.df .with-rail{display:grid;grid-template-columns:minmax(0,1fr) 1px var(--rail-w);border-top:1px solid var(--border-divider)}
-.df .with-rail>.rail-divider{background:var(--border-divider)}
-.df .rail-main{min-width:0;padding:var(--space-6) var(--content-inset) var(--space-8)}
-.df .rail-side{min-width:0;padding:var(--space-6) var(--content-inset) var(--space-8)}
-.df .rail-side>.region+.region{margin-top:var(--space-6);padding-top:var(--space-6);border-top:1px solid var(--border-divider);margin-left:calc(var(--content-inset) * -1);margin-right:calc(var(--content-inset) * -1);padding-left:var(--content-inset);padding-right:var(--content-inset)}
-.df .region>.table-wrap{margin-left:calc(var(--content-inset) * -1);margin-right:calc(var(--content-inset) * -1)}
-.df .bleed>.region>.table-wrap{margin-left:0;margin-right:0}
+.df .with-rail{display:grid;grid-template-columns:minmax(0,1fr) var(--rail-w);gap:var(--grid-gap);align-items:start}
+.df .with-rail>.rail-divider{display:none}
+.df .rail-main,.df .rail-side{display:flex;flex-direction:column;gap:var(--grid-gap);min-width:0}
+.df .rail-main>.tabs{margin-bottom:0}
+/* Content blocks are white cards on the grey work area. */
+.df .main>.region,.df .main>.table-wrap,.df .main>.stepper,.df .main>.dealmeta,.df .main>:is(.stack,.cols,.split)>.region,.df .rail-main>.region,.df .rail-side>.region,.df .bleed>.region,.df .dealmeta.bleed{background:var(--surface-panel);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card)}
+.df .main>.region,.df .main>:is(.stack,.cols,.split)>.region,.df .rail-main>.region,.df .rail-side>.region,.df .bleed>.region{padding:var(--card-pad)}
+.df .main>.stepper{padding:18px 12px}
+.df .region>.table-wrap,.df .card .table-wrap{margin:0 calc(var(--card-pad) * -1)}
+.df .region>.table-wrap:last-child,.df .card>.table-wrap:last-child{margin-bottom:calc(var(--card-pad) * -1)}
+.df .region>.table-wrap:last-child tbody tr:last-child td,.df .main>.table-wrap tbody tr:last-child td{border-bottom:0}
+.df .main>.table-wrap{overflow:auto}
+.df .main>.table-wrap:has(+.pagination){border-bottom-left-radius:0;border-bottom-right-radius:0}
+.df .main>.table-wrap+.pagination{background:var(--surface-panel);border:1px solid var(--border-subtle);border-top:1px solid var(--border-divider);border-radius:0 0 var(--radius-xl) var(--radius-xl);box-shadow:var(--shadow-card)}
 
 /* ------------------------------------------------------------------ */
 /* 9. Tables run full-bleed; text keeps the system's inset              */
@@ -434,14 +442,14 @@
 .df .table-wrap{background:transparent;overflow-x:auto}
 .df .nowrap{white-space:nowrap}
 .df table{width:100%;border-collapse:collapse;font-size:13px;line-height:20px}
-.df th{height:var(--row-h-header);padding:0 12px;border-block:1px solid var(--border-divider);color:var(--text-tertiary);font-size:12px;line-height:16px;font-weight:400;text-align:left;vertical-align:middle;white-space:nowrap}
+.df th{height:var(--row-h-header);padding:0 12px;border-block:1px solid var(--border-divider);background:var(--neutral-50);color:var(--text-tertiary);font-size:12px;line-height:16px;font-weight:500;text-align:left;vertical-align:middle;white-space:nowrap}
 .df th a{color:inherit}
 .df th a:hover{color:var(--text-primary);text-decoration:none}
 .df th[aria-sort] a{color:var(--text-primary);font-weight:500}
-.df td{height:var(--row-h);padding:6px 12px;color:var(--text-secondary);vertical-align:middle}
+.df td{height:var(--row-h);padding:8px 12px;border-bottom:1px solid var(--border-divider);color:var(--text-secondary);vertical-align:middle}
 .df th,.df td{padding-left:12px;padding-right:12px}
-.df :is(th,td):first-child{padding-left:calc(var(--content-inset) + 16px)}
-.df :is(th,td):last-child{padding-right:calc(var(--content-inset) + 16px)}
+.df :is(th,td):first-child{padding-left:var(--card-pad)}
+.df :is(th,td):last-child{padding-right:var(--card-pad)}
 .df tbody tr{transition:background-color var(--duration-fast) var(--ease-standard)}
 .df tbody tr:hover{background:var(--surface-subtle)}
 .df tbody tr:last-child td{border-bottom:1px solid var(--border-divider)}
@@ -454,9 +462,9 @@
 .df td.cell-primary{min-width:240px}
 .df td small a:not(.btn):not(.iconbtn):not(.badge){color:var(--text-secondary);font-weight:400}
 /* A table inside a card or a rail still runs to the container's edges. */
-.df .card .table-wrap{margin:0 calc(var(--space-5) * -1) calc(var(--space-5) * -1)}
-.df .pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;min-height:56px;padding:0 var(--content-inset);border-top:0;font-size:12px;line-height:16px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
-.df .pagination select{width:auto;height:var(--control-md);padding:0 28px 0 12px;border-radius:var(--radius-full);border-color:var(--border-subtle);font-size:13px}
+
+.df .pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;min-height:52px;padding:0 var(--card-pad);border-top:0;font-size:12px;line-height:16px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.df .pagination select{width:auto;height:var(--control-md);padding:0 28px 0 12px;border-radius:var(--radius-sm);border-color:var(--border-subtle);font-size:13px}
 .df .pagination .iconbtn{width:32px;height:32px}
 /* 8.8 Filter toolbar: one row of 32px pills. Each field keeps its label for
    assistive technology; on screen the controls name themselves ("Semua
@@ -465,17 +473,17 @@
 .df .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:var(--space-3)}
 .df .toolbar>.field{flex:0 0 auto;min-width:0}
 .df .toolbar>.field>span:first-child{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-.df .toolbar>.field input,.df .toolbar>.field select{height:var(--control-md);border-radius:var(--radius-full);font-size:13px}
-.df .toolbar>.field input[type=search],.df .toolbar>.field .picker input{border-color:transparent;background-color:var(--neutral-75)}
+.df .toolbar>.field input,.df .toolbar>.field select{height:var(--control-lg);border-radius:var(--radius-md);font-size:13px}
+.df .toolbar>.field input[type=search],.df .toolbar>.field .picker input{border-color:var(--border-subtle);background-color:var(--neutral-0)}
 .df .toolbar>.field input[type=search]{width:280px;padding-left:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23616161' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:12px center}
 .df .toolbar>.field .picker input{width:220px;padding-left:14px}
-.df .toolbar>.field input[type=search]:hover,.df .toolbar>.field .picker input:hover{background-color:var(--neutral-100);border-color:transparent}
+.df .toolbar>.field input[type=search]:hover,.df .toolbar>.field .picker input:hover{border-color:var(--neutral-300)}
 .df .toolbar>.field input[type=search]:focus,.df .toolbar>.field .picker input:focus{background-color:var(--neutral-0);border-color:var(--ink)}
 .df .toolbar>.field .picker-clear{width:24px;height:24px;right:6px}
 /* Ghost dropdowns: quiet until a value is chosen, then a soft filled pill. */
 .df .toolbar>.field select{width:auto;field-sizing:content;max-width:260px;padding:0 30px 0 12px;border-color:transparent;background-color:transparent;background-position:right 10px center;color:var(--text-secondary);font-weight:500}
-.df .toolbar>.field select:hover{border-color:transparent;background-color:var(--action-ghost-hover);color:var(--text-primary)}
-.df .toolbar>.field select:has(option[value=""]):not(:has(option[value=""]:checked)){background-color:var(--neutral-75);color:var(--text-primary)}
+.df .toolbar>.field select:hover{border-color:var(--border-subtle);background-color:var(--neutral-0);color:var(--text-primary)}
+.df .toolbar>.field select:has(option[value=""]):not(:has(option[value=""]:checked)){background-color:var(--neutral-0);border-color:var(--ink);color:var(--text-primary)}
 .df .toolbar .toggle{margin-left:4px;color:var(--text-secondary)}
 .df .tiles+.toolbar,.df .tabs+.toolbar{margin-top:var(--space-5)}
 .df .popover-anchor{display:inline-flex}
@@ -521,7 +529,7 @@
 .df .step.done::before{background:var(--mint-400)}
 .df .step.current::before{background:linear-gradient(to right,var(--mint-400) 50%,var(--neutral-200) 50%)}
 .df .step:first-child.current::before{background:var(--neutral-200)}
-.df .step b{position:relative;z-index:1;display:grid;place-items:center;width:24px;height:24px;margin:0 auto 8px;border-radius:50%;background:var(--surface-muted);color:var(--text-secondary);font-size:11px;line-height:16px;font-weight:600;box-shadow:0 0 0 4px var(--neutral-0)}
+.df .step b{position:relative;z-index:1;display:grid;place-items:center;width:26px;height:26px;margin:0 auto 8px;border-radius:50%;background:var(--surface-muted);color:var(--text-secondary);font-size:12px;line-height:16px;font-weight:600;box-shadow:0 0 0 4px var(--neutral-0)}
 .df .step b svg{width:12px;height:12px;stroke-width:2.25}
 .df .step.done b{background:var(--mint-100);color:var(--mint-600)}
 .df .step.current b{background:var(--ink);color:var(--on-ink)}
@@ -529,7 +537,7 @@
 .df .step small{display:block;margin-top:0;font-weight:400;color:var(--text-tertiary)}
 /* Pipeline: lanes on subtle fill, records as white rows with no border. */
 .df .board{display:flex;gap:var(--gap-tight);align-items:flex-start;overflow-x:auto;padding-bottom:4px}
-.df .column{display:flex;flex-direction:column;flex:1 0 208px;max-width:320px;gap:6px;min-width:0;padding:var(--space-3);background:var(--surface-subtle);border-radius:var(--radius-lg)}
+.df .column{display:flex;flex-direction:column;flex:1 0 220px;max-width:340px;gap:8px;min-width:0;padding:var(--space-3);background:var(--neutral-50);border:1px solid var(--border-subtle);border-radius:var(--radius-xl)}
 .df .column-head{padding:0 4px;margin-bottom:2px}
 .df .column-head .row{flex-wrap:nowrap;gap:8px;height:36px}
 .df .column-head strong{font-size:14px;line-height:20px;font-weight:500;color:var(--text-primary)}
@@ -539,8 +547,8 @@
 .df .column>.btn{width:100%}
 /* An empty lane: one quiet line; tertiary text is reserved for white, so lanes use secondary. */
 .df .column .quiet-empty{color:var(--text-secondary)}
-.df .deal-card{padding:var(--space-3);background:var(--neutral-0);border-radius:var(--radius-lg);transition:box-shadow var(--duration-fast) var(--ease-standard)}
-.df .deal-card:hover{box-shadow:var(--shadow-xs)}
+.df .deal-card{padding:var(--space-3);background:var(--neutral-0);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-xs);transition:border-color var(--duration-fast) var(--ease-standard)}
+.df .deal-card:hover{border-color:var(--neutral-300)}
 .df .deal-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .df .deal-card-head>small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .df .deal-card .iconbtn{width:28px;height:28px;margin:-4px -6px -4px 0}
@@ -605,7 +613,7 @@
 .df .summary-panel{position:sticky;top:84px;align-self:start}
 .df .sumrow{display:flex;justify-content:space-between;gap:16px;margin:10px 0;font-size:13px}
 .df .sumtotal{font-size:var(--fs-title-lg);line-height:var(--lh-title-lg);font-weight:500;letter-spacing:-.01em;color:var(--text-primary);font-variant-numeric:tabular-nums}
-.df .document{position:relative;padding:32px;overflow:hidden;background:var(--neutral-0);border:1px solid var(--border-subtle);border-radius:var(--radius-xl)}
+.df .document{position:relative;padding:40px 44px;overflow:hidden;background:var(--neutral-0);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card)}
 .df .document .dochead{display:flex;justify-content:space-between;gap:32px;padding-bottom:var(--space-6);border-bottom:1px solid var(--ink)}
 .df .document .dochead p{font-size:11px;line-height:16px;color:var(--text-secondary)}
 .df .document .dochead strong{font-size:18px}
@@ -626,7 +634,7 @@
 .df .mobile-total strong{font-size:14px}
 .df .mobile-total-panel{position:absolute;bottom:calc(100% + 12px);left:0;width:calc(100vw - 32px);padding:20px;background:var(--surface-overlay);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg)}
 .df .mobilebar .primary{min-width:100px}
-.df .sticky-footer{position:sticky;bottom:0;z-index:var(--z-sticky);margin-top:var(--space-5);padding:var(--space-3) 0;background:var(--surface-panel);border-top:1px solid var(--border-divider)}
+.df .sticky-footer{position:sticky;bottom:12px;z-index:var(--z-sticky);margin-top:var(--space-5);padding:var(--space-3) var(--space-4);background:var(--surface-panel);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-md)}
 .df .member-name{display:flex;align-items:center;gap:10px}
 .df .member-name>div{min-width:0;overflow-wrap:anywhere;text-align:left}
 .df .member-name small{display:block}
@@ -639,7 +647,7 @@
 .df .auth-page{display:flex;flex-direction:column;min-height:100svh;padding:var(--space-5) var(--space-6)}
 .df .auth-top{display:flex;align-items:center;justify-content:space-between;min-height:40px}
 .df .auth-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-6);padding:var(--space-10) 0}
-.df .auth-card{width:100%;max-width:400px;padding:var(--space-8);background:var(--surface-panel);border-radius:var(--radius-xl);box-shadow:0 0 0 1px rgba(10,10,10,.04)}
+.df .auth-card{width:100%;max-width:420px;padding:var(--space-8);background:var(--surface-panel);border:1px solid var(--border-subtle);border-radius:var(--radius-2xl);box-shadow:var(--shadow-card)}
 .df .auth-card>h1{margin-bottom:6px;font-size:var(--fs-title-lg);line-height:var(--lh-title-lg)}
 .df .auth-card>h1+p{margin-bottom:var(--space-6);font-size:13px;line-height:20px;color:var(--text-secondary)}
 .df .auth-card>.stack{gap:16px}
@@ -663,29 +671,30 @@
 @keyframes ds-slide{from{opacity:0;transform:translateX(24px)}}
 
 /* ------------------------------------------------------------------ */
-/* 15. Medium screens: the sidebar is a 72px icon rail (DESIGN.md 11.2) */
+/* 15. Medium screens: 960-1279 keeps the sidebar; 768-959 is an icon rail   */
 /* ------------------------------------------------------------------ */
 @media(min-width:768px) and (max-width:1279px){
 .df .with-rail{grid-template-columns:minmax(0,1fr)}
-.df .with-rail>.rail-divider{display:none}
-.df .rail-side{border-top:1px solid var(--border-divider)}
+.df .split{grid-template-columns:minmax(0,1fr)}
+.df .dealmeta dl{grid-template-columns:repeat(3,minmax(0,1fr))}
+.df .dealmeta .kv:nth-child(3n+1){border-left:0}
+.df .dealmeta .kv:nth-child(n+4){border-top:1px solid var(--border-divider)}
+}
+@media(min-width:768px) and (max-width:959px){
 .df .app{grid-template-columns:var(--sidebar-w-collapsed) minmax(0,1fr)}
 .df .collapse-toggle{display:none}
-.df .sidebar{padding:var(--space-6) 12px var(--space-5);align-items:center}
-.df .sidebar-head{justify-content:center}
+.df .sidebar{padding:var(--space-5) 10px var(--space-4);align-items:center}
+.df .sidebar-head{justify-content:center;margin-left:0}
 .df .sidebar .brand-text,.df .nav-label,.df .navtext,.df .navitem .count,.df .user-chip .usertext,.df .user-chip .chev{display:none}
 .df .nav-group+.nav-group{margin-top:var(--space-4)}
 .df .nav-group{width:100%}
 .df .sidebar nav{align-items:center}
 .df .navitem{position:relative;width:44px;justify-content:center;padding:0}
 .df .user-chip{justify-content:center;width:auto;padding:0}
-.df .topbar-wrap{padding:8px 8px 0}
-.df .global-search{width:200px}
-.df .split{grid-template-columns:minmax(0,1fr)}
-.df .dealmeta dl{grid-template-columns:repeat(3,minmax(0,1fr))}
+.df .global-search{width:220px}
 }
 /* Collapsed by the toggle on wide screens: the same rail. */
-@media(min-width:1280px){
+@media(min-width:960px){
 .df .app[data-collapsed="true"] .sidebar{padding-left:12px;padding-right:12px;align-items:center}
 .df .app[data-collapsed="true"] .sidebar-head{flex-direction:column;height:auto;gap:8px}
 .df .app[data-collapsed="true"] .brand-text,.df .app[data-collapsed="true"] .nav-label,.df .app[data-collapsed="true"] .navtext,.df .app[data-collapsed="true"] .navitem .count,.df .app[data-collapsed="true"] .user-chip .usertext,.df .app[data-collapsed="true"] .user-chip .chev{display:none}
@@ -700,17 +709,16 @@
 /* 16. Phone: the panel is the screen; bottom tabs; sheets              */
 /* ------------------------------------------------------------------ */
 @media(max-width:767px){
-.df{background:var(--surface-panel)}
-.df h1{font-size:20px;line-height:28px}
+.df h1{font-size:22px;line-height:28px}
 .df .app{display:block;height:auto;overflow:visible}
 .df .sidebar,.df .topbar-wrap{display:none}
-.df .panel{margin:0;min-height:100svh;border-radius:0;overflow:visible}
+.df .panel{min-height:100svh;overflow:visible}
 .df .panel-scroll{overflow:visible}
 .df .main{padding-bottom:112px}
-.df .pagehead{display:block;padding:20px var(--content-inset) 16px}
+.df .pagehead{display:block;padding:16px var(--content-inset) 0}
 .df .pagehead p{font-size:13px}
 .df .pagehead .actions{justify-content:flex-start;margin-top:12px}
-.df .mobile-top{position:sticky;top:0;z-index:var(--z-sticky);display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 16px;background:var(--surface-panel);border-bottom:1px solid var(--border-divider)}
+.df .mobile-top{position:sticky;top:0;z-index:var(--z-sticky);display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 16px;background:var(--surface-sidebar);border-bottom:1px solid var(--border-subtle)}
 .df .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;gap:2px;padding:6px 8px max(8px,env(safe-area-inset-bottom));background:var(--neutral-0);border-top:1px solid var(--border-divider)}
 .df .bottomnav>a,.df .bottomnav>button{flex:1;min-width:0;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:0;border-radius:var(--radius-md);background:none;color:var(--text-secondary);font-size:11px;line-height:16px;font-weight:500}
 .df .bottomnav>a svg,.df .bottomnav>button svg{width:20px;height:20px;box-sizing:content-box;padding:4px 10px;border-radius:var(--radius-full)}
@@ -722,16 +730,16 @@
 .df .g2,.df .split,.df .input-grid{grid-template-columns:minmax(0,1fr)}
 .df .with-rail{grid-template-columns:minmax(0,1fr)}
 .df .with-rail>.rail-divider{display:none}
-.df .rail-main,.df .rail-side{padding:20px 16px 24px}
-.df .rail-side{border-top:1px solid var(--border-divider)}
-.df .rail-side>.region+.region{margin-left:-16px;margin-right:-16px;padding-left:16px;padding-right:16px}
 .df .region>.table-wrap{margin-left:0;margin-right:0}
+.df .main>.table-wrap{background:transparent;border:0;box-shadow:none;overflow:visible}
+.df .main>.table-wrap+.pagination{background:transparent;border:0;box-shadow:none}
 .df .card{padding:16px}
 .df .card-head .btn.tertiary,.df .section-head .btn.tertiary{margin-right:-4px}
 .df .card .table-wrap{margin:0}
+.df .dealmeta .kv:nth-child(n){border-left:0}
 .df .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
 .df .metric-card{min-height:112px;padding:16px;gap:16px}
-.df .metric-value{font-size:20px;line-height:28px}
+.df .metric-value{font-size:22px;line-height:28px}
 .df .tiles{grid-template-columns:minmax(0,1fr)}
 .df .dashboard-agenda{order:-1}
 .df .chart-summary>div{padding:0 16px}
@@ -785,7 +793,7 @@
 .df .deal-card .iconbtn{width:44px;height:44px;margin:-10px -10px -10px 0}
 .df .kv{grid-template-columns:110px minmax(0,1fr)}
 .df .dealmeta dl{grid-template-columns:minmax(0,1fr)}
-.df .dealmeta .kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;padding:12px 0;border-left:0;border-top:1px solid var(--border-divider)}
+.df .dealmeta .kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;padding:12px var(--card-pad);border-left:0;border-top:1px solid var(--border-divider)}
 .df .dealmeta .kv:first-child{border-top:0}
 .df .dealmeta dt{margin:0}
 .df .dealmeta dd strong{font-size:18px!important;line-height:28px}

@@ -230,7 +230,7 @@ export function AppShell({
         <div className="app" data-collapsed={collapsed}>
           <aside className="sidebar" id="sidebar">
             <div className="sidebar-head">
-              <Brand href="/dashboard" />
+              <Brand href="/dashboard" subtitle={workspace.organizationName} />
               <button
                 type="button"
                 className="iconbtn collapse-toggle"
@@ -262,10 +262,7 @@ export function AppShell({
                   ))}
                 </nav>
               ) : null}
-              <div className="nav-group">
-                <div className="nav-label">Akun</div>
-                <UserMenu workspace={workspace} />
-              </div>
+              <UserMenu workspace={workspace} />
             </div>
           </aside>
 

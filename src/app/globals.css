@@ -9,7 +9,7 @@
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -53,37 +53,37 @@
 :root {
     /* shadcn theme variables, mapped onto the Inkwash tokens (inkwash.css). */
     --background: #FFFFFF;
-    --foreground: #0A0A0A;
+    --foreground: #14161B;
     --card: #FFFFFF;
-    --card-foreground: #0A0A0A;
+    --card-foreground: #14161B;
     --popover: #FFFFFF;
-    --popover-foreground: #0A0A0A;
-    --primary: #000000;
+    --popover-foreground: #14161B;
+    --primary: #14161B;
     --primary-foreground: #FFFFFF;
-    --secondary: #F5F5F5;
-    --secondary-foreground: #0A0A0A;
-    --muted: #F5F5F5;
-    --muted-foreground: #616161;
-    --accent: #F5F5F5;
-    --accent-foreground: #0A0A0A;
+    --secondary: #EFF1F4;
+    --secondary-foreground: #14161B;
+    --muted: #EFF1F4;
+    --muted-foreground: #5D636E;
+    --accent: #EFF1F4;
+    --accent-foreground: #14161B;
     --destructive: #B5452F;
-    --border: #EBEBEB;
-    --input: #D4D4D4;
-    --ring: #000000;
+    --border: #E6E8EC;
+    --input: #CDD1D8;
+    --ring: #14161B;
     --chart-1: #9AA3EC;
     --chart-2: #84C2EE;
     --chart-3: #7CCBAE;
     --chart-4: #EBC468;
     --chart-5: #EC9C8A;
     --radius: 0.75rem;
-    --sidebar: #F5F5F5;
-    --sidebar-foreground: #0A0A0A;
-    --sidebar-primary: #000000;
+    --sidebar: #FBFBFC;
+    --sidebar-foreground: #14161B;
+    --sidebar-primary: #14161B;
     --sidebar-primary-foreground: #FFFFFF;
     --sidebar-accent: #FFFFFF;
-    --sidebar-accent-foreground: #0A0A0A;
-    --sidebar-border: #EBEBEB;
-    --sidebar-ring: #000000;
+    --sidebar-accent-foreground: #14161B;
+    --sidebar-border: #E6E8EC;
+    --sidebar-ring: #14161B;
 }
 
 .dark {
