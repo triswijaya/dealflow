@@ -18,6 +18,7 @@ import { one } from "@/lib/url";
 import { getDealDetail, listAssignableMembers, listDealActivities } from "@/server/deals/deal-views";
 import { listFollowUpRows, type FollowUpRowDto } from "@/server/follow-ups/follow-up-views";
 import { listInvoices } from "@/server/invoices/invoices";
+import { listOrders } from "@/server/orders/orders";
 import { listQuotations } from "@/server/quotations/quotations";
 import { FollowUpItem } from "../../follow-ups/follow-up-item";
 import { NextFollowUpCard } from "../../follow-ups/next-follow-up-card";
@@ -72,6 +73,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
     won && canInvoice ? load((headers) => listInvoices({ headers, dealId: id, pageSize: 100 }).then((result) => result.items)) : Promise.resolve([]),
     load((headers) => listDealActivities({ headers, dealId: id })),
   ]);
+  const orders = won ? await load((headers) => listOrders({ headers, dealId: id, pageSize: 20 }).then((result) => result.items)) : [];
   // DEAL-08: a won deal reopens only while none of its invoices is live.
   const liveInvoices = invoices.filter((item) => item.status !== "VOID");
   const invoice = liveInvoices[0] ?? null;
@@ -241,7 +243,15 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         <Alert tone="success">
           Menang pada {deal.wonAt ? formatDate(deal.wonAt, timezone) : "-"} · Nilai menang {formatRupiah(deal.wonValue ?? deal.estimatedValue)}
           <br />
-          Pesanan dibuat dari kesepakatan ini; tagihannya diatur per termin.
+          Tagihan diatur per termin di pesanan:{" "}
+          {orders.map((order, index) => (
+            <span key={order.id}>
+              {index > 0 ? ", " : ""}
+              <Link className="doc-id" href={`/orders/${order.id}`}>
+                {order.orderNumber}
+              </Link>
+            </span>
+          ))}
         </Alert>
       ) : null}
       {lost ? (

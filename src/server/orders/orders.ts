@@ -3,7 +3,7 @@ import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
-import { activities, billingItems, contacts, deals, invoices, orderAmendments, orders, quotations } from "@/server/db/schema";
+import { activities, billingItems, contacts, customers, deals, invoices, orderAmendments, orders, quotations } from "@/server/db/schema";
 import { cancelOpenDealTasks } from "@/server/follow-ups/cancel";
 import { paidAmountsFor } from "@/server/invoices/balance";
 import { moneyAmountSchema } from "@/server/money/amount";
@@ -95,7 +95,7 @@ type OrderRow = typeof orders.$inferSelect;
 async function loadOrders(executor: Executor, organizationId: string, rows: OrderRow[], today: string): Promise<OrderDto[]> {
   if (rows.length === 0) return [];
   const orderIds = rows.map((row) => row.id);
-  const [items, amendments, live] = await Promise.all([
+  const [items, amendments, live, names] = await Promise.all([
     executor
       .select()
       .from(billingItems)
@@ -110,7 +110,12 @@ async function loadOrders(executor: Executor, organizationId: string, rows: Orde
       .select({ id: invoices.id, invoiceNumber: invoices.invoiceNumber, billingItemId: invoices.billingItemId, orderId: invoices.orderId, total: invoices.total })
       .from(invoices)
       .where(and(eq(invoices.organizationId, organizationId), inArray(invoices.orderId, orderIds), isNull(invoices.voidedAt))),
+    executor
+      .select({ id: customers.id, companyName: customers.companyName })
+      .from(customers)
+      .where(and(eq(customers.organizationId, organizationId), inArray(customers.id, [...new Set(rows.map((row) => row.customerId))]))),
   ]);
+  const customerName = new Map(names.map((row) => [row.id, row.companyName]));
   const settled = await paidAmountsFor(executor, { organizationId, invoiceIds: live.map((invoice) => invoice.id) });
   const liveByItem = new Map<string, LiveInvoiceFacts>(
     live.map((invoice) => [invoice.billingItemId, { ...invoice, settled: settled.get(invoice.id) ?? 0n }]),
@@ -127,6 +132,8 @@ async function loadOrders(executor: Executor, organizationId: string, rows: Orde
     return toOrderDto(row, {
       currentValue: runningValue(row.originalValue, rowAmendments.map((amendment) => amendment.delta)),
       billedAmount: liveInvoices.reduce((sum, invoice) => sum + invoice.total, 0n),
+      settledAmount: liveInvoices.reduce((sum, invoice) => sum + invoice.settled, 0n),
+      customerName: customerName.get(row.customerId) ?? "",
       status: orderStatus({
         cancelledAt: row.cancelledAt,
         itemStatuses: itemDtos.map((item) => item.status),

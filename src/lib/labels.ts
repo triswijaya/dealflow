@@ -43,6 +43,28 @@ export const DEAL_SIGNAL: Record<string, { label: string; tone: BadgeTone }> = {
   HOLD_REVIEW_DUE: { label: "Waktunya ditinjau", tone: "danger" },
 };
 
+// ORD-04 / BIL-01: derived order and termin states.
+export const ORDER_STATUS: Record<string, { label: string; tone: BadgeTone }> = {
+  ACTIVE: { label: "Berjalan", tone: "info" },
+  FULLY_BILLED: { label: "Ditagih penuh", tone: "warning" },
+  CLOSED: { label: "Selesai", tone: "success" },
+  CANCELLED: { label: "Dibatalkan", tone: "neutral" },
+};
+export const BILLING_STATUS: Record<string, { label: string; tone: BadgeTone }> = {
+  PLANNED: { label: "Direncanakan", tone: "neutral" },
+  READY: { label: "Siap ditagih", tone: "warning" },
+  INVOICED: { label: "Ditagih", tone: "info" },
+  CANCELLED: { label: "Batal", tone: "neutral" },
+};
+export const BILLING_TRIGGERS = [
+  { value: "ON_ORDER", label: "Saat pesanan" },
+  { value: "ON_DATE", label: "Tanggal tertentu" },
+  { value: "ON_MILESTONE", label: "Milestone / BAST" },
+] as const;
+export function commitmentLabel(value: string): string {
+  return COMMITMENT_TYPES.find((type) => type.value === value)?.label ?? (value === "LEGACY" ? "Data lama" : value);
+}
+
 // ORD-01: the evidence a deal is won on. LEGACY is migrated data only.
 export const COMMITMENT_TYPES = [
   { value: "PURCHASE_ORDER", label: "Purchase order (PO)" },

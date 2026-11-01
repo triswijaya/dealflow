@@ -629,6 +629,17 @@
 .df .plan-preview :is(th,td):first-child{padding-left:14px}
 .df .plan-preview :is(th,td):last-child{padding-right:14px}
 .df .menu .btn svg{width:14px;height:14px}
+.df .stackbar{display:flex;gap:2px;height:10px;border-radius:5px;overflow:hidden;background:var(--neutral-100)}
+.df .stackbar i{display:block;height:100%}
+.df .legend-row{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:12px;font-size:12px;color:var(--text-secondary)}
+.df .legend-row span{display:inline-flex;align-items:center;gap:6px}
+.df .legend-row i{width:8px;height:8px;border-radius:50%}
+.df .legend-row b{color:var(--text-primary)}
+.df .sum-ok,.df .sum-bad{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:var(--radius-xs);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.df .sum-ok{background:var(--status-success-soft);color:var(--status-success-ink)}
+.df .sum-bad{background:var(--status-danger-soft);color:var(--status-danger-ink)}
+.df .plan-editor td{vertical-align:top;padding-top:8px;padding-bottom:8px}
+.df .plan-editor .field input,.df .plan-editor input,.df .plan-editor select{height:34px}
 .df .summary-panel{position:sticky;top:84px;align-self:start}
 .df .sumrow{display:flex;justify-content:space-between;gap:16px;margin:10px 0;font-size:13px}
 .df .sumtotal{font-size:var(--fs-title-lg);line-height:var(--lh-title-lg);font-weight:500;letter-spacing:-.01em;color:var(--text-primary);font-variant-numeric:tabular-nums}
@@ -758,7 +769,7 @@
 .df .dealmeta .kv:nth-child(n){border-left:0}
 .df .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
 .df .metric-card{min-height:112px;padding:16px;gap:16px}
-.df .metric-value{font-size:22px;line-height:28px}
+.df .metric-value{font-size:19px;line-height:26px}
 .df .tiles{grid-template-columns:minmax(0,1fr)}
 .df .dashboard-agenda{order:-1}
 .df .chart-summary>div{padding:0 16px}
