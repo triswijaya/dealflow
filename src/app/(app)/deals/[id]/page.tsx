@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Avatar, DetailHeader, EmptyState, KeyValue, TabLinks } from "@/components/ui/misc";
 import { formatDate, formatDateTime, formatPhone, formatRupiah } from "@/lib/format";
-import { DEAL_STAGE, INVOICE_STATUS, QUOTATION_STATUS, lostReasonLabel, type DealStage } from "@/lib/labels";
+import { DEAL_SIGNAL, DEAL_STAGE, INVOICE_STATUS, QUOTATION_STATUS, lostReasonLabel, type DealStage } from "@/lib/labels";
 import { one } from "@/lib/url";
 import { getDealDetail, listAssignableMembers, listDealActivities } from "@/server/deals/deal-views";
 import { listFollowUpRows, type FollowUpRowDto } from "@/server/follow-ups/follow-up-views";
@@ -63,15 +63,18 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
   const lost = deal.status === "LOST";
   const active = !won && !lost;
   const canInvoice = role === "OWNER" || role === "ADMIN" || finance;
+  const held = active && deal.onHoldUntil !== null;
 
   const [members, quotations, followUps, invoices, activities] = await Promise.all([
     finance ? Promise.resolve([]) : load((headers) => listAssignableMembers({ headers })),
     finance ? Promise.resolve([]) : load((headers) => listQuotations({ headers, dealId: id, pageSize: 100 }).then((result) => result.items)),
     finance ? Promise.resolve([]) : load((headers) => listFollowUpRows({ headers, filters: { dealId: id }, pageSize: 100 }).then((result) => result.items)),
-    won && canInvoice ? load((headers) => listInvoices({ headers, dealId: id, pageSize: 1 }).then((result) => result.items)) : Promise.resolve([]),
+    won && canInvoice ? load((headers) => listInvoices({ headers, dealId: id, pageSize: 100 }).then((result) => result.items)) : Promise.resolve([]),
     load((headers) => listDealActivities({ headers, dealId: id })),
   ]);
-  const invoice = invoices[0] ?? null;
+  // DEAL-08: a won deal reopens only while none of its invoices is live.
+  const liveInvoices = invoices.filter((item) => item.status !== "VOID");
+  const invoice = liveInvoices[0] ?? null;
 
   const requested = one(query.tab);
   const tabCandidates: Tab[] = finance ? [] : won && canInvoice ? ["ringkasan", "quotation", "follow-up", "invoice", "aktivitas"] : ["ringkasan", "quotation", "follow-up", "aktivitas"];
@@ -135,18 +138,36 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
     </div>
   );
 
+  // CUS-04: the deal's own contact, or the customer's primary one when none was chosen.
+  const pic = deal.contact ?? { name: deal.customer.contactPerson, role: null, phoneNormalized: deal.customer.phoneNormalized, email: deal.customer.email };
   const customerCard = (
     <section className="region">
-      <h2>Customer</h2>
+      <div className="card-head">
+        <h2>PIC customer</h2>
+        {active ? (
+          <ButtonLink variant="tertiary" href={`/deals/${deal.id}?edit=1`}>
+            Ganti
+          </ButtonLink>
+        ) : null}
+      </div>
+      <div className="row" style={{ gap: 12, flexWrap: "nowrap", marginBottom: 8 }}>
+        <Avatar name={pic.name} />
+        <div style={{ minWidth: 0 }}>
+          <b style={{ display: "block" }}>{pic.name}</b>
+          <small style={{ display: "block" }}>{pic.role ?? (deal.contact ? "Kontak" : "Kontak utama")}</small>
+        </div>
+      </div>
       <dl>
-        <KeyValue label="Kontak">{deal.contact ? `${deal.contact.name}${deal.contact.role ? ` (${deal.contact.role})` : ""}` : deal.customer.contactPerson}</KeyValue>
         <KeyValue label="Telepon">
           <span className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
-            {formatPhone(deal.customer.phoneNormalized)}
-            {deal.customer.phoneNormalized ? <CopyButton value={formatPhone(deal.customer.phoneNormalized)} label="Salin nomor" done="Nomor disalin" /> : null}
+            {formatPhone(pic.phoneNormalized)}
+            {pic.phoneNormalized ? <CopyButton value={formatPhone(pic.phoneNormalized)} label="Salin nomor" done="Nomor disalin" /> : null}
           </span>
         </KeyValue>
-        <KeyValue label="Email">{deal.customer.email ? <a href={`mailto:${deal.customer.email}`}>{deal.customer.email}</a> : "-"}</KeyValue>
+        <KeyValue label="Email">{pic.email ? <a href={`mailto:${pic.email}`}>{pic.email}</a> : "-"}</KeyValue>
+        <KeyValue label="Customer">
+          <Link href={`/customers/${deal.customer.id}`}>{deal.customer.companyName}</Link>
+        </KeyValue>
         <KeyValue label="Alamat">{deal.customer.address ? <span style={{ whiteSpace: "pre-line" }}>{deal.customer.address}</span> : "-"}</KeyValue>
         <KeyValue label="Catatan">
           <Notes value={deal.customer.notes} />
@@ -189,32 +210,51 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
       </section>
     );
 
+  const reviewDue = held && deal.onHoldUntil! <= workspace.today;
   const finalNotice = (
     <div className="stack" style={{ gap: 8 }}>
+      {held ? (
+        <Alert tone={reviewDue ? "error" : "warning"}>
+          {reviewDue ? `Waktunya ditinjau. Tanggal tinjau ${formatDate(deal.onHoldUntil!)} sudah lewat.` : `Ditunda sampai ${formatDate(deal.onHoldUntil!)}.`}
+          {deal.onHoldReason ? (
+            <>
+              <br />
+              {deal.onHoldReason}
+            </>
+          ) : null}
+          <br />
+          Deal ini tidak dihitung di pipeline sampai dilanjutkan.
+        </Alert>
+      ) : null}
+      {active && !held && deal.signals.length > 0 && !finance ? (
+        <div className="row" style={{ gap: 6 }} aria-label="Sinyal kesehatan deal">
+          <small>Perlu perhatian:</small>
+          {deal.signals.map((signal) => (
+            <Badge key={signal} tone={DEAL_SIGNAL[signal]?.tone}>
+              {DEAL_SIGNAL[signal]?.label ?? signal}
+            </Badge>
+          ))}
+        </div>
+      ) : null}
       {won ? (
         <Alert tone="success">
           Menang pada {deal.wonAt ? formatDate(deal.wonAt, timezone) : "-"} · Nilai menang {formatRupiah(deal.wonValue ?? deal.estimatedValue)}
           <br />
-          Deal ini sudah final dan tidak dapat diubah.
+          Pesanan dibuat dari kesepakatan ini; tagihannya diatur per termin.
         </Alert>
       ) : null}
       {lost ? (
         <Alert tone="error">
-          Kalah pada {deal.lostAt ? formatDate(deal.lostAt, timezone) : "-"} · Alasan: {lostReasonLabel(deal.lostReason)}
+          Tidak dilanjutkan pada {deal.lostAt ? formatDate(deal.lostAt, timezone) : "-"} · Alasan: {lostReasonLabel(deal.lostReason)}
           {deal.lostNote ? (
             <>
               <br />
               {deal.lostNote}
             </>
           ) : null}
-          <br />
-          Deal ini sudah final dan tidak dapat diubah.
         </Alert>
       ) : null}
       {won && role === "SALES" ? <Alert tone="info">Deal sudah menang. Finance atau Admin dapat membuat invoice.</Alert> : null}
-      {active && !finance && deal.status === "NEGOTIATION" && BigInt(deal.estimatedValue) <= 0n ? (
-        <Alert tone="warning">Isi nilai deal lebih dari Rp0 sebelum menandai menang.</Alert>
-      ) : null}
     </div>
   );
 
@@ -225,7 +265,12 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
         backHref="/deals"
         backLabel="Kembali ke daftar deal"
         title={deal.title}
-        badge={<Badge tone={stage?.tone}>{stage?.label ?? deal.status}</Badge>}
+        badge={
+          <>
+            <Badge tone={stage?.tone}>{stage?.label ?? deal.status}</Badge>
+            {held ? <Badge tone="neutral">Ditunda</Badge> : null}
+          </>
+        }
         description={
           <>
             {deal.customer.companyName} · {formatRupiah(won && deal.wonValue ? deal.wonValue : deal.estimatedValue)}
@@ -237,7 +282,9 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
             members={members}
             actor={actor}
             timezone={timezone}
-            invoice={invoice ? { id: invoice.id, invoiceNumber: invoice.invoiceNumber } : null}
+            today={workspace.today}
+            quotations={families.map((quotation) => ({ id: quotation.id, quotationNumber: quotation.quotationNumber, status: quotation.status, total: quotation.total }))}
+            hasLiveInvoice={liveInvoices.length > 0}
             autoOpen={autoOpen}
           />
         }
@@ -398,7 +445,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
           <div className="rail-divider" />
           <aside className="rail-side">
             {customerCard}
-            {active ? <NextFollowUpCard next={nextFollowUp} deal={dealOption} timezone={timezone} canSchedule /> : null}
+            {active && !held ? <NextFollowUpCard next={nextFollowUp} deal={dealOption} timezone={timezone} canSchedule /> : null}
             {latestQuotation ? (
               <section className="region">
                 <h2>Quotation terbaru</h2>

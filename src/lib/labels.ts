@@ -17,16 +17,7 @@ export const DEAL_STAGE: Record<DealStage, { label: string; tone: BadgeTone }> =
   NEGOTIATION: { label: "Negosiasi", tone: "warning" },
   COMMITMENT: { label: "Menunggu komitmen", tone: "info" },
   WON: { label: "Menang", tone: "success" },
-  LOST: { label: "Kalah", tone: "danger" },
-};
-
-// DEAL-03 lets a deal move to any active stage; until the screens offer that
-// choice, the one-step-forward button names the next step.
-export const NEXT_DEAL_STAGE: Record<ActiveDealStage, { to: DealStage; action: string }> = {
-  PROSPECT: { to: "PROPOSAL", action: "Penawaran dikirim" },
-  PROPOSAL: { to: "NEGOTIATION", action: "Masuk negosiasi" },
-  NEGOTIATION: { to: "COMMITMENT", action: "Menunggu komitmen" },
-  COMMITMENT: { to: "WON", action: "Tandai menang" },
+  LOST: { label: "Tidak dilanjutkan", tone: "danger" },
 };
 
 export function isActiveStage(status: string): status is ActiveDealStage {
@@ -41,6 +32,23 @@ export const LOST_REASONS = [
   { value: "BUDGET_UNAVAILABLE", label: "Anggaran tidak tersedia" },
   { value: "NO_NEED", label: "Tidak lagi dibutuhkan" },
   { value: "OTHER", label: "Lainnya" },
+] as const;
+
+// DEAL-09: health signals, computed on read.
+export const DEAL_SIGNAL: Record<string, { label: string; tone: BadgeTone }> = {
+  TASK_OVERDUE: { label: "Tugas terlambat", tone: "danger" },
+  NO_NEXT_STEP: { label: "Tanpa langkah berikut", tone: "warning" },
+  STALE: { label: "Lama di tahap", tone: "warning" },
+  PAST_CLOSE_DATE: { label: "Lewat target", tone: "warning" },
+  HOLD_REVIEW_DUE: { label: "Waktunya ditinjau", tone: "danger" },
+};
+
+// ORD-01: the evidence a deal is won on. LEGACY is migrated data only.
+export const COMMITMENT_TYPES = [
+  { value: "PURCHASE_ORDER", label: "Purchase order (PO)" },
+  { value: "CONTRACT", label: "Kontrak / SPK" },
+  { value: "WRITTEN_CONFIRMATION", label: "Konfirmasi tertulis" },
+  { value: "PAYMENT", label: "Pembayaran (DP atau lunas)" },
 ] as const;
 
 export function lostReasonLabel(value: string | null): string {

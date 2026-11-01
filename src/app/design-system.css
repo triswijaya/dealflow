@@ -125,7 +125,8 @@
 .df .main{max-width:calc(var(--content-max) + var(--content-inset) * 2);margin:0 auto;padding:0 0 var(--space-12)}
 /* Everything text-leading starts at the 24px content inset. The page header
    and anything marked .bleed run edge to edge, as tables do. */
-.df .main>*:not(.pagehead){margin-left:var(--content-inset);margin-right:var(--content-inset)}
+/* Dialogs can sit directly in .main; they centre themselves in the top layer. */
+.df .main>*:not(.pagehead):not(dialog){margin-left:var(--content-inset);margin-right:var(--content-inset)}
 .df .main>.pagehead{margin-bottom:var(--section-gap)}
 .df .main>.stepper{margin-top:var(--grid-gap)}
 .df .main>.shell-notices{margin-top:var(--space-6);margin-bottom:0}
@@ -286,6 +287,8 @@
 .df .card>h2,.df .card>h3{margin-bottom:var(--space-3)}
 .df .kv{display:grid;grid-template-columns:140px minmax(0,1fr);gap:12px;align-items:center;min-height:36px;padding:8px 0;font-size:13px;line-height:20px}
 .df .kv dt{font-size:12px;line-height:16px;color:var(--text-tertiary)}
+/* The rail is narrow: a shorter label column keeps values on one line. */
+.df .rail-side .kv{grid-template-columns:88px minmax(0,1fr)}
 .df .kv dd{margin:0;min-width:0;overflow-wrap:anywhere;color:var(--text-primary)}
 .df .kv dd a{font-weight:500}
 .df .kv dd a:hover{text-decoration:underline}
@@ -559,6 +562,8 @@
 .df .deal-card-value svg{width:16px;height:16px;color:var(--neutral-500)}
 .df .deal-card-foot{display:flex;align-items:center;gap:8px;margin-top:var(--space-3);padding-top:var(--space-2-5);border-top:1px solid var(--border-divider)}
 .df .deal-card-foot .avatar{width:20px;height:20px;font-size:9px}
+.df .deal-card-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.df .deal-card.is-held{background:repeating-linear-gradient(135deg,var(--neutral-0) 0 10px,var(--neutral-50) 10px 20px)}
 .df .overdue-note{display:inline-flex;align-items:center;gap:4px;height:20px;margin-top:8px;padding:0 8px 0 6px;border-radius:var(--radius-full);background:var(--status-danger-soft);font-size:11px;line-height:16px;font-weight:500;color:var(--text-primary)}
 .df .overdue-note svg{width:12px;height:12px;color:var(--status-danger-glyph);stroke-width:2}
 
@@ -610,6 +615,20 @@
 /* ------------------------------------------------------------------ */
 /* 12. Documents, editors, settings                                     */
 /* ------------------------------------------------------------------ */
+.df .contact-list{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+.df .contact-list li{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-divider)}
+.df .contact-list li:last-child{border-bottom:0;padding-bottom:0}
+.df .contact-list small{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.df .plan-seg{display:flex;width:100%}
+.df .plan-seg .btn{flex:1}
+.df .plan-preview{border:1px solid var(--border-subtle);border-radius:var(--radius-lg);overflow:hidden}
+.df .plan-preview table{font-size:13px}
+.df .plan-preview th{height:34px}
+.df .plan-preview td{height:40px;border-bottom:1px solid var(--border-divider)}
+.df .plan-preview tbody tr:last-child td{border-bottom:0}
+.df .plan-preview :is(th,td):first-child{padding-left:14px}
+.df .plan-preview :is(th,td):last-child{padding-right:14px}
+.df .menu .btn svg{width:14px;height:14px}
 .df .summary-panel{position:sticky;top:84px;align-self:start}
 .df .sumrow{display:flex;justify-content:space-between;gap:16px;margin:10px 0;font-size:13px}
 .df .sumtotal{font-size:var(--fs-title-lg);line-height:var(--lh-title-lg);font-weight:500;letter-spacing:-.01em;color:var(--text-primary);font-variant-numeric:tabular-nums}
@@ -814,6 +833,9 @@
 .df .auth-card{max-width:none;padding:0;box-shadow:none}
 .df .auth-points{display:none}
 /* Touch targets and no iOS zoom on focus. */
+.df .hide-sm{display:none}
+.df .plan-seg{flex-direction:column;height:auto}
+.df .plan-seg .btn{width:100%}
 .df .btn{height:44px}
 .df .iconbtn{width:44px;height:44px}
 .df .seg{height:44px}

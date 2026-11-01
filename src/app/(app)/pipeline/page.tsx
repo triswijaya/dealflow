@@ -1,8 +1,8 @@
 import { Kanban, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import { ButtonLink } from "@/components/ui/button";
-import { PageHeader, EmptyState } from "@/components/ui/misc";
-import { one } from "@/lib/url";
+import { ChipLink, PageHeader, EmptyState } from "@/components/ui/misc";
+import { one, withParams } from "@/lib/url";
 import { getCustomer, type CustomerOptionDto } from "@/server/customers/customers";
 import { getPipelineBoard, listAssignableMembers, PIPELINE_COLUMN_LIMIT } from "@/server/deals/deal-views";
 import { load, requireWorkspace } from "../workspace";
@@ -18,6 +18,8 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
   const query = (one(params.q) ?? "").slice(0, 200);
   const assignedToId = one(params.sales) ?? "";
   const customerId = one(params.customer);
+  // DEAL-07: deals on hold leave the board; this toggle shows only them.
+  const held = one(params.held) === "1";
 
   const members = await load((headers) => listAssignableMembers({ headers }));
   const customer: CustomerOptionDto | null = customerId
@@ -30,18 +32,19 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
         }
       })
     : null;
-  const filters = { query: query || undefined, assignedToId: assignedToId || undefined, customerId: customer?.id };
+  const filters = { query: query || undefined, assignedToId: assignedToId || undefined, customerId: customer?.id, held: held || undefined };
   const board = await load((headers) => getPipelineBoard({ headers, filters }));
 
   const actor = { userId: workspace.user.id, name: workspace.user.name, role: workspace.role };
-  const filtered = Boolean(query || assignedToId || customer);
+  const filtered = Boolean(query || assignedToId || customer || held);
+  const toggleHeld = withParams("/pipeline", params, { held: held ? null : "1" });
   const empty = board.stages.every((stage) => stage.count === 0);
 
   return (
     <>
       <PageHeader
         title="Pipeline deal"
-        description="Peluang aktif di lima tahap penjualan."
+        description={held ? "Deal yang ditahan. Tidak dihitung di pipeline sampai dilanjutkan." : "Empat tahap, bebas maju atau mundur."}
         actions={
           <>
             <div className="chips seg">
@@ -60,9 +63,12 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
       {empty && !filtered ? null : (
         <>
           <DealToolbar query={query} assignedToId={assignedToId} customer={customer} members={members} />
-          <div style={{ marginBottom: 18 }}>
+          <div className="row" style={{ marginBottom: 16, gap: 8 }}>
+            <ChipLink href={toggleHeld} active={held}>
+              {held ? "Kembali ke deal aktif" : "Ditunda"}
+            </ChipLink>
             <ButtonLink variant="tertiary" href="/deals?stage=WON">
-              Lihat deal Menang &amp; Kalah →
+              Deal menang dan tidak dilanjutkan →
             </ButtonLink>
           </div>
         </>
@@ -72,8 +78,8 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
         filtered ? (
           <EmptyState
             icon={SearchX}
-            title="Tidak ada hasil untuk filter ini"
-            description="Coba ubah kata pencarian atau pilihan filter."
+            title={held ? "Tidak ada deal yang ditahan" : "Tidak ada hasil untuk filter ini"}
+            description={held ? "Semua deal sedang berjalan di pipeline." : "Coba ubah kata pencarian atau pilihan filter."}
             action={
               <ButtonLink variant="tertiary" href="/pipeline">
                 Reset filter
@@ -89,7 +95,7 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
           />
         )
       ) : (
-        <PipelineBoard stages={board.stages} filters={filters} role={workspace.role} pageSize={PIPELINE_COLUMN_LIMIT} timezone={workspace.timezone} />
+        <PipelineBoard stages={board.stages} filters={filters} role={workspace.role} pageSize={PIPELINE_COLUMN_LIMIT} timezone={workspace.timezone} today={workspace.today} />
       )}
     </>
   );

@@ -87,7 +87,7 @@ function describe(event: ActivityDto, ctx: { customerName?: string; dealTitle?: 
     case "deal.lost":
       return (
         <>
-          menandai deal Kalah · {lostReasonLabel(text(meta.lostReason) || null)}
+          menutup deal sebagai tidak dilanjutkan · {lostReasonLabel(text(meta.lostReason) || null)}
           {text(meta.lostNote) ? <small style={{ display: "block", marginTop: 4 }}>{text(meta.lostNote)}</small> : null}
         </>
       );

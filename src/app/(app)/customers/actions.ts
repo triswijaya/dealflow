@@ -10,6 +10,7 @@ import {
   updateCustomer,
   type CustomerOptionDto,
 } from "@/server/customers/customers";
+import { createContact, deleteContact, setPrimaryContact, updateContact } from "@/server/customers/contacts";
 import { runAction } from "@/server/shared/action";
 
 export type SimilarCustomer = { id: string; companyName: string; contactPerson: string };
@@ -59,4 +60,39 @@ export async function findSimilarCustomersAction(input: {
 /** The customer picker's search-as-you-type. */
 export async function searchCustomersAction(input: { query: string }): Promise<ActionResult<CustomerOptionDto[]>> {
   return runAction(async () => searchCustomerOptions({ headers: await headers(), query: input.query }));
+}
+
+/** CUS-04: a customer's people. An id and version means edit, otherwise add. */
+export async function saveContactAction(input: {
+  customerId: string;
+  contactId?: string;
+  expectedVersion?: number;
+  values: { name: string; role: string; phone: string; email: string };
+}): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const requestHeaders = await headers();
+    const saved =
+      input.contactId && input.expectedVersion !== undefined
+        ? await updateContact({ headers: requestHeaders, contactId: input.contactId, expectedVersion: input.expectedVersion, input: input.values })
+        : await createContact({ headers: requestHeaders, customerId: input.customerId, input: input.values });
+    revalidatePath(`/customers/${input.customerId}`);
+    return { id: saved.id };
+  });
+}
+
+export async function setPrimaryContactAction(input: { customerId: string; contactId: string; expectedVersion: number }): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const saved = await setPrimaryContact({ headers: await headers(), contactId: input.contactId, expectedVersion: input.expectedVersion });
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${input.customerId}`);
+    return { id: saved.id };
+  });
+}
+
+export async function deleteContactAction(input: { customerId: string; contactId: string; expectedVersion: number }): Promise<ActionResult<null>> {
+  return runAction(async () => {
+    await deleteContact({ headers: await headers(), contactId: input.contactId, expectedVersion: input.expectedVersion });
+    revalidatePath(`/customers/${input.customerId}`);
+    return null;
+  });
 }

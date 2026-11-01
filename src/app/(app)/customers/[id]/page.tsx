@@ -14,6 +14,7 @@ import { listContacts } from "@/server/customers/contacts";
 import { getCustomer, listCustomerDeals, type CustomerDealDto } from "@/server/customers/customers";
 import { load, requireWorkspace } from "../../workspace";
 import { CopyButton } from "@/components/ui/copy-button";
+import { ContactsCard } from "../contacts-card";
 import { EditCustomerButton } from "../customer-actions";
 
 export const metadata: Metadata = { title: "Detail customer · DealFlow" };
@@ -21,7 +22,7 @@ export const metadata: Metadata = { title: "Detail customer · DealFlow" };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TABS = ["aktif", "menang", "kalah"] as const;
 type Tab = (typeof TABS)[number];
-const TAB_LABEL: Record<Tab, string> = { aktif: "Aktif", menang: "Menang", kalah: "Kalah" };
+const TAB_LABEL: Record<Tab, string> = { aktif: "Terbuka", menang: "Menang", kalah: "Tidak dilanjutkan" };
 const NOTES_PREVIEW = 160;
 
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
@@ -91,7 +92,6 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
     <section className="region">
       <h2>Informasi customer</h2>
       <dl>
-        <KeyValue label="Kontak">{customer.contactPerson}</KeyValue>
         <KeyValue label="Telepon">
           <span className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
             {formatPhone(customer.phoneNormalized)}
@@ -105,24 +105,6 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
           <Notes value={customer.notes} />
         </KeyValue>
       </dl>
-      {contactList.length > 1 ? (
-        <>
-          <h3>Kontak lain</h3>
-          <ul className="stack">
-            {contactList
-              .filter((contact) => !contact.isPrimary)
-              .map((contact) => (
-                <li key={contact.id}>
-                  <b>{contact.name}</b>
-                  {contact.role ? ` · ${contact.role}` : ""}
-                  <small style={{ display: "block" }}>
-                    {[contact.phoneNormalized ? formatPhone(contact.phoneNormalized) : null, contact.email].filter(Boolean).join(" · ")}
-                  </small>
-                </li>
-              ))}
-          </ul>
-        </>
-      ) : null}
     </section>
   );
 
@@ -205,7 +187,10 @@ export default async function CustomerDetailPage({ params, searchParams }: PageP
           </section>
         </div>
         <div className="rail-divider" />
-        <aside className="rail-side">{info}</aside>
+        <aside className="rail-side">
+          <ContactsCard customerId={customer.id} contacts={contactList} canWrite={!finance} />
+          {info}
+        </aside>
       </div>
 
       {finance ? null : (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { CustomerFormDialog } from "@/app/(app)/customers/customer-form-dialog";
 import { CustomerPicker, customerLabel } from "@/components/domain/customer-picker";
 import { Alert } from "@/components/ui/alert";
@@ -11,15 +11,17 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Field, Input, MoneyInput, Select, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { formatRupiah } from "@/lib/format";
-import { ROLE_LABEL, type Role } from "@/lib/labels";
+import { ACTIVE_DEAL_STAGES, DEAL_STAGE, ROLE_LABEL, type Role } from "@/lib/labels";
+import type { ContactDto } from "@/server/customers/contacts";
 import type { CustomerOptionDto } from "@/server/customers/customers";
 import type { AssignableMemberDto } from "@/server/deals/deal-views";
-import { saveDealAction, type DealFormValues } from "./actions";
+import { listCustomerContactsAction, saveDealAction, type DealFormValues } from "./actions";
 
 export type EditableDeal = {
   id: string;
   version: number;
   title: string;
+  status: string;
   estimatedValue: string;
   assignedToId: string;
   assignedToName: string;
@@ -27,12 +29,13 @@ export type EditableDeal = {
   description: string;
   notes: string | null;
   hasQuotation: boolean;
+  contactId: string | null;
   customer: CustomerOptionDto;
 };
 
 export type DealActor = { userId: string; name: string; role: Role };
 
-type FieldName = "customerId" | "title" | "estimatedValue" | "assignedToId" | "expectedCloseDate" | "description" | "notes";
+type FieldName = "customerId" | "contactId" | "stage" | "title" | "estimatedValue" | "assignedToId" | "expectedCloseDate" | "description" | "notes";
 type Errors = Partial<Record<FieldName, string>>;
 
 const LIMITS = { title: 200, description: 5000, notes: 5000 } as const;
@@ -73,6 +76,9 @@ export function DealForm({ deal, members, actor, initialCustomer = null, onClose
   const assigneeLocked = !privileged;
 
   const [customer, setCustomer] = useState<CustomerOptionDto | null>(deal?.customer ?? initialCustomer);
+  const [stage, setStage] = useState<string>(deal?.status ?? "PROSPECT");
+  const [contactId, setContactId] = useState(deal?.contactId ?? "");
+  const [contacts, setContacts] = useState<{ customerId: string; items: ContactDto[] } | null>(null);
   const [title, setTitle] = useState(deal?.title ?? "");
   const [value, setValue] = useState(deal ? deal.estimatedValue : "");
   const [assignedToId, setAssignedToId] = useState(deal?.assignedToId ?? (privileged ? "" : actor.userId));
@@ -86,6 +92,25 @@ export function DealForm({ deal, members, actor, initialCustomer = null, onClose
   const [addingCustomer, setAddingCustomer] = useState(false);
 
   const clear = (field: FieldName) => errors[field] && setErrors((current) => ({ ...current, [field]: undefined }));
+
+  // CUS-04: the PIC is one of the chosen customer's contacts; a new customer
+  // starts on its primary contact.
+  const customerId = customer?.id ?? null;
+  useEffect(() => {
+    if (!customerId) return;
+    let live = true;
+    listCustomerContactsAction(customerId).then((result) => {
+      if (!live || !result.ok) return;
+      setContacts({ customerId, items: result.data });
+      setContactId((current) => (result.data.some((item) => item.id === current) ? current : (result.data.find((item) => item.isPrimary)?.id ?? "")));
+    });
+    return () => {
+      live = false;
+    };
+  }, [customerId]);
+  const contactOptions = contacts && contacts.customerId === customerId ? contacts.items : [];
+  // Value is required from PROPOSAL on (DEAL-03); while exploring needs it may be empty.
+  const valueRequired = stage !== "PROSPECT";
 
   // The current assignee may no longer be assignable (deactivated, role
   // changed); keep them selectable so the form can still show the truth.
@@ -101,8 +126,9 @@ export function DealForm({ deal, members, actor, initialCustomer = null, onClose
     if (!customer) found.customerId = "Pilih customer.";
     const trimmed = title.trim();
     if (!trimmed || trimmed.length > LIMITS.title) found.title = "Judul deal wajib diisi. Maksimal 200 karakter.";
-    if (!value) found.estimatedValue = "Nilai estimasi wajib diisi.";
-    else if (BigInt(value) > MAX_VALUE) found.estimatedValue = `Nilai terlalu besar. Maksimal ${formatRupiah(MAX_VALUE)}.`;
+    if (!value || BigInt(value) <= 0n) {
+      if (valueRequired) found.estimatedValue = "Nilai estimasi wajib diisi mulai tahap Penawaran dikirim.";
+    } else if (BigInt(value) > MAX_VALUE) found.estimatedValue = `Nilai terlalu besar. Maksimal ${formatRupiah(MAX_VALUE)}.`;
     if (!assigneeLocked && !assignedToId) found.assignedToId = "Pilih assigned sales.";
     if (description.trim().length > LIMITS.description) found.description = "Maksimal 5.000 karakter";
     if (notes.trim().length > LIMITS.notes) found.notes = "Maksimal 5.000 karakter";
@@ -122,6 +148,8 @@ export function DealForm({ deal, members, actor, initialCustomer = null, onClose
 
     const values: DealFormValues = {
       customerId: customer!.id,
+      contactId,
+      stage: deal ? undefined : stage,
       title,
       estimatedValue: value,
       assignedToId: assignedToId || undefined,
@@ -183,6 +211,29 @@ export function DealForm({ deal, members, actor, initialCustomer = null, onClose
               </div>
             </>
           )}
+          <Field label="PIC customer" htmlFor="deal-contactId" error={errors.contactId} hint={customer ? "Orang yang dihubungi untuk deal ini." : "Pilih customer dulu."}>
+            <Select id="deal-contactId" value={contactId} disabled={!customer} onChange={(event) => setContactId(event.target.value)}>
+              <option value="">{contactOptions.length ? "Kontak utama customer" : "Belum ada kontak"}</option>
+              {contactOptions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                  {item.role ? ` · ${item.role}` : ""}
+                  {item.isPrimary ? " (utama)" : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {deal ? null : (
+            <Field label="Tahap awal" htmlFor="deal-stage" required hint="Pilih sesuai kondisi sebenarnya. Tahap bisa dipindah kapan saja.">
+              <Select id="deal-stage" value={stage} onChange={(event) => setStage(event.target.value)}>
+                {ACTIVE_DEAL_STAGES.map((value) => (
+                  <option key={value} value={value}>
+                    {DEAL_STAGE[value].label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <Field label="Judul deal" htmlFor="deal-title" required error={errors.title} hint="1–200 karakter">
             <Input
               id="deal-title"
@@ -195,7 +246,13 @@ export function DealForm({ deal, members, actor, initialCustomer = null, onClose
               invalid={!!errors.title}
             />
           </Field>
-          <Field label="Nilai estimasi (Rp)" htmlFor="deal-estimatedValue" required error={errors.estimatedValue} hint="Nilai harus lebih dari Rp0 untuk menandai menang.">
+          <Field
+            label="Nilai estimasi (Rp)"
+            htmlFor="deal-estimatedValue"
+            required={valueRequired}
+            error={errors.estimatedValue}
+            hint={valueRequired ? "Wajib mulai tahap Penawaran dikirim." : "Boleh dikosongkan selama menggali kebutuhan."}
+          >
             <MoneyInput
               id="deal-estimatedValue"
               value={value}
@@ -264,7 +321,6 @@ export function DealForm({ deal, members, actor, initialCustomer = null, onClose
               invalid={!!errors.notes}
             />
           </Field>
-          {deal ? null : <Alert tone="info">Deal baru selalu dimulai pada tahap Baru.</Alert>}
           {formError ? <Alert tone="error">{formError}</Alert> : null}
         </div>
         <DialogFooter>
