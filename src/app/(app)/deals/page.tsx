@@ -6,7 +6,7 @@ import { Avatar, ChipLink, EmptyState, PageHeader } from "@/components/ui/misc";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { formatDate, formatRupiah, formatTime } from "@/lib/format";
-import { DEAL_STAGE, DEAL_STAGES, type DealStage } from "@/lib/labels";
+import { DEAL_SIGNAL, DEAL_STAGE, DEAL_STAGES, type DealStage } from "@/lib/labels";
 import { one, positiveInt, withParams } from "@/lib/url";
 import { getCustomer, type CustomerOptionDto } from "@/server/customers/customers";
 import { listAssignableMembers, listDealRows, type DealSort } from "@/server/deals/deal-views";
@@ -30,6 +30,8 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
   const assignedToId = one(params.sales) ?? "";
   const stageParam = one(params.stage);
   const stage = (DEAL_STAGES as readonly string[]).includes(stageParam ?? "") ? (stageParam as DealStage) : undefined;
+  // DEAL-07: "Ditunda" lists only the deals on hold.
+  const held = one(params.held) === "1";
   const from = one(params.from);
   const to = one(params.to);
   // An inverted range is shown as an error in the toolbar and not applied.
@@ -61,6 +63,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
       filters: {
         query: query || undefined,
         status: finance ? undefined : stage,
+        held: finance || !held ? undefined : true,
         assignedToId: assignedToId || undefined,
         customerId: customer?.id,
         createdFrom: rangeValid ? from : undefined,
@@ -76,6 +79,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
   const activeFilters: { key: string; label: string; remove: string }[] = [];
   if (assignedToId) activeFilters.push({ key: "sales", label: `Assigned sales: ${memberName(assignedToId)?.name ?? "—"}`, remove: href({ sales: null }) });
   if (stage && !finance) activeFilters.push({ key: "stage", label: DEAL_STAGE[stage].label, remove: href({ stage: null }) });
+  if (held && !finance) activeFilters.push({ key: "held", label: "Ditunda", remove: href({ held: null }) });
   if (customer) activeFilters.push({ key: "customer", label: `Customer: ${customer.companyName}`, remove: href({ customer: null }) });
   if (query) activeFilters.push({ key: "q", label: `Cari: ${query}`, remove: href({ q: null }) });
   if (rangeValid && (from || to)) {
@@ -120,14 +124,17 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
       {firstRun ? null : <DealToolbar query={query} assignedToId={assignedToId} customer={customer} members={members} dateRange from={from} to={to} />}
       {finance || firstRun ? null : (
         <div className="chips" style={{ marginTop: 14 }}>
-          <ChipLink href={href({ stage: null })} active={!stage}>
+          <ChipLink href={href({ stage: null, held: null })} active={!stage && !held}>
             Semua
           </ChipLink>
           {DEAL_STAGES.map((value) => (
-            <ChipLink key={value} href={href({ stage: value })} active={stage === value}>
+            <ChipLink key={value} href={href({ stage: value, held: null })} active={stage === value}>
               {DEAL_STAGE[value].label}
             </ChipLink>
           ))}
+          <ChipLink href={href({ held: "1", stage: null })} active={held}>
+            Ditunda
+          </ChipLink>
         </div>
       )}
       {filtered ? (
@@ -172,6 +179,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
               <tr>
                 <th>Deal</th>
                 <th>Tahap</th>
+                {finance ? null : <th>Sinyal</th>}
                 <th className="num" aria-sort={ariaSort("value")}>
                   {sortHeader("value")}
                 </th>
@@ -201,8 +209,22 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
                     <td data-label="Tahap">
                       <div>
                         <Badge tone={stageInfo?.tone}>{stageInfo?.label ?? deal.status}</Badge>
+                        {deal.onHoldUntil ? <small>Ditunda s.d. {formatDate(deal.onHoldUntil)}</small> : null}
                       </div>
                     </td>
+                    {finance ? null : (
+                      <td data-label="Sinyal">
+                        <div className="row" style={{ gap: 4 }}>
+                          {deal.signals.length
+                            ? deal.signals.slice(0, 2).map((signal) => (
+                                <Badge key={signal} tone={DEAL_SIGNAL[signal]?.tone}>
+                                  {DEAL_SIGNAL[signal]?.label ?? signal}
+                                </Badge>
+                              ))
+                            : "-"}
+                        </div>
+                      </td>
+                    )}
                     <td className="num" data-label="Nilai">
                       <div>
                         <span title={won ? "Nilai menang" : "Nilai estimasi"}>{formatRupiah(won && deal.wonValue ? deal.wonValue : deal.estimatedValue)}</span>
@@ -233,7 +255,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
                             Buka
                           </ButtonLink>
                         ) : (
-                          <DealRowActions deal={deal} role={workspace.role} />
+                          <DealRowActions deal={deal} role={workspace.role} today={workspace.today} />
                         )}
                       </div>
                     </td>

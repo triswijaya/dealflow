@@ -1,15 +1,15 @@
 "use client";
 
-import { Check, Circle, CircleAlert, CircleDashed, Clock, FileText, Info, X } from "lucide-react";
+import { Check, Circle, CircleAlert, CircleDashed, FileText, Info, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/misc";
-import { Count } from "@/components/ui/badge";
+import { Badge, Count } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuItem } from "@/components/ui/menu";
 import { useToast } from "@/components/ui/toast";
-import { formatRelative, formatRupiah } from "@/lib/format";
-import { DEAL_STAGE, NEXT_DEAL_STAGE, type ActiveDealStage, type BadgeTone, type Role } from "@/lib/labels";
+import { formatDate, formatRelative, formatRupiah } from "@/lib/format";
+import { ACTIVE_DEAL_STAGES, DEAL_SIGNAL, DEAL_STAGE, type ActiveDealStage, type BadgeTone, type Role } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import type { DealFilters, PipelineCardDto, PipelineStageDto } from "@/server/deals/deal-views";
 import { loadMorePipelineAction } from "../deals/actions";
@@ -30,7 +30,7 @@ const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1
 type Dialog = { mode: TransitionMode; card: PipelineCardDto };
 
 /**
- * P-01: five stage columns on desktop, one at a time behind tabs on phones.
+ * P-01: four stage columns on desktop, one at a time behind tabs on phones.
  * The server sends the first cards of each stage plus the stage's true count
  * and value; "Muat lebih banyak" asks for the next page of one column.
  */
@@ -40,12 +40,15 @@ export function PipelineBoard({
   role,
   pageSize,
   timezone,
+  today,
 }: {
   stages: PipelineStageDto[];
   filters: Omit<DealFilters, "status" | "createdFrom" | "createdTo">;
   role: Role;
   pageSize: number;
   timezone: string;
+  /** The organization's today (YYYY-MM-DD). */
+  today: string;
 }) {
   const toast = useToast();
   const [loaded, setLoaded] = useState<Partial<Record<ActiveDealStage, PipelineCardDto[]>>>({});
@@ -120,22 +123,28 @@ export function PipelineBoard({
                 </small>
               </div>
               {cards.length === 0 ? (
-                <p className="quiet-empty">Belum ada deal.</p>
+                <p className="quiet-empty">{filters.held ? "Tidak ada yang ditahan." : "Belum ada deal."}</p>
               ) : (
                 cards.map((card) => {
-                  const next = NEXT_DEAL_STAGE[stage.status];
+                  const held = card.onHoldUntil !== null;
                   return (
-                    <article key={card.id} className="deal-card">
+                    <article key={card.id} className={cn("deal-card", held && "is-held")}>
                       <div className="deal-card-head">
                         <small title={card.customerName}>{card.customerName}</small>
                         <Menu label="Menu tindakan">
-                          <MenuItem onSelect={() => openDialog({ mode: next.to === "WON" ? "won" : "advance", card })}>
-                            {next.to === "WON" ? "Tandai menang" : `Pindah ke ${DEAL_STAGE[next.to].label}`}
-                          </MenuItem>
-                          <MenuItem onSelect={() => openContact("schedule", card)}>Jadwalkan follow-up</MenuItem>
+                          {held
+                            ? null
+                            : ACTIVE_DEAL_STAGES.filter((to) => to !== stage.status).map((to) => (
+                                <MenuItem key={to} onSelect={() => openDialog({ mode: { kind: "move", to }, card })}>
+                                  Pindah ke {DEAL_STAGE[to].label}
+                                </MenuItem>
+                              ))}
+                          {held ? null : <MenuItem onSelect={() => openDialog({ mode: { kind: "won" }, card })}>Konfirmasi menang</MenuItem>}
+                          <MenuItem onSelect={() => openContact("schedule", card)}>Jadwalkan tugas</MenuItem>
                           <MenuItem onSelect={() => openContact("whatsapp", card)}>Buka WhatsApp</MenuItem>
-                          <MenuItem danger onSelect={() => openDialog({ mode: "lost", card })}>
-                            Tandai kalah
+                          <MenuItem onSelect={() => openDialog({ mode: { kind: "hold" }, card })}>{held ? "Perpanjang penundaan" : "Tahan dulu"}</MenuItem>
+                          <MenuItem danger onSelect={() => openDialog({ mode: { kind: "lost" }, card })}>
+                            Tidak dilanjutkan
                           </MenuItem>
                         </Menu>
                       </div>
@@ -143,14 +152,22 @@ export function PipelineBoard({
                         <Link href={`/deals/${card.id}`}>{card.title}</Link>
                       </h3>
                       <div className="deal-card-value">
-                        <b className="money">{formatRupiah(card.estimatedValue)}</b>
+                        <b className="money">{BigInt(card.estimatedValue) > 0n ? formatRupiah(card.estimatedValue) : "Nilai belum diisi"}</b>
                         {card.hasQuotation ? <FileText aria-label="Sudah memiliki quotation" role="img" /> : null}
                       </div>
-                      {card.followUpOverdue ? (
-                        <small className="overdue-note">
-                          <Clock aria-hidden="true" />
-                          Follow-up terlambat
-                        </small>
+                      {held || card.signals.length ? (
+                        <div className="deal-card-tags">
+                          {held && !card.signals.length ? (
+                            <Badge tone="neutral">
+                              Ditunda s.d. {formatDate(card.onHoldUntil!)}
+                            </Badge>
+                          ) : null}
+                          {card.signals.slice(0, 2).map((signal) => (
+                            <Badge key={signal} tone={DEAL_SIGNAL[signal]?.tone}>
+                              {DEAL_SIGNAL[signal]?.label ?? signal}
+                            </Badge>
+                          ))}
+                        </div>
                       ) : null}
                       <div className="deal-card-foot">
                         <Avatar name={card.assignedToName} />
@@ -185,6 +202,7 @@ export function PipelineBoard({
           onClose={() => setDialogOpen(false)}
           mode={dialog.mode}
           role={role}
+          today={today}
           deal={{
             id: dialog.card.id,
             title: dialog.card.title,
@@ -192,6 +210,7 @@ export function PipelineBoard({
             status: dialog.card.status,
             version: dialog.card.version,
             estimatedValue: dialog.card.estimatedValue,
+            onHoldUntil: dialog.card.onHoldUntil,
           }}
         />
       ) : null}

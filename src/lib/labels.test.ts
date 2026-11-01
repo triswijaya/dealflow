@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  ACTIVE_DEAL_STAGES,
   DEAL_STAGE,
   DEAL_STAGES,
-  NEXT_DEAL_STAGE,
   followUpTypeLabel,
   isActiveStage,
   lostReasonLabel,
@@ -16,17 +14,6 @@ describe("deal stages", () => {
       expect(DEAL_STAGE[stage].label).not.toBe("");
       expect(DEAL_STAGE[stage].tone).toBeTruthy();
     }
-  });
-
-  it("moves one step forward at a time, from PROSPECT through every active stage to WON (DEAL-03)", () => {
-    const path: string[] = ["PROSPECT"];
-    let stage = NEXT_DEAL_STAGE.PROSPECT;
-    while (true) {
-      path.push(stage.to);
-      if (!isActiveStage(stage.to)) break;
-      stage = NEXT_DEAL_STAGE[stage.to];
-    }
-    expect(path).toEqual([...ACTIVE_DEAL_STAGES, "WON"]);
   });
 
   it("treats WON and LOST as closed", () => {

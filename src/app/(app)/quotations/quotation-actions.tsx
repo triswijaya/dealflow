@@ -8,8 +8,9 @@ import { ConflictDialog } from "@/components/ui/conflict-dialog";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Menu, MenuItem } from "@/components/ui/menu";
 import { useToast } from "@/components/ui/toast";
+import { SendEmailDialog } from "@/components/domain/send-email-dialog";
 import { WhatsAppDialog } from "../follow-ups/follow-up-dialogs";
-import { reviseQuotationAction, transitionQuotationAction } from "./actions";
+import { reviseQuotationAction, sendQuotationEmailAction, transitionQuotationAction } from "./actions";
 
 type Mode = "sent" | "accepted" | "rejected" | "revise";
 
@@ -28,9 +29,8 @@ export type QuotationActionState = {
   timezone: string;
 };
 
-// QUO-08: a quotation can only be marked sent once the deal is Terkualifikasi
-// or further, and never on a lost one. The server enforces it; this only
-// explains why the button is off.
+// QUO-11: a lost deal's quotations are read-only: no sending, mailing or
+// revising. The server enforces it; this only hides what would be refused.
 const CANNOT_SEND_DEAL = ["LOST"];
 
 /**
@@ -42,6 +42,7 @@ export function QuotationActions({ quotation }: { quotation: QuotationActionStat
   const [mode, setMode] = useState<Mode | null>(null);
   const [open, setOpen] = useState(false);
   const [whatsapp, setWhatsapp] = useState(false);
+  const [email, setEmail] = useState(false);
   const start = (next: Mode) => {
     setMode(next);
     setOpen(true);
@@ -56,17 +57,21 @@ export function QuotationActions({ quotation }: { quotation: QuotationActionStat
 
   const lateDraft = status === "DRAFT" && quotation.validUntil < quotation.today;
   const dealBlocks = CANNOT_SEND_DEAL.includes(quotation.dealStatus);
-  const sendBlockReason = lateDraft ? "Perbarui tanggal berlaku." : dealBlocks ? "Deal harus Terkualifikasi sebelum quotation dapat ditandai terkirim." : undefined;
+  const sendBlockReason = lateDraft ? "Perbarui tanggal berlaku." : undefined;
+  const dealOpen = quotation.dealStatus !== "WON" && quotation.dealStatus !== "LOST";
 
   const more = (
     <Menu label="Menu tindakan">
-      {isLatest ? <MenuItem onSelect={() => start("revise")}>Buat revisi</MenuItem> : null}
+      <MenuItem onSelect={() => setEmail(true)}>Kirim lewat email</MenuItem>
       <MenuItem onSelect={() => setWhatsapp(true)}>Kirim via WhatsApp</MenuItem>
+      {isLatest ? <MenuItem onSelect={() => start("revise")}>Buat revisi</MenuItem> : null}
     </Menu>
   );
 
   let buttons: React.ReactNode;
-  if (!isLatest) {
+  if (dealBlocks) {
+    buttons = pdf;
+  } else if (!isLatest) {
     buttons = (
       <>
         {pdf}
@@ -114,14 +119,17 @@ export function QuotationActions({ quotation }: { quotation: QuotationActionStat
       </>
     );
   } else {
-    // ACCEPTED or REJECTED: final; the way forward is a new revision.
+    // ACCEPTED or REJECTED: final; the way forward is a new revision, or on
+    // an accepted one the deal's Won once the PO, contract or payment is in.
     buttons = (
       <>
+        {status === "ACCEPTED" && dealOpen ? <ButtonLink href={`/deals/${quotation.dealId}?win=${quotation.id}`}>Konfirmasi menang</ButtonLink> : null}
         <Button variant="secondary" onClick={() => start("revise")}>
           Buat revisi
         </Button>
         {pdf}
         <Menu label="Menu tindakan">
+          <MenuItem onSelect={() => setEmail(true)}>Kirim lewat email</MenuItem>
           <MenuItem onSelect={() => setWhatsapp(true)}>Kirim via WhatsApp</MenuItem>
         </Menu>
       </>
@@ -132,6 +140,12 @@ export function QuotationActions({ quotation }: { quotation: QuotationActionStat
     <>
       {buttons}
       {mode ? <QuotationDialog open={open} onClose={() => setOpen(false)} mode={mode} quotation={quotation} /> : null}
+      <SendEmailDialog
+        open={email}
+        onClose={() => setEmail(false)}
+        documentLabel={`quotation ${quotation.quotationNumber}`}
+        onSend={(values) => sendQuotationEmailAction({ quotationId: quotation.id, ...values })}
+      />
       <WhatsAppDialog open={whatsapp} onClose={() => setWhatsapp(false)} dealId={quotation.dealId} timezone={quotation.timezone} initialQuotationId={quotation.id} />
     </>
   );
@@ -189,7 +203,7 @@ function QuotationDialogBody({ mode, quotation, onClose }: { mode: Mode; quotati
     }
     toast(
       mode === "sent"
-        ? `Quotation ditandai terkirim${advancesDeal ? " · Deal dipindahkan ke Penawaran" : ""}`
+        ? `Quotation ditandai terkirim${advancesDeal ? " · Deal pindah ke Penawaran dikirim" : ""}`
         : mode === "accepted"
           ? "Quotation ditandai diterima · Status deal tetap"
           : "Quotation ditandai ditolak · Status deal tetap",
@@ -204,7 +218,7 @@ function QuotationDialogBody({ mode, quotation, onClose }: { mode: Mode; quotati
           <>
             <p>Lakukan ini setelah Anda benar-benar mengirim quotation ke customer (email, WhatsApp, atau cetak).</p>
             <Alert tone="success">
-              {advancesDeal ? "Deal akan otomatis pindah ke tahap Penawaran." : "Status deal tidak berubah."}
+              {advancesDeal ? "Deal otomatis pindah ke tahap Penawaran dikirim." : "Tahap deal tidak berubah."}
               <br />
               Isi quotation akan dikunci.
             </Alert>
@@ -212,12 +226,12 @@ function QuotationDialogBody({ mode, quotation, onClose }: { mode: Mode; quotati
         ) : null}
         {mode === "accepted" ? (
           <Alert tone="info">
-            Status deal tidak berubah otomatis.
+            Bila deal masih di tahap Penawaran dikirim atau Negosiasi, deal otomatis pindah ke Menunggu komitmen. Konfirmasi menang saat PO, kontrak, atau pembayaran sudah ada.
             <br />
-            Keputusan ini final.
+            Status quotation ini final.
           </Alert>
         ) : null}
-        {mode === "rejected" ? <p>Deal tidak otomatis menjadi kalah. Anda bisa membuat revisi setelah ini.</p> : null}
+        {mode === "rejected" ? <p>Deal tidak otomatis ditutup. Anda bisa membuat revisi setelah ini.</p> : null}
         {mode === "revise" ? (
           <>
             <p>Versi baru dibuat sebagai draf dengan isi yang sama. Versi saat ini akan dikunci sebagai versi lama.</p>

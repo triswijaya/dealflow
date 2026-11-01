@@ -32,6 +32,7 @@ export type OrderDto = {
   id: string;
   orderNumber: string;
   customerId: string;
+  customerName: string;
   dealId: string | null;
   contactId: string | null;
   title: string;
@@ -44,6 +45,8 @@ export type OrderDto = {
   currentValue: string;
   /** Sum of the live invoices. */
   billedAmount: string;
+  /** What has been settled on those invoices. */
+  settledAmount: string;
   status: OrderStatus;
   sourceQuotationId: string | null;
   cancelledAt: string | null;
@@ -87,12 +90,13 @@ export function toAmendmentDto(row: typeof orderAmendments.$inferSelect): Amendm
 
 export function toOrderDto(
   row: typeof orders.$inferSelect,
-  parts: { currentValue: bigint; billedAmount: bigint; status: OrderStatus; items: BillingItemDto[]; amendments: AmendmentDto[] },
+  parts: { currentValue: bigint; billedAmount: bigint; settledAmount: bigint; customerName: string; status: OrderStatus; items: BillingItemDto[]; amendments: AmendmentDto[] },
 ): OrderDto {
   return {
     id: row.id,
     orderNumber: row.orderNumber,
     customerId: row.customerId,
+    customerName: parts.customerName,
     dealId: row.dealId,
     contactId: row.contactId,
     title: row.title,
@@ -103,6 +107,7 @@ export function toOrderDto(
     originalValue: toMoneyDto(row.originalValue),
     currentValue: toMoneyDto(parts.currentValue),
     billedAmount: toMoneyDto(parts.billedAmount),
+    settledAmount: toMoneyDto(parts.settledAmount),
     status: parts.status,
     sourceQuotationId: row.sourceQuotationId,
     cancelledAt: row.cancelledAt ? toIsoDto(row.cancelledAt) : null,

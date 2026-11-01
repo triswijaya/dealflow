@@ -193,10 +193,11 @@ describe("receipts, settlements and corrections (ADR-0003)", () => {
 
   describe("withholding tax and write-offs (SET-01)", () => {
     it("settles an invoice paid net of withholding without adding cash", async () => {
+      // Paid today, not yesterday: on the 1st, yesterday falls in last month and the check below would miss it.
       const org = await setupOrganization();
       const customer = await customerFor(org);
       const invoice = await invoiceFor(org, customer.id, "10000000");
-      await recordPayment({ headers: org.ownerHeaders, input: { invoiceId: invoice.id, amount: "9800000", paymentDate: orgDay(-1), paymentMethod: "BANK_TRANSFER", idempotencyKey: key() } });
+      await recordPayment({ headers: org.ownerHeaders, input: { invoiceId: invoice.id, amount: "9800000", paymentDate: orgDay(0), paymentMethod: "BANK_TRANSFER", idempotencyKey: key() } });
       expect(await balance(org, invoice.id)).toMatchObject({ status: "PARTIALLY_PAID", remaining: "200000" });
 
       await expect(settleInvoice({ headers: org.ownerHeaders, invoiceId: invoice.id, input: { kind: "WITHHOLDING", amount: "200000", idempotencyKey: key() } })).rejects.toThrow(/withholding slip/);

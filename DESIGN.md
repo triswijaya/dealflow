@@ -1,5 +1,7 @@
 # DESIGN.md — Inkwash Design System
 
+> **DealFlow v2 overrides (2026-10-31).** The app keeps the Inkwash structure and class names, but its tokens now follow the final prototype (`Prototype/dealflow-v2.html`): Plus Jakarta Sans for text and numbers, cool greys (`#F4F5F7` work area, `#FBFBFC` sidebar, `#14161B` ink), a light sidebar beside a grey work area with content on white cards instead of one inset white panel, rounded-rectangle buttons, and SaaS density (240px sidebar, 24px titles, 14px body, 32/36px controls, content capped at 1400px). Breakpoints: full sidebar from 960px, icon rail 768–959px, phone below 768px. Where this document and `src/app/inkwash.css` disagree, the CSS wins.
+
 **Version** 1.0 · **Theme** Light (dark theme provisional, §3.10) · **Scope** Any SaaS product: dashboards, admin panels, CRMs, trackers, AI apps, data-heavy tools.
 
 **Source** Eight reference screenshots of one product family (a school-management dashboard): four screens — *Attendance*, *Student overview*, *Exams*, *Schedule* — each shown once zoomed-in and once full-frame. All values below were reverse-engineered from those screenshots.

@@ -8,7 +8,7 @@ const PATH: DealStage[] = [...ACTIVE_DEAL_STAGES, "WON"];
 /**
  * The deal's journey, one step per stage with the date it was entered. A won
  * deal completes the path; a lost deal shows the stages it reached and ends
- * on "Kalah", since the stages it never reached say nothing useful.
+ * on "Tidak dilanjutkan", since the stages it never reached say nothing useful.
  */
 export function DealStepper({
   status,
@@ -24,7 +24,7 @@ export function DealStepper({
   const currentIndex = steps.indexOf(status as DealStage);
 
   return (
-    <ol className="stepper" aria-label="Tahap deal" tabIndex={0} style={{ listStyle: "none", marginTop: 0, marginBottom: 0, padding: "10px 0 22px" }}>
+    <ol className="stepper" aria-label="Tahap deal" tabIndex={0} style={{ listStyle: "none" }}>
       {steps.map((stage, index) => {
         const done = index < currentIndex;
         const current = index === currentIndex;
@@ -33,7 +33,7 @@ export function DealStepper({
           <li key={stage} className={cn("step", done && "done", current && "current")} aria-current={current ? "step" : undefined}>
             <b>{done ? <Check aria-hidden="true" /> : index + 1}</b>
             {DEAL_STAGE[stage].label}
-            <small>{date ? formatDate(date, timezone) : "Belum masuk"}</small>
+            <small>{date ? formatDate(date, timezone) : done ? "Dilewati" : "Belum masuk"}</small>
           </li>
         );
       })}

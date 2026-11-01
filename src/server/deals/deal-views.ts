@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
@@ -28,6 +28,8 @@ const filterSchema = z.object({
   status: z.enum(ALL_STAGES).optional(),
   assignedToId: z.string().min(1).max(100).optional(),
   customerId: z.string().uuid().optional(),
+  /** DEAL-07: true lists only deals on hold, false hides them, absent shows both. */
+  held: z.boolean().optional(),
   createdFrom: dateOnly.optional(),
   createdTo: dateOnly.optional(),
 });
@@ -57,6 +59,7 @@ function filterConditions(filters: z.output<typeof filterSchema>, timezone: stri
   if (filters.status) conditions.push(eq(deals.status, filters.status));
   if (filters.assignedToId) conditions.push(eq(deals.assignedToId, filters.assignedToId));
   if (filters.customerId) conditions.push(eq(deals.customerId, filters.customerId));
+  if (filters.held !== undefined) conditions.push(filters.held ? isNotNull(deals.onHoldUntil) : isNull(deals.onHoldUntil));
   if (filters.createdFrom && filters.createdTo && filters.createdFrom > filters.createdTo) {
     throw new APIError("BAD_REQUEST", { message: "Invalid date range: createdFrom is after createdTo" });
   }
@@ -86,14 +89,15 @@ export type DealRowDto = {
   createdAt: string;
   onHoldUntil: string | null;
   hasQuotation: boolean;
+  /** DEAL-09: computed when read. */
+  signals: DealSignal[];
   version: number;
 };
 
-function toRow(row: {
-  deal: typeof deals.$inferSelect;
-  customerName: string;
-  assignedToName: string;
-}): DealRowDto {
+function toRow(
+  row: { deal: typeof deals.$inferSelect; customerName: string; assignedToName: string; openTasks: number; overdueTasks: number },
+  clock: Clock,
+): DealRowDto {
   const { deal } = row;
   return {
     id: deal.id,
@@ -110,6 +114,7 @@ function toRow(row: {
     createdAt: toIsoDto(deal.createdAt),
     onHoldUntil: deal.onHoldUntil,
     hasQuotation: deal.hasQuotation,
+    signals: signalsOf(deal, row, clock),
     version: deal.version,
   };
 }
@@ -132,7 +137,8 @@ export async function listDealRows(params: {
   const { page, pageSize, limit, offset } = resolvePagination(params);
   const sort = z.enum(SORTS).default("createdAt").parse(params.sort);
   const direction = z.enum(["asc", "desc"]).default("desc").parse(params.direction);
-  const { timezone } = await organizationClock(actor.organizationId);
+  const clock = await organizationClock(actor.organizationId);
+  const { timezone } = clock;
   const filters = filterSchema.parse(params.filters ?? {});
   const where = and(scope(actor.role, actor.organizationId), ...filterConditions(filters, timezone));
 
@@ -141,7 +147,7 @@ export async function listDealRows(params: {
 
   const base = () =>
     db
-      .select({ deal: deals, customerName: customers.companyName, assignedToName: assignee.name })
+      .select({ deal: deals, customerName: customers.companyName, assignedToName: assignee.name, ...taskCounts(actor.organizationId, timezone) })
       .from(deals)
       .innerJoin(customers, and(eq(customers.id, deals.customerId), eq(customers.organizationId, deals.organizationId)))
       .innerJoin(assignee, eq(assignee.id, deals.assignedToId))
@@ -160,7 +166,7 @@ export async function listDealRows(params: {
       .innerJoin(customers, and(eq(customers.id, deals.customerId), eq(customers.organizationId, deals.organizationId)))
       .where(where),
   ]);
-  return buildPaginatedDto(rows.map(toRow), page, pageSize, count);
+  return buildPaginatedDto(rows.map((row) => toRow(row, clock)), page, pageSize, count);
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +183,7 @@ export type PipelineCardDto = {
   lastActivityAt: string;
   hasQuotation: boolean;
   followUpOverdue: boolean;
+  onHoldUntil: string | null;
   /** DEAL-09: computed when read. */
   signals: DealSignal[];
   version: number;
@@ -231,6 +238,7 @@ function toCard(row: Awaited<ReturnType<typeof cardQuery>>[number], clock: Clock
     lastActivityAt: toIsoDto(row.deal.lastActivityAt),
     hasQuotation: row.deal.hasQuotation,
     followUpOverdue: row.overdueTasks > 0,
+    onHoldUntil: row.deal.onHoldUntil,
     signals: signalsOf(row.deal, row, clock),
     version: row.deal.version,
   };
@@ -246,7 +254,8 @@ async function pipelineActor(headers: Headers) {
 }
 
 /**
- * P-01: the four active stages (deals on hold are not on the board, DEAL-07), each with its total count and value and the
+ * P-01: the four active stages (deals on hold are not on the board unless
+ * filters.held asks for them, DEAL-07), each with its total count and value and the
  * first PIPELINE_COLUMN_LIMIT cards, most recently active first. Counts and
  * values come from the whole stage, not from the visible cards.
  */
@@ -255,7 +264,7 @@ export async function getPipelineBoard(params: { headers: Headers; filters?: Omi
   const clock = await organizationClock(actor.organizationId);
   const { timezone } = clock;
   const filters = filterSchema.omit({ status: true, createdFrom: true, createdTo: true }).parse(params.filters ?? {});
-  const common = [eq(deals.organizationId, actor.organizationId), isNull(deals.onHoldUntil), ...filterConditions(filters, timezone)];
+  const common = [eq(deals.organizationId, actor.organizationId), ...filterConditions({ ...filters, held: filters.held ?? false }, timezone)];
 
   const totals = await db
     .select({
@@ -296,7 +305,7 @@ export async function listPipelineStageCards(params: {
   const rows = await cardQuery(
     actor.organizationId,
     timezone,
-    and(eq(deals.organizationId, actor.organizationId), eq(deals.status, status), isNull(deals.onHoldUntil), ...filterConditions(filters, timezone)),
+    and(eq(deals.organizationId, actor.organizationId), eq(deals.status, status), ...filterConditions({ ...filters, held: filters.held ?? false }, timezone)),
   )
     .orderBy(desc(deals.lastActivityAt), desc(deals.id))
     .limit(PIPELINE_COLUMN_LIMIT)

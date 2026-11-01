@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { env } from "@/server/env";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-inter" });
+// One family for text and numbers; tabular-nums keeps figures aligned.
+const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta" });
 
 export const metadata: Metadata = {
   // Makes relative Open Graph and icon URLs resolve to absolute ones.
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="id" className={inter.variable} data-scroll-behavior="smooth">
+    <html lang="id" className={jakarta.variable} data-scroll-behavior="smooth">
       <body className="font-sans">{children}</body>
     </html>
   );
