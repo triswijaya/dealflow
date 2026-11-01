@@ -7,24 +7,30 @@
   --neutral-0:   #FFFFFF;  --neutral-25:  #FBFBFC;  --neutral-50:  #F7F8FA;
   --neutral-75:  #EFF1F4;  --neutral-100: #ECEEF2;  --neutral-150: #E6E8EC;
   --neutral-200: #DCDFE5;  --neutral-300: #CDD1D8;  --neutral-400: #9BA1AC;
-  --neutral-500: #868C97;  --neutral-600: #646A75;  --neutral-700: #5D636E;
+  --neutral-500: #868C97;  --neutral-600: #646A75;  --neutral-700: #656B76;
   --neutral-800: #2E323A;  --neutral-900: #1C1F25;  --neutral-950: #14161B;
   --black: #000000;
 
   /* ───────── Primitives: ink ───────── */
   --ink: #14161B;  --ink-hover: #2A2D34;  --ink-pressed: #0D0F13;
   --on-ink: #FFFFFF;  --on-ink-muted: rgba(255,255,255,0.64);
-  --signal: #F08A3C;            /* 6px attention dots only */
-  --danger-solid: #B5452F;      /* danger buttons only (5.4:1 with white) */
+  --signal: #F2862B;            /* 6px attention dots only */
+  --danger-solid: #DC2626;      /* danger buttons only (4.8:1 with white) */
 
-  /* ───────── Primitives: pastel families (50 wash · 100 soft · 200 tint · 300 band · 400 fill · 600 glyph · 800 ink) ───────── */
-  --violet-50:#F8F6FF; --violet-100:#F0ECFE; --violet-200:#E6DFFC; --violet-300:#D3C8F7; --violet-400:#A894EE; --violet-600:#6C4FD6; --violet-800:#3F2A8C;
-  --indigo-50:#F5F6FE; --indigo-100:#E9ECFD; --indigo-200:#D2D7FA; --indigo-300:#BAC0E6; --indigo-400:#9AA3EC; --indigo-600:#4F5BD0; --indigo-800:#28307A;
-  --sky-50:#F3FAFE;    --sky-100:#E8F5FD;    --sky-200:#DCEFFC;    --sky-300:#C4E1F4;    --sky-400:#84C2EE;    --sky-600:#2E8FD6;    --sky-800:#145079;
-  --mint-50:#F4FBF8;   --mint-100:#E6F8EF;   --mint-200:#D4F5E3;   --mint-300:#C2E5D3;   --mint-400:#7CCBAE;   --mint-600:#278F6B;   --mint-800:#14553E;
-  --butter-50:#FFFBF2; --butter-100:#FEF5DF; --butter-200:#FCEDCC; --butter-300:#EBDDBD; --butter-400:#EBC468; --butter-600:#B9800F; --butter-800:#6E4C07;
-  --coral-50:#FEF6F4;  --coral-100:#FCEAE5;  --coral-200:#F8D9D0;  --coral-300:#E6C5BC;  --coral-400:#EC9C8A;  --coral-600:#C9563F;  --coral-800:#7A2A1C;
-  --copper-50:#FDF8F4; --copper-100:#FBEEE5; --copper-200:#F6DECF; --copper-300:#E7CBB8; --copper-400:#D69A73; --copper-600:#A85E31; --copper-800:#6A3517;
+  /* ───────── Primitives: colour families ─────────
+     The final prototype's palette (store, mobile, docs, billing, infra plus
+     the up/down/warn/info status hues), laid out on the old family steps
+     (50 wash · 100 soft · 200 tint · 300 band · 400 fill · 600 glyph · 800 ink)
+     so every component that read a family now reads the prototype colours. */
+  --cat-store: #6B72F0;  --cat-mobile: #15B3A1;  --cat-docs: #2FB463;  --cat-billing: #F2862B;  --cat-infra: #EC5A9B;
+  --violet-50:#F5F6FE; --violet-100:#ECEEFD; --violet-200:#DADCFB; --violet-300:#C3C6F8; --violet-400:#6B72F0; --violet-600:#4F56D9; --violet-800:#2E3392;
+  --indigo-50:#F5F6FE; --indigo-100:#ECEEFD; --indigo-200:#DADCFB; --indigo-300:#C3C6F8; --indigo-400:#6B72F0; --indigo-600:#4F56D9; --indigo-800:#2E3392;
+  --sky-50:#F0FBF9;    --sky-100:#E1F6F3;    --sky-200:#C3ECE6;    --sky-300:#9BDFD5;    --sky-400:#15B3A1;    --sky-600:#0E8A7C;    --sky-800:#0A5950;
+  --mint-50:#F2FBF5;   --mint-100:#E8F7EE;   --mint-200:#CDEFD9;   --mint-300:#A6E2BC;   --mint-400:#2FB463;   --mint-600:#15A34A;   --mint-800:#166534;
+  --butter-50:#FFF8F0; --butter-100:#FFF1E3; --butter-200:#FDE1C4; --butter-300:#FAC898; --butter-400:#F2862B; --butter-600:#C2620A; --butter-800:#7C3A06;
+  --copper-50:#FFF8F0; --copper-100:#FFF1E3; --copper-200:#FDE1C4; --copper-300:#FAC898; --copper-400:#F2862B; --copper-600:#C2620A; --copper-800:#7C3A06;
+  --coral-50:#FEF5F5;  --coral-100:#FDECEC;  --coral-200:#FAD4D4;  --coral-300:#F5B3B3;  --coral-400:#F87171;  --coral-600:#DC2626;  --coral-800:#991B1B;
+  --pink-50:#FEF4F9;   --pink-100:#FCE8F2;   --pink-200:#F9D0E4;   --pink-300:#F4ACCD;   --pink-400:#EC5A9B;   --pink-600:#C2347A;   --pink-800:#7D1F4E;
 
   /* ───────── Semantic: surfaces ───────── */
   --surface-panel:   var(--neutral-0);
@@ -47,7 +53,7 @@
   --text-inverse:   var(--on-ink);
 
   /* ───────── Semantic: borders ───────── */
-  --border-divider: var(--neutral-100);
+  --border-divider: #EEF0F3;
   --border-subtle:  var(--neutral-150);
   --border-control: var(--neutral-300);
   --border-strong:  var(--ink);
@@ -61,9 +67,9 @@
   --action-ghost-hover:     rgba(10,10,10,0.04);
   --action-ghost-pressed:   rgba(10,10,10,0.06);
   --focus-gap: var(--surface-panel);
-  --focus-ring: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--ink);
+  --focus-ring: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--cat-store);
   --input-halo: 0 0 0 3px rgba(10,10,10,0.08);
-  --input-halo-error: 0 0 0 3px rgba(201,86,63,0.15);
+  --input-halo-error: 0 0 0 3px rgba(220,38,38,0.15);
 
   /* ───────── Semantic: status (wash · soft · tint · band · fill · glyph · ink) ───────── */
   --status-success-wash:var(--mint-50);   --status-success-soft:var(--mint-100);   --status-success-tint:var(--mint-200);   --status-success-band:var(--mint-300);   --status-success-fill:var(--mint-400);   --status-success-glyph:var(--mint-600);   --status-success-ink:var(--mint-800);
@@ -84,6 +90,9 @@
   --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
   --weight-regular: 400;  --weight-medium: 500;  --weight-semibold: 600;
   /* size / line-height pairs */
+  /* The prototype scale at SaaS density: hero 48→40, kpi 32→28, h1 28→24, h2 18→16. */
+  --fs-hero: 40px;     --lh-hero: 44px;     --ls-hero: -0.03em;
+  --fs-kpi: 28px;      --lh-kpi: 32px;      --ls-kpi: -0.025em;
   --fs-display: 32px;  --lh-display: 40px;  --ls-display: -0.02em;
   --fs-title-lg: 24px; --lh-title-lg: 32px; --ls-title-lg: -0.015em;
   --fs-title-md: 16px; --lh-title-md: 24px; --ls-title-md: -0.005em;
@@ -142,7 +151,7 @@
   --z-modal: 50;  --z-popover: 60;  --z-toast: 70;  --z-tooltip: 80;
 
   /* ═════════ Product layer (Layer C) — the ONLY block a product edits ═════════ */
-  --shell-tint:    #EAE7E2;            /* ambient preset "sand" (CRM), §3.7 */
+  --shell-tint:    #F4F5F7;
   --ambient-fill:  var(--butter-400);
   --ambient-glyph: var(--copper-600);
 }
@@ -157,7 +166,8 @@
 @media (max-width: 1279px) { :root { --content-inset: 24px; --rail-w: 300px; } }
 @media (max-width: 1023px) { :root { --content-inset: 20px; } }
 @media (max-width: 767px)  { :root { --content-inset: 16px; --card-pad: 16px; --grid-gap: 12px;
-                                      --fs-title-lg: 20px; --lh-title-lg: 28px; --fs-display: 28px; --lh-display: 36px; } }
+                                      --fs-title-lg: 20px; --lh-title-lg: 28px; --fs-display: 28px; --lh-display: 36px;
+                                      --fs-hero: 30px; --lh-hero: 34px; --fs-kpi: 24px; --lh-kpi: 28px; } }
 
 /* Pipeline stage colours (v2 stages), shared by pills, lanes and charts. */
 :root {
