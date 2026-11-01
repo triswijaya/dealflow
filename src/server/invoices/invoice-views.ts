@@ -234,6 +234,9 @@ export type InvoiceDetailDto = {
   voidedAt: string | null;
   voidReason: string | null;
   replacesInvoiceId: string | null;
+  /** INV-08: the invoice on either side of a void-and-replace, for the banners. */
+  replaces: { id: string; invoiceNumber: string } | null;
+  replacedBy: { id: string; invoiceNumber: string } | null;
   customerId: string;
   issueDate: string;
   dueDate: string;
@@ -300,6 +303,17 @@ export async function getInvoiceDetail(params: { headers: Headers; invoiceId: st
     sourceQuotation = source ?? null;
   }
 
+  const linked = await db
+    .select({ id: invoices.id, invoiceNumber: invoices.invoiceNumber, replacesInvoiceId: invoices.replacesInvoiceId })
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.organizationId, actor.organizationId),
+        invoice.replacesInvoiceId ? or(eq(invoices.replacesInvoiceId, invoice.id), eq(invoices.id, invoice.replacesInvoiceId)) : eq(invoices.replacesInvoiceId, invoice.id),
+      ),
+    );
+  const pick = (found: (typeof linked)[number] | undefined) => (found ? { id: found.id, invoiceNumber: found.invoiceNumber } : null);
+
   return {
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
@@ -312,6 +326,8 @@ export async function getInvoiceDetail(params: { headers: Headers; invoiceId: st
     voidedAt: invoice.voidedAt ? toIsoDto(invoice.voidedAt) : null,
     voidReason: invoice.voidReason,
     replacesInvoiceId: invoice.replacesInvoiceId,
+    replaces: pick(linked.find((other) => other.id === invoice.replacesInvoiceId)),
+    replacedBy: pick(linked.find((other) => other.replacesInvoiceId === invoice.id)),
     customerId: invoice.customerId,
     issueDate: invoice.issueDate,
     dueDate: invoice.dueDate,

@@ -122,6 +122,13 @@ export function paymentMethodLabel(value: string): string {
   return PAYMENT_METHODS.find((method) => method.value === value)?.label ?? "Lainnya";
 }
 
+/** SET-01: how an invoice was settled. */
+export const SETTLEMENT_KIND: Record<string, string> = {
+  RECEIPT: "Pembayaran",
+  WITHHOLDING: "Potongan PPh",
+  WRITE_OFF: "Penghapusan selisih",
+};
+
 export type Role = "OWNER" | "ADMIN" | "SALES" | "FINANCE";
 
 export const ROLE_LABEL: Record<Role, string> = {

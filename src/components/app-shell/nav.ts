@@ -1,4 +1,4 @@
-import { Building2, CalendarClock, FileText, Handshake, Kanban, LayoutGrid, Package, Receipt, Settings, type LucideIcon } from "lucide-react";
+import { Banknote, BarChart3, Building2, CalendarClock, FileText, Handshake, Inbox, Kanban, LayoutGrid, Package, Receipt, Settings, type LucideIcon } from "lucide-react";
 import type { Role } from "@/lib/labels";
 
 // Sidebar sections. "system" items sit at the foot of the sidebar, above the account chip.
@@ -9,6 +9,7 @@ export const NAV_GROUP_LABEL: Record<NavGroup, string | null> = { main: null, sa
 
 const ITEMS: Record<string, NavItem> = {
   dashboard: { key: "dashboard", href: "/dashboard", label: "Ringkasan", icon: LayoutGrid, group: "main" },
+  work: { key: "work", href: "/work", label: "Antrian kerja", icon: Inbox, group: "main" },
   pipeline: { key: "pipeline", href: "/pipeline", label: "Pipeline", icon: Kanban, group: "sales" },
   deals: { key: "deals", href: "/deals", label: "Deal", icon: Handshake, group: "sales" },
   wonDeals: { key: "deals", href: "/deals", label: "Deal menang", icon: Handshake, group: "sales" },
@@ -17,13 +18,15 @@ const ITEMS: Record<string, NavItem> = {
   followUps: { key: "follow-ups", href: "/follow-ups", label: "Follow-up", icon: CalendarClock, group: "sales", badge: "followUps" },
   orders: { key: "orders", href: "/orders", label: "Pesanan", icon: Package, group: "finance" },
   invoices: { key: "invoices", href: "/invoices", label: "Invoice", icon: Receipt, group: "finance" },
+  receipts: { key: "receipts", href: "/receipts", label: "Uang masuk", icon: Banknote, group: "finance" },
+  reports: { key: "reports", href: "/reports", label: "Laporan", icon: BarChart3, group: "main" },
   settings: { key: "settings", href: "/settings/company", label: "Pengaturan", icon: Settings, group: "system" },
 };
 
 // Pages that exist today. A sidebar entry for a module that is still being
 // built is left out rather than leading to a 404; add the path here when its
 // page ships. Same for the global search box.
-const BUILT_PATHS = new Set(["/dashboard", "/customers", "/pipeline", "/deals", "/quotations", "/follow-ups", "/orders", "/invoices", "/settings/company", "/settings/members"]);
+const BUILT_PATHS = new Set(["/dashboard", "/work", "/customers", "/pipeline", "/deals", "/quotations", "/follow-ups", "/orders", "/invoices", "/receipts", "/settings/company", "/settings/members", "/settings/finance", "/reports"]);
 
 /** For links to a module that may not have its pages yet. */
 export function isBuilt(path: string): boolean {
@@ -42,11 +45,11 @@ function roleItems(role: Role): NavItem[] {
   switch (role) {
     case "OWNER":
     case "ADMIN":
-      return [i.dashboard, i.pipeline, i.deals, i.customers, i.quotations, i.followUps, i.orders, i.invoices, i.settings];
+      return [i.dashboard, i.work, i.reports, i.pipeline, i.deals, i.customers, i.quotations, i.followUps, i.orders, i.invoices, i.receipts, i.settings];
     case "SALES":
-      return [i.dashboard, i.pipeline, i.deals, i.customers, i.quotations, i.followUps, i.orders];
+      return [i.dashboard, i.work, i.reports, i.pipeline, i.deals, i.customers, i.quotations, i.followUps, i.orders];
     case "FINANCE":
-      return [i.dashboard, i.wonDeals, i.customers, i.orders, i.invoices];
+      return [i.dashboard, i.work, i.reports, i.wonDeals, i.customers, i.orders, i.invoices, i.receipts];
   }
 }
 

@@ -20,7 +20,7 @@ const PAGE_SIZES = [25, 50, 100];
 
 // Full rupiah while it fits a tile, compact once it would not; the title attribute keeps the exact value.
 const kpiAmount = (value: string) => (BigInt(value) >= 1_000_000_000n ? formatRupiahCompact(value) : formatRupiah(value));
-const STATUSES = ["UNPAID", "PARTIALLY_PAID", "PAID", "OVERDUE"] as const;
+const STATUSES = ["UNPAID", "PARTIALLY_PAID", "PAID", "OVERDUE", "VOID"] as const;
 type Status = (typeof STATUSES)[number];
 
 export default async function InvoicesPage({ searchParams }: PageProps<"/invoices">) {
@@ -159,7 +159,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
                 const percent = total === 0n ? 0 : Number((BigInt(row.paidAmount) * 10000n) / total) / 100;
                 const late = row.status === "OVERDUE" ? -daysUntil(row.dueDate, workspace.today) : 0;
                 return (
-                  <tr key={row.id}>
+                  <tr key={row.id} className={row.status === "VOID" ? "reversed" : undefined}>
                     <td data-label="Nomor">
                       <div>
                         <Link href={`/invoices/${row.id}`}>
@@ -171,7 +171,8 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
                       <div>
                         <Link href={`/customers/${row.customerId}`}>{row.customerName}</Link>
                         <small>
-                          {row.dealId ? <Link href={`/deals/${row.dealId}`}>{row.dealTitle}</Link> : row.dealTitle}
+                          {row.dealId ? <Link href={`/deals/${row.dealId}`}>{row.dealTitle}</Link> : row.dealTitle} ·{" "}
+                          <Link href={`/orders/${row.orderId}`}>{row.orderNumber}</Link>
                         </small>
                       </div>
                     </td>

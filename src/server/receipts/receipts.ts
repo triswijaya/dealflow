@@ -8,7 +8,7 @@ import { db } from "@/server/db/client";
 import { activities, customers, invoices, organizationSettings, receipts, refunds, settlements } from "@/server/db/schema";
 import { paidAmountsFor } from "@/server/invoices/balance";
 import { moneyAmountSchema } from "@/server/money/amount";
-import { toMoneyDto } from "@/server/shared/dto";
+import { toIsoDto, toMoneyDto } from "@/server/shared/dto";
 import { claimIdempotencyKey } from "@/server/shared/idempotency";
 import { organizationClock } from "@/server/shared/organization-clock";
 import { buildPaginatedDto, resolvePagination } from "@/server/shared/pagination";
@@ -111,6 +111,44 @@ export async function listReceipts(params: { headers: Headers; customerId?: stri
     db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(receipts).where(where),
   ]);
   return buildPaginatedDto(await loadReceipts(db, actor.organizationId, rows), page, pageSize, count);
+}
+
+export type ReceiptLinesDto = {
+  allocations: { id: string; invoiceId: string; invoiceNumber: string; amount: string; settledOn: string; reversedAt: string | null; reversalReason: string | null }[];
+  refunds: { id: string; amount: string; refundedOn: string; reason: string; reference: string | null }[];
+};
+
+/** Where a receipt's money went: its allocations (reversed ones too) and its refunds. */
+export async function getReceiptLines(params: { headers: Headers; receiptId: string }): Promise<ReceiptLinesDto> {
+  const actor = await requirePermission({ headers: params.headers, permission: { payment: ["read"] } });
+  const id = z.string().uuid().safeParse(params.receiptId);
+  if (!id.success) throw new APIError("NOT_FOUND", { message: "Receipt not found" });
+  const [allocations, refundRows] = await Promise.all([
+    db
+      .select({ settlement: settlements, invoiceNumber: invoices.invoiceNumber })
+      .from(settlements)
+      .innerJoin(invoices, and(eq(invoices.id, settlements.invoiceId), eq(invoices.organizationId, settlements.organizationId)))
+      .where(and(eq(settlements.organizationId, actor.organizationId), eq(settlements.receiptId, id.data)))
+      // One allocation writes its rows with the same createdAt: the invoice number keeps the order stable.
+      .orderBy(asc(settlements.createdAt), asc(invoices.invoiceNumber), asc(settlements.id)),
+    db
+      .select()
+      .from(refunds)
+      .where(and(eq(refunds.organizationId, actor.organizationId), eq(refunds.receiptId, id.data)))
+      .orderBy(asc(refunds.createdAt), asc(refunds.id)),
+  ]);
+  return {
+    allocations: allocations.map(({ settlement, invoiceNumber }) => ({
+      id: settlement.id,
+      invoiceId: settlement.invoiceId,
+      invoiceNumber,
+      amount: toMoneyDto(settlement.amount),
+      settledOn: settlement.settledOn,
+      reversedAt: settlement.reversedAt ? toIsoDto(settlement.reversedAt) : null,
+      reversalReason: settlement.reversalReason,
+    })),
+    refunds: refundRows.map((refund) => ({ id: refund.id, amount: toMoneyDto(refund.amount), refundedOn: refund.refundedOn, reason: refund.reason, reference: refund.reference })),
+  };
 }
 
 /** RCP-05: the customer's credit is the sum of what is left on its active receipts. It is not extra revenue. */

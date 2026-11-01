@@ -640,6 +640,35 @@
 .df .sum-bad{background:var(--status-danger-soft);color:var(--status-danger-ink)}
 .df .plan-editor td{vertical-align:top;padding-top:8px;padding-bottom:8px}
 .df .plan-editor .field input,.df .plan-editor input,.df .plan-editor select{height:34px}
+.df tr.reversed td{color:var(--text-tertiary)}
+.df tr.reversed .money{text-decoration:line-through}
+.df .alloc-list{display:grid;gap:8px}
+.df .alloc-row{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
+.df .alloc-row small{display:block;color:var(--text-secondary);font-size:12px}
+@media (max-width:767px){.df .alloc-row{grid-template-columns:1fr}}
+.df .task-list{margin:0;padding:0;list-style:none}
+.df .task-list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border-divider);font-size:13px}
+.df .task-list li:first-child{border-top:0}
+.df .task-list li>div:first-child{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.df .task-list small{flex-basis:100%;color:var(--text-secondary);font-size:12px}
+.df .task-list li.done b{color:var(--text-secondary)}
+@media (max-width:767px){.df .task-list li{flex-direction:column;align-items:flex-start}}
+.df .qcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--grid-gap)}
+.df .qcard{display:flex;flex-direction:column;gap:4px;padding:16px;background:var(--neutral-0);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);color:var(--text-primary);text-decoration:none}
+.df .qcard:hover{border-color:var(--border-control)}
+.df .qcard[aria-current=true]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.df .qcard.hot .qcard-n{color:var(--status-danger-ink)}
+.df .qcard-h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text-secondary)}
+.df .qcard-h svg{width:16px;height:16px}
+.df .qcard-n{font-size:24px;line-height:32px;font-weight:700;font-variant-numeric:tabular-nums}
+.df .qcard-a{font-size:12px;color:var(--text-secondary);font-variant-numeric:tabular-nums;min-height:16px}
+.df .queue-list{margin:0;padding:0;list-style:none}
+.df .queue-list li{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--border-divider);font-size:13px}
+.df .queue-list li>div:first-child{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.df .queue-list small{flex-basis:100%;color:var(--text-secondary);font-size:12px}
+.df .queue-side{display:flex;align-items:center;gap:8px;flex-shrink:0}
+@media (max-width:767px){.df .queue-list li{flex-direction:column;align-items:stretch}.df .queue-side{flex-wrap:wrap}.df .qcards{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.df .qcard{padding:12px}.df .qcard-h{font-size:12px}.df .qcard-n{font-size:20px;line-height:28px}}
+.df .wa-preview{margin:0;padding:12px 14px;white-space:pre-line;font-size:13px;line-height:20px;background:var(--status-success-soft);border-radius:var(--radius-md)}
 .df .summary-panel{position:sticky;top:84px;align-self:start}
 .df .sumrow{display:flex;justify-content:space-between;gap:16px;margin:10px 0;font-size:13px}
 .df .sumtotal{font-size:var(--fs-title-lg);line-height:var(--lh-title-lg);font-weight:500;letter-spacing:-.01em;color:var(--text-primary);font-variant-numeric:tabular-nums}

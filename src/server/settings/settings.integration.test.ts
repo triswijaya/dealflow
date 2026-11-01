@@ -8,7 +8,7 @@ import { getInvitationPreview } from "@/server/auth/invitation-preview";
 import { provisionOrganization } from "@/server/auth/register-owner";
 import { cancelInvitation, deactivateMember, inviteMember, updateMemberRole } from "@/server/auth/members";
 import { addMember, migrateTestDatabase, setupOrganization } from "@/server/testing/org-helpers";
-import { getCompanySettings, updateCompanySettings } from "./company";
+import { getCompanySettings, getWriteOffLimit, updateCompanySettings, updateWriteOffLimit } from "./company";
 import { getTeam } from "./team";
 
 describe("company settings", () => {
@@ -66,6 +66,16 @@ describe("company settings", () => {
     const finance = await addMember(org, "FINANCE");
     await expect(getCompanySettings({ headers: sales.headers })).rejects.toMatchObject({ status: "FORBIDDEN" });
     await expect(getCompanySettings({ headers: finance.headers })).rejects.toMatchObject({ status: "FORBIDDEN" });
+  });
+
+  it("sets the write-off limit, validates it, and keeps it to Owner and Admin", async () => {
+    const org = await setupOrganization("Limit Co");
+    const finance = await addMember(org, "FINANCE");
+    expect(await getWriteOffLimit({ headers: org.ownerHeaders })).toBe("50000");
+    expect(await updateWriteOffLimit({ headers: org.ownerHeaders, input: { writeOffLimit: "75000" } })).toBe("75000");
+    expect(await getWriteOffLimit({ headers: org.ownerHeaders })).toBe("75000");
+    await expect(updateWriteOffLimit({ headers: org.ownerHeaders, input: { writeOffLimit: "-1" } })).rejects.toThrow();
+    await expect(updateWriteOffLimit({ headers: finance.headers, input: { writeOffLimit: "1" } })).rejects.toMatchObject({ status: "FORBIDDEN" });
   });
 });
 

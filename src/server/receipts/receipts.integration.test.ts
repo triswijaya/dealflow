@@ -15,6 +15,7 @@ import {
   allocateReceipt,
   getCustomerCredit,
   getReceipt,
+  getReceiptLines,
   identifyReceipt,
   listReceipts,
   recordReceipt,
@@ -126,6 +127,12 @@ describe("receipts, settlements and corrections (ADR-0003)", () => {
       expect(await balance(org, one.id)).toMatchObject({ status: "PAID" });
       expect(await balance(org, two.id)).toMatchObject({ status: "PAID" });
       expect(await getCustomerCredit({ headers: org.ownerHeaders, customerId: customer.id })).toEqual({ customerId: customer.id, credit: "3000000", receipts: 1 });
+      const lines = await getReceiptLines({ headers: org.ownerHeaders, receiptId: receipt.id });
+      expect(lines.allocations.map((line) => [line.invoiceNumber, line.amount])).toEqual([
+        [one.invoiceNumber, "6000000"],
+        [two.invoiceNumber, "4000000"],
+      ]);
+      expect(lines.refunds).toEqual([]);
     });
 
     it("lets a deposit recorded before the invoice be allocated to it afterwards", async () => {
