@@ -9,6 +9,8 @@ const isDev = process.env.NODE_ENV === "development";
 const hosted = ["production", "preview", "demo"].includes(process.env.APP_ENV ?? "");
 
 const nextConfig: NextConfig = {
+  // The PDF font is read from source when a server action renders a document (outbox mail).
+  outputFileTracingIncludes: { "/**": ["./src/server/pdf/fonts/*.ttf"] },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders({ isDev, hosted }) }];
   },

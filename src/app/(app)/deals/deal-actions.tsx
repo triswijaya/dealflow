@@ -27,6 +27,7 @@ export function DealActions({
   quotations,
   hasLiveInvoice,
   autoOpen,
+  winQuotationId,
 }: {
   deal: DealDetailDto;
   members: AssignableMemberDto[];
@@ -35,8 +36,10 @@ export function DealActions({
   today: string;
   quotations: SourceQuotation[];
   hasLiveInvoice: boolean;
-  /** Opens a dialog on arrival, from a link like ?edit=1 or ?schedule=1. */
-  autoOpen?: "edit" | "schedule";
+  /** Opens a dialog on arrival, from a link like ?edit=1, ?schedule=1 or ?win=<quotation id>. */
+  autoOpen?: "edit" | "schedule" | "win";
+  /** The accepted quotation the Won dialog starts from, when arriving from it. */
+  winQuotationId?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -47,8 +50,9 @@ export function DealActions({
   const [edit, setEdit] = useState(autoOpen === "edit" && active);
   const [schedule, setSchedule] = useState(autoOpen === "schedule" && active);
   const [whatsapp, setWhatsapp] = useState(false);
-  const [mode, setMode] = useState<TransitionMode | null>(null);
-  const [modeOpen, setModeOpen] = useState(false);
+  const winOnArrival = autoOpen === "win" && active && !held;
+  const [mode, setMode] = useState<TransitionMode | null>(winOnArrival ? { kind: "won" } : null);
+  const [modeOpen, setModeOpen] = useState(winOnArrival);
   const [resuming, setResuming] = useState(false);
 
   if (role === "FINANCE") return null;
@@ -168,7 +172,19 @@ export function DealActions({
         deal={{ id: deal.id, title: deal.title, customerName: deal.customer.companyName }}
       />
       <WhatsAppDialog open={whatsapp} onClose={() => setWhatsapp(false)} dealId={deal.id} timezone={timezone} />
-      {mode ? <DealTransitionDialog open={modeOpen} onClose={() => setModeOpen(false)} mode={mode} deal={target} role={role} today={today} quotations={quotations} /> : null}
+      {mode ? <DealTransitionDialog
+          open={modeOpen}
+          onClose={() => {
+            setModeOpen(false);
+            if (autoOpen === "win") router.replace(pathname, { scroll: false });
+          }}
+          mode={mode}
+          deal={target}
+          role={role}
+          today={today}
+          quotations={quotations}
+          preferredQuotationId={winQuotationId}
+        /> : null}
     </>
   );
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import type { ActionResult } from "@/lib/action-result";
 import { createQuotation, reviseQuotation, transitionQuotationStatus, updateQuotation } from "@/server/quotations/quotations";
+import { sendQuotationEmail } from "@/server/outbox/documents";
 import { runAction } from "@/server/shared/action";
 
 export type QuotationFormValues = {
@@ -80,5 +81,18 @@ export async function reviseQuotationAction(input: {
     const revised = await reviseQuotation({ headers: await headers(), input });
     refresh(revised.id, revised.dealId);
     return { id: revised.id, quotationNumber: revised.quotationNumber };
+  });
+}
+
+/** QUO-08: mail the PDF to the customer through the outbox. It does not mark the quotation sent. */
+export async function sendQuotationEmailAction(input: { quotationId: string; to?: string; message?: string; idempotencyKey: string }): Promise<ActionResult<{ queued: boolean }>> {
+  return runAction(async () => {
+    const result = await sendQuotationEmail({
+      headers: await headers(),
+      quotationId: input.quotationId,
+      input: { to: input.to || undefined, message: input.message || undefined, idempotencyKey: input.idempotencyKey },
+    });
+    revalidatePath(`/quotations/${input.quotationId}`);
+    return { queued: result.queued };
   });
 }

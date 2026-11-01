@@ -1,3 +1,4 @@
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Document, Font, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatRupiah } from "@/server/money/amount";
@@ -20,11 +21,16 @@ import { formatIndonesianDate } from "./format-date";
 // isn't recognized as an asset reference at all -- confirmed by this
 // route's own production build failing on that exact pattern
 // ("Module not found: Can't resolve './fonts'") before this fix.
+//
+// In the server-action and page bundles the same expression resolves to a web
+// asset path ("/_next/static/media/..."), not a file, so there the font is read
+// from the source folder instead; next.config.ts traces it into the deployment.
+const fontFile = (url: URL, name: string) => (url.protocol === "file:" ? fileURLToPath(url.href) : path.join(process.cwd(), "src/server/pdf/fonts", name));
 Font.register({
   family: "Inter",
   fonts: [
-    { src: fileURLToPath(new URL("./fonts/Inter-Regular.ttf", import.meta.url)), fontWeight: 400 },
-    { src: fileURLToPath(new URL("./fonts/Inter-Bold.ttf", import.meta.url)), fontWeight: 700 },
+    { src: fontFile(new URL("./fonts/Inter-Regular.ttf", import.meta.url), "Inter-Regular.ttf"), fontWeight: 400 },
+    { src: fontFile(new URL("./fonts/Inter-Bold.ttf", import.meta.url), "Inter-Bold.ttf"), fontWeight: 700 },
   ],
 });
 

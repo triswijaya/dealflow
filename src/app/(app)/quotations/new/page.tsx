@@ -21,7 +21,7 @@ export default async function NewQuotationPage({ searchParams }: PageProps<"/quo
     return (
       <>
         <PageHeader title="Quotation baru" />
-        <Alert tone="warning">Quotation baru tidak dapat dibuat untuk deal yang sudah menang atau kalah.</Alert>
+        <Alert tone="warning">Quotation baru hanya untuk deal yang masih berjalan. Untuk deal menang, buat revisi dari quotation yang ada.</Alert>
         <div style={{ marginTop: 16 }}>
           <ButtonLink variant="secondary" href={`/deals/${context.deal.id}`}>
             Kembali ke deal

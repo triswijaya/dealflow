@@ -17,7 +17,6 @@ import { QuotationActions } from "../quotation-actions";
 export const metadata: Metadata = { title: "Detail quotation · DealFlow" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const CANNOT_SEND_DEAL = ["LOST"];
 
 export default async function QuotationDetailPage({ params }: PageProps<"/quotations/[id]">) {
   const { id } = await params;
@@ -32,7 +31,6 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
   const info = QUOTATION_STATUS[quotation.status];
   const draft = quotation.status === "DRAFT";
   const lateDraft = draft && quotation.validUntil < workspace.today;
-  const dealBlocks = draft && quotation.isLatest && CANNOT_SEND_DEAL.includes(quotation.dealStatus);
   const daysLeft = daysUntil(quotation.validUntil, workspace.today);
   const urgent = quotation.status === "SENT" && daysLeft >= 0 && daysLeft <= 3;
 
@@ -85,7 +83,7 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
       <div className="stack" style={{ gap: 8, marginBottom: 20 }}>
         {quotation.status === "ACCEPTED" ? (
           <Alert tone="success">
-            Quotation diterima customer. Status deal tidak berubah otomatis; pindahkan deal secara manual bila sudah sepakat.{" "}
+            Quotation diterima customer. Konfirmasi menang di deal saat PO, kontrak, atau pembayaran sudah ada.{" "}
             <Link className="btn tertiary" href={`/deals/${quotation.dealId}`}>
               Buka deal
             </Link>
@@ -108,9 +106,9 @@ export default async function QuotationDetailPage({ params }: PageProps<"/quotat
             </Link>
           </Alert>
         ) : null}
-        {dealBlocks && !lateDraft ? (
+        {quotation.dealStatus === "LOST" ? (
           <Alert tone="info">
-            Deal harus Terkualifikasi sebelum quotation dapat ditandai terkirim.{" "}
+            Deal ini tidak dilanjutkan, jadi quotation hanya bisa dibaca.{" "}
             <Link className="btn tertiary" href={`/deals/${quotation.dealId}`}>
               Buka deal
             </Link>

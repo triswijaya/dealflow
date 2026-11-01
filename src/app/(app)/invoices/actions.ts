@@ -13,6 +13,7 @@ import {
   type InvoiceableItemDto,
 } from "@/server/invoices/invoice-views";
 import { recordPayment } from "@/server/invoices/payments";
+import { sendInvoiceEmail } from "@/server/outbox/documents";
 import { runAction } from "@/server/shared/action";
 
 export type IssueInvoiceValues = {
@@ -76,4 +77,17 @@ export async function getInvoiceDraftContextAction(input: { billingItemId: strin
 
 export async function getInvoiceSourceContentAction(input: { dealId: string; quotationId: string }): Promise<ActionResult<InvoiceSourceContentDto>> {
   return runAction(async () => getInvoiceSourceContent({ headers: await headers(), ...input }));
+}
+
+/** INV-08: mail the invoice PDF to the customer through the outbox. */
+export async function sendInvoiceEmailAction(input: { invoiceId: string; to?: string; message?: string; idempotencyKey: string }): Promise<ActionResult<{ queued: boolean }>> {
+  return runAction(async () => {
+    const result = await sendInvoiceEmail({
+      headers: await headers(),
+      invoiceId: input.invoiceId,
+      input: { to: input.to || undefined, message: input.message || undefined, idempotencyKey: input.idempotencyKey },
+    });
+    revalidatePath(`/invoices/${input.invoiceId}`);
+    return { queued: result.queued };
+  });
 }

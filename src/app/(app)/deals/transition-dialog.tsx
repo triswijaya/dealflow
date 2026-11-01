@@ -95,6 +95,7 @@ export function DealTransitionDialog({
   role,
   today,
   quotations = [],
+  preferredQuotationId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -104,10 +105,12 @@ export function DealTransitionDialog({
   /** The organization's today (YYYY-MM-DD). */
   today: string;
   quotations?: SourceQuotation[];
+  /** Start the Won dialog from this quotation (arriving from an accepted quotation). */
+  preferredQuotationId?: string;
 }) {
   return (
     <Dialog open={open} onClose={onClose} title={titleOf(mode, deal)} size={mode.kind === "won" ? "large" : undefined}>
-      <TransitionBody mode={mode} deal={deal} role={role} today={today} quotations={quotations} onClose={onClose} />
+      <TransitionBody mode={mode} deal={deal} role={role} today={today} quotations={quotations} preferredQuotationId={preferredQuotationId} onClose={onClose} />
     </Dialog>
   );
 }
@@ -118,6 +121,7 @@ function TransitionBody({
   role,
   today,
   quotations,
+  preferredQuotationId,
   onClose,
 }: {
   mode: TransitionMode;
@@ -125,12 +129,13 @@ function TransitionBody({
   role: Role;
   today: string;
   quotations: SourceQuotation[];
+  preferredQuotationId?: string;
   onClose: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
   const sources = quotations.filter((quotation) => quotation.status === "ACCEPTED" || quotation.status === "SENT");
-  const accepted = sources.find((quotation) => quotation.status === "ACCEPTED");
+  const accepted = sources.find((quotation) => quotation.id === preferredQuotationId) ?? sources.find((quotation) => quotation.status === "ACCEPTED");
 
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
@@ -239,7 +244,7 @@ function TransitionBody({
               </Field>
             </div>
             <div className="input-grid">
-              <Field label="Nilai pesanan (Rp)" htmlFor="won-value" required hint={accepted ? `Dari ${accepted.quotationNumber} yang diterima. Ubah jika nilai PO berbeda.` : "Nilai yang disepakati customer."}>
+              <Field label="Nilai pesanan (Rp)" htmlFor="won-value" required hint={accepted ? `Dari ${accepted.quotationNumber}. Ubah jika nilai PO berbeda.` : "Nilai yang disepakati customer."}>
                 <MoneyInput id="won-value" value={value} onValueChange={setValue} />
               </Field>
               {sources.length ? (

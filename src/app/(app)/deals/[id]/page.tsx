@@ -83,7 +83,8 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
   const stage = DEAL_STAGE[deal.status as DealStage];
   const actor = { userId: workspace.user.id, name: workspace.user.name, role };
   const dealOption = { id: deal.id, title: deal.title, customerName: deal.customer.companyName };
-  const autoOpen = one(query.edit) === "1" ? "edit" : one(query.schedule) === "1" ? "schedule" : undefined;
+  const winFrom = one(query.win);
+  const autoOpen = one(query.edit) === "1" ? "edit" : one(query.schedule) === "1" ? "schedule" : winFrom ? "win" : undefined;
 
   // Quotations: one card per revision family, showing its latest version.
   const families = quotations.filter((quotation) => quotation.isLatest);
@@ -286,6 +287,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
             quotations={families.map((quotation) => ({ id: quotation.id, quotationNumber: quotation.quotationNumber, status: quotation.status, total: quotation.total }))}
             hasLiveInvoice={liveInvoices.length > 0}
             autoOpen={autoOpen}
+            winQuotationId={winFrom}
           />
         }
       />
