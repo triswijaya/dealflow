@@ -1,4 +1,4 @@
-import { Banknote, Building2, CalendarClock, FileText, Handshake, Kanban, LayoutGrid, Package, Receipt, Settings, type LucideIcon } from "lucide-react";
+import { Banknote, Building2, CalendarClock, FileText, Handshake, Inbox, Kanban, LayoutGrid, Package, Receipt, Settings, type LucideIcon } from "lucide-react";
 import type { Role } from "@/lib/labels";
 
 // Sidebar sections. "system" items sit at the foot of the sidebar, above the account chip.
@@ -9,6 +9,7 @@ export const NAV_GROUP_LABEL: Record<NavGroup, string | null> = { main: null, sa
 
 const ITEMS: Record<string, NavItem> = {
   dashboard: { key: "dashboard", href: "/dashboard", label: "Ringkasan", icon: LayoutGrid, group: "main" },
+  work: { key: "work", href: "/work", label: "Antrian kerja", icon: Inbox, group: "main" },
   pipeline: { key: "pipeline", href: "/pipeline", label: "Pipeline", icon: Kanban, group: "sales" },
   deals: { key: "deals", href: "/deals", label: "Deal", icon: Handshake, group: "sales" },
   wonDeals: { key: "deals", href: "/deals", label: "Deal menang", icon: Handshake, group: "sales" },
@@ -24,7 +25,7 @@ const ITEMS: Record<string, NavItem> = {
 // Pages that exist today. A sidebar entry for a module that is still being
 // built is left out rather than leading to a 404; add the path here when its
 // page ships. Same for the global search box.
-const BUILT_PATHS = new Set(["/dashboard", "/customers", "/pipeline", "/deals", "/quotations", "/follow-ups", "/orders", "/invoices", "/receipts", "/settings/company", "/settings/members"]);
+const BUILT_PATHS = new Set(["/dashboard", "/work", "/customers", "/pipeline", "/deals", "/quotations", "/follow-ups", "/orders", "/invoices", "/receipts", "/settings/company", "/settings/members"]);
 
 /** For links to a module that may not have its pages yet. */
 export function isBuilt(path: string): boolean {
@@ -43,11 +44,11 @@ function roleItems(role: Role): NavItem[] {
   switch (role) {
     case "OWNER":
     case "ADMIN":
-      return [i.dashboard, i.pipeline, i.deals, i.customers, i.quotations, i.followUps, i.orders, i.invoices, i.receipts, i.settings];
+      return [i.dashboard, i.work, i.pipeline, i.deals, i.customers, i.quotations, i.followUps, i.orders, i.invoices, i.receipts, i.settings];
     case "SALES":
-      return [i.dashboard, i.pipeline, i.deals, i.customers, i.quotations, i.followUps, i.orders];
+      return [i.dashboard, i.work, i.pipeline, i.deals, i.customers, i.quotations, i.followUps, i.orders];
     case "FINANCE":
-      return [i.dashboard, i.wonDeals, i.customers, i.orders, i.invoices, i.receipts];
+      return [i.dashboard, i.work, i.wonDeals, i.customers, i.orders, i.invoices, i.receipts];
   }
 }
 

@@ -10,11 +10,13 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DetailHeader, EmptyState } from "@/components/ui/misc";
 import { MetricCard } from "@/components/ui/stat";
-import { daysUntil, formatDate, formatDateTime, formatPhone, formatQuantity, formatRupiah } from "@/lib/format";
-import { INVOICE_STATUS, SETTLEMENT_KIND, paymentMethodLabel } from "@/lib/labels";
+import { daysUntil, formatDate, formatDateTime, formatPhone, formatQuantity, formatRupiah, zonedDateString } from "@/lib/format";
+import { INVOICE_STATUS, SETTLEMENT_KIND, followUpTypeLabel, paymentMethodLabel } from "@/lib/labels";
 import { getInvoiceDetail, listInvoiceActivities } from "@/server/invoices/invoice-views";
+import { listCollectionTasks } from "@/server/collections/collections";
 import { getCustomerCredit } from "@/server/receipts/receipts";
 import { load, requireWorkspace } from "../../workspace";
+import { CancelTaskButton, CollectionTaskButton, CollectionWhatsAppButton, CompleteTaskButton } from "../collection-controls";
 import { InvoiceMoreActions, ReverseSettlementButton, UseCreditButton } from "../invoice-actions";
 import { RecordPaymentButton } from "../invoice-controls";
 import { CircleCheck, Clock, Receipt, TriangleAlert, WalletCards } from "lucide-react";
@@ -44,6 +46,8 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
   const liveSettlements = invoice.payments.filter((payment) => !payment.reversedAt);
   const credit = !voided && remaining > 0n ? await load((headers) => getCustomerCredit({ headers, customerId: invoice.customerId })) : null;
   const hasCredit = credit !== null && BigInt(credit.credit) > 0n;
+  const tasks = await load((headers) => listCollectionTasks({ headers, invoiceId: invoice.id }));
+  const owed = !voided && remaining > 0n;
 
   return (
     <>
@@ -267,6 +271,48 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
                 </tbody>
               </table>
             </div>
+          )}
+        </section>
+
+        <section className="region" id="penagihan">
+          <div className="card-head">
+            <h2>Penagihan</h2>
+            {owed ? (
+              <div className="row" style={{ gap: 8 }}>
+                <CollectionWhatsAppButton invoiceId={invoice.id} />
+                <CollectionTaskButton invoiceId={invoice.id} timezone={timezone} promise />
+                <CollectionTaskButton invoiceId={invoice.id} timezone={timezone} variant="tertiary" />
+              </div>
+            ) : null}
+          </div>
+          {tasks.length === 0 ? (
+            <p className="quiet-empty">{owed ? "Belum ada langkah penagihan. Catat telepon, WhatsApp, atau janji bayar dari customer." : "Tidak ada yang perlu ditagih."}</p>
+          ) : (
+            <ul className="task-list">
+              {tasks.map((task) => {
+                const open = !task.completedAt && !task.cancelledAt;
+                const promise = task.type === "PROMISE_TO_PAY";
+                const broken = promise && open && zonedDateString(new Date(task.followUpAt), timezone) < workspace.today && owed;
+                return (
+                  <li key={task.id} className={open ? undefined : "done"}>
+                    <div>
+                      <b>{promise ? "Janji bayar" : followUpTypeLabel(task.type)}</b> <span className="muted">· {promise ? formatDate(task.followUpAt, timezone) : formatDateTime(task.followUpAt, timezone)}</span>
+                      {broken ? <Badge tone="danger">Janji terlewat</Badge> : null}
+                      {task.completedAt ? <Badge tone="success">Selesai</Badge> : null}
+                      {task.cancelledAt ? <Badge tone="neutral">Dibatalkan</Badge> : null}
+                      {task.note ? <small>{task.note}</small> : null}
+                      {task.cancelReason ? <small>Alasan batal: {task.cancelReason}</small> : null}
+                    </div>
+                    {open ? (
+                      <div className="row" style={{ gap: 4 }}>
+                        <CompleteTaskButton invoiceId={invoice.id} followUpId={task.id} version={task.version} />
+                        <CancelTaskButton invoiceId={invoice.id} followUpId={task.id} />
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </section>
 

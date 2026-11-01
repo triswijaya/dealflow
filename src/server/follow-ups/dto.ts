@@ -14,6 +14,9 @@ export type FollowUpDto = {
   note: string | null;
   followUpAt: string;
   completedAt: string | null;
+  /** FUP-02: a cancelled task stays, with its reason. */
+  cancelledAt: string | null;
+  cancelReason: string | null;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -32,6 +35,8 @@ export function toFollowUpDto(row: FollowUpRow): FollowUpDto {
     note: row.note,
     followUpAt: toIsoDto(row.followUpAt),
     completedAt: row.completedAt ? toIsoDto(row.completedAt) : null,
+    cancelledAt: row.cancelledAt ? toIsoDto(row.cancelledAt) : null,
+    cancelReason: row.cancelReason,
     version: row.version,
     createdAt: toIsoDto(row.createdAt),
     updatedAt: toIsoDto(row.updatedAt),
