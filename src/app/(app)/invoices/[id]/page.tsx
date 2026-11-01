@@ -211,9 +211,7 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
                     <th className="num">Jumlah</th>
                     <th>Metode</th>
                     <th>Referensi</th>
-                    <th>Catatan</th>
-                    <th>Dicatat oleh</th>
-                    <th>Dicatat pada</th>
+                    <th>Dicatat</th>
                     <th>
                       <span className="sr-only">Aksi</span>
                     </th>
@@ -222,7 +220,7 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
                 <tbody>
                   {invoice.payments.map((payment) => (
                     <tr key={payment.id} className={payment.reversedAt ? "reversed" : undefined}>
-                      <td data-label="Tanggal">
+                      <td className="nowrap" data-label="Tanggal">
                         <div>{formatDate(payment.paymentDate)}</div>
                       </td>
                       <td data-label="Jenis">
@@ -244,16 +242,16 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
                         <div>{payment.kind === "RECEIPT" ? paymentMethodLabel(payment.paymentMethod) : "-"}</div>
                       </td>
                       <td data-label="Referensi">
-                        <div>{payment.reference ?? "-"}</div>
+                        <div>
+                          {payment.reference ?? "-"}
+                          {payment.note ? <small>{payment.note}</small> : null}
+                        </div>
                       </td>
-                      <td data-label="Catatan">
-                        <div>{payment.note ?? "-"}</div>
-                      </td>
-                      <td data-label="Dicatat oleh">
-                        <div>{payment.createdByName ?? "-"}</div>
-                      </td>
-                      <td data-label="Dicatat pada">
-                        <div>{formatDateTime(payment.createdAt, timezone)}</div>
+                      <td data-label="Dicatat">
+                        <div>
+                          {payment.createdByName ?? "-"}
+                          <small>{formatDateTime(payment.createdAt, timezone)}</small>
+                        </div>
                       </td>
                       <td data-label="Aksi">
                         <div>

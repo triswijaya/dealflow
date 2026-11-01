@@ -43,7 +43,7 @@ export default async function ReceiptDetailPage({ params }: PageProps<"/receipts
         {[
           ["Diterima", receipt.amount],
           ["Teralokasi", receipt.allocatedAmount],
-          ["Refund", receipt.refundedAmount],
+          ...(receipt.refundedAmount === "0" ? [] : [["Refund", receipt.refundedAmount]]),
           ["Sisa (kredit)", receipt.availableAmount],
         ].map(([label, amount]) => (
           <div key={label} className="metric-card">
