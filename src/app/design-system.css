@@ -372,50 +372,87 @@
 .df .setup-step:first-child .step-num{background:var(--ink);color:var(--on-ink)}
 .df .metric-card{display:flex;flex-direction:column;justify-content:space-between;gap:var(--space-6);min-width:0;min-height:136px;padding:var(--card-pad);background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);color:inherit;transition:border-color var(--duration-fast) var(--ease-standard)}
 .df a.metric-card:hover{border-color:var(--neutral-200);text-decoration:none}
-.df .metric-head{display:flex;align-items:flex-start;gap:8px}
-.df .metric-head .marker{margin-top:1px}
-.df .metric-head h3{flex:1;min-width:0;font-size:13px}
-.df .marker{width:18px;height:18px;flex-shrink:0;display:grid;place-items:center;border-radius:5px;background:var(--indigo-400);color:#fff}
-.df .marker svg{width:12px;height:12px;stroke-width:2}
-.df .marker[data-hue=violet]{background:var(--violet-400)}
-.df .marker[data-hue=sky]{background:var(--sky-400)}
-.df .marker[data-hue=mint]{background:var(--mint-400)}
-.df .marker[data-hue=butter]{background:var(--butter-400)}
-.df .marker[data-hue=coral]{background:var(--coral-400)}
-.df .marker[data-hue=copper]{background:var(--copper-400)}
-.df .metric-value{display:block;font-size:28px;line-height:34px;font-weight:600;letter-spacing:-.025em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-primary)}
-.df .metric-label{display:block;min-height:40px;margin-top:2px;font-size:13px;line-height:20px;color:var(--text-secondary)}
-.df .metric-card.is-danger .metric-value{color:var(--coral-800)}
+.df .metric-head{display:flex;align-items:center;gap:8px}
+.df .metric-head h3{flex:1;min-width:0;font-size:13px;line-height:20px;font-weight:500;color:var(--text-secondary)}
+/* Prototype label: an 8px category dot before a muted label. */
+.df .marker{width:8px;height:8px;flex-shrink:0;border-radius:50%;background:var(--cat-store)}
+.df .marker svg{display:none}
+.df .marker[data-hue=violet],.df .marker[data-hue=indigo]{background:var(--cat-store)}
+.df .marker[data-hue=sky]{background:var(--cat-mobile)}
+.df .marker[data-hue=mint]{background:var(--cat-docs)}
+.df .marker[data-hue=butter],.df .marker[data-hue=copper]{background:var(--cat-billing)}
+.df .marker[data-hue=coral]{background:var(--cat-infra)}
+.df .metric-value{display:block;font-size:var(--fs-kpi);line-height:var(--lh-kpi);font-weight:600;letter-spacing:var(--ls-kpi);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-primary)}
+.df .metric-label{display:block;min-height:40px;margin-top:4px;font-size:12px;line-height:18px;color:var(--text-tertiary)}
+.df .metric-card.is-danger .metric-value{color:var(--status-danger-glyph)}
 .df .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:var(--grid-gap)}
 .df .tiles.stacked{grid-template-columns:minmax(0,1fr)}
-.df .status-tile{--s-wash:var(--status-neutral-wash);--s-soft:var(--status-neutral-soft);--s-glyph:var(--status-neutral-glyph);display:flex;align-items:center;gap:12px;height:72px;padding:0 var(--space-4);border-radius:var(--radius-xl);background:var(--s-wash);color:inherit;transition:background-color var(--duration-fast) var(--ease-standard)}
-.df a.status-tile:hover{background:var(--s-soft);text-decoration:none}
-.df .status-tile[data-status=success]{--s-wash:var(--status-success-wash);--s-soft:var(--status-success-soft);--s-glyph:var(--status-success-glyph)}
-.df .status-tile[data-status=pending]{--s-wash:var(--status-pending-wash);--s-soft:var(--status-pending-soft);--s-glyph:var(--status-pending-glyph)}
-.df .status-tile[data-status=warning]{--s-wash:var(--status-warning-wash);--s-soft:var(--status-warning-soft);--s-glyph:var(--status-warning-glyph)}
-.df .status-tile[data-status=caution]{--s-wash:var(--status-caution-wash);--s-soft:var(--status-caution-soft);--s-glyph:var(--status-caution-glyph)}
-.df .status-tile[data-status=danger]{--s-wash:var(--status-danger-wash);--s-soft:var(--status-danger-soft);--s-glyph:var(--status-danger-glyph)}
-.df .status-tile[data-status=info]{--s-wash:var(--status-info-wash);--s-soft:var(--status-info-soft);--s-glyph:var(--status-info-glyph)}
-.df .status-tile[aria-current=true]{box-shadow:0 0 0 1px var(--ink)}
-.df .icon-chip{width:40px;height:40px;flex-shrink:0;display:grid;place-items:center;border-radius:var(--radius-full);background:var(--neutral-0);box-shadow:var(--shadow-sm);color:var(--s-glyph,var(--neutral-800))}
+/* Status tile in the prototype's card style: white panel, status shown by the icon colour only. */
+.df .status-tile{--s-glyph:var(--status-neutral-glyph);--s-soft:var(--status-neutral-soft);display:flex;align-items:center;gap:12px;height:72px;padding:0 var(--space-4);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);background:var(--surface-raised);box-shadow:var(--shadow-card);color:inherit;transition:border-color var(--duration-fast) var(--ease-standard)}
+.df a.status-tile:hover{border-color:var(--neutral-400);text-decoration:none}
+.df .status-tile[data-status=success]{--s-glyph:var(--status-success-glyph);--s-soft:var(--status-success-soft)}
+.df .status-tile[data-status=pending]{--s-glyph:var(--status-info-glyph);--s-soft:var(--status-info-soft)}
+.df .status-tile[data-status=warning]{--s-glyph:var(--status-warning-glyph);--s-soft:var(--status-warning-soft)}
+.df .status-tile[data-status=caution]{--s-glyph:var(--status-warning-glyph);--s-soft:var(--status-warning-soft)}
+.df .status-tile[data-status=danger]{--s-glyph:var(--status-danger-glyph);--s-soft:var(--status-danger-soft)}
+.df .status-tile[data-status=info]{--s-glyph:var(--status-info-glyph);--s-soft:var(--status-info-soft)}
+.df .status-tile[aria-current=true]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.df .icon-chip{width:36px;height:36px;flex-shrink:0;display:grid;place-items:center;border-radius:var(--radius-md);background:var(--s-soft,var(--neutral-75));color:var(--s-glyph,var(--neutral-800))}
 .df .icon-chip svg{width:16px;height:16px}
 .df .status-tile .tile-text{flex:1;min-width:0}
-.df .status-tile strong{display:block;font-size:var(--fs-title-md);line-height:var(--lh-title-md);font-weight:500;font-variant-numeric:tabular-nums}
+.df .status-tile strong{display:block;font-size:var(--fs-title-md);line-height:var(--lh-title-md);font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .df .status-tile small{display:block}
 .df .status-tile>.chev{width:16px;height:16px;color:var(--text-primary)}
+/* Dashboard KPI (prototype .kpi): dot label, big number with small Rp/jt, delta pill, sparkline on the bottom edge. */
+.df .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--grid-gap)}
+.df .kpis.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.df .kpi{position:relative;display:block;overflow:hidden;min-width:0;height:188px;padding:20px 20px 0;background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);color:inherit;transition:border-color var(--duration-fast) var(--ease-standard)}
+.df a.kpi:hover{border-color:var(--neutral-400);text-decoration:none}
+.df .kpi-lbl{display:flex;align-items:center;gap:8px;font-size:13px;line-height:18px;font-weight:500;color:var(--text-secondary)}
+.df .kpi-lbl i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.df .kpi-val{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;margin-top:10px}
+.df .kpi-num{font-size:var(--fs-kpi);line-height:var(--lh-kpi);font-weight:600;letter-spacing:var(--ls-kpi);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-primary)}
+.df .unit{font-size:.6em;font-weight:500;letter-spacing:0;color:var(--text-secondary)}
+.df .unit.pre{margin-right:.12em}
+.df .unit.post{margin-left:.15em}
+.df .delta{padding:4px 7px;border-radius:6px;background:var(--status-success-soft);color:#15803D;font-size:12px;line-height:1;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.df .delta.neg{background:var(--status-danger-soft);color:#B91C1C}
+.df .delta.flat{background:var(--border-divider);color:var(--text-secondary)}
+.df .kpi-vs{margin-top:4px;font-size:12px;line-height:18px;color:var(--text-tertiary)}
+.df .kpi .sp{position:absolute;left:0;right:0;bottom:0;width:100%;height:64px}
+/* Pipeline chart card (prototype .chart-card). */
+.df .chart-card{margin-top:var(--grid-gap);padding:24px 24px 20px;background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card)}
+.df .chart-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.df .chart-top .t{font-size:13px;line-height:18px;font-weight:500;color:var(--text-secondary)}
+.df .chart-big{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px;margin-top:4px;font-size:var(--fs-hero);line-height:var(--lh-hero);font-weight:600;letter-spacing:var(--ls-hero);font-variant-numeric:tabular-nums}
+.df .chart-big .delta{letter-spacing:0}
+.df .chart-segs{display:flex;gap:8px;flex-wrap:wrap}
+.df .segl{display:inline-flex;gap:2px;padding:3px;border-radius:var(--radius-md);background:var(--neutral-100)}
+.df .segl a{display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;color:var(--text-secondary);white-space:nowrap}
+.df .segl a:hover{color:var(--text-primary);text-decoration:none}
+.df .segl a[aria-current=true]{background:var(--neutral-0);color:var(--text-primary);box-shadow:0 1px 2px rgba(17,24,39,.08),0 0 0 1px var(--border-subtle)}
+.df .area{margin-top:16px;height:260px}
+.df .area svg{display:block;width:100%;height:100%;overflow:visible}
+.df .chart-axis-dates{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;line-height:16px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.df .area-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.df .area-legend span{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--neutral-50);font-size:12px;font-weight:500}
+.df .area-legend i{width:8px;height:8px;border-radius:50%}
+.df .area-legend b{font-weight:500;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+@media (max-width:1279px){.df .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:767px){.df .kpis,.df .kpis.n3{grid-template-columns:minmax(0,1fr)}.df .kpi{height:164px;padding:16px 16px 0}.df .area{height:220px}.df .chart-card{padding:16px}}
 .df .chart-summary{display:flex;flex-wrap:wrap;gap:8px 0;margin-bottom:var(--space-5)}
 .df .chart-summary>div{padding:0 var(--space-6);box-shadow:-1px 0 0 var(--border-divider)}
 .df .chart-summary>div:first-child{padding-left:0;box-shadow:none}
 .df .chart-summary strong{display:block;font-size:var(--fs-title-lg);line-height:var(--lh-title-lg);font-weight:500;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .df .chart-summary span{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary)}
-.df .legend-dot{width:8px;height:8px;border-radius:50%;background:var(--ambient-fill)}
+.df .legend-dot{width:8px;height:8px;border-radius:50%;background:var(--cat-billing)}
 /* Bars are narrow and quiet: ambient fill, direct value labels, one baseline. */
 .df .chart{height:200px;display:flex;align-items:flex-end;gap:var(--space-6);padding:0 var(--space-2);border-bottom:1px solid var(--neutral-200)}
 .df .bar{flex:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;min-width:0;color:var(--text-secondary)}
 .df a.bar:hover{text-decoration:none}
 .df .bar b{font-size:11px;line-height:16px;font-weight:400;color:var(--text-secondary);font-variant-numeric:tabular-nums;white-space:nowrap}
 .df .bar i{display:block;width:100%;max-width:24px;min-height:8px;border-radius:var(--radius-xs) var(--radius-xs) 0 0;background:var(--ambient-fill);font-size:0;transition:background-color var(--duration-fast) var(--ease-standard)}
-.df a.bar:hover i{background:var(--ambient-glyph)}
+.df a.bar:hover i{opacity:.8}
 .df .bar small{display:none}
 .df .chart-axis{display:flex;gap:var(--space-6);padding:8px var(--space-2) 0}
 .df .chart-axis>*{flex:1;min-width:0;text-align:center;font-size:12px;line-height:16px;color:var(--text-primary);white-space:nowrap}

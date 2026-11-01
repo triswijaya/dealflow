@@ -1,24 +1,23 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Banknote, CalendarClock, CalendarDays, Handshake, Receipt, TriangleAlert, Trophy, type LucideIcon } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { Suspense, type ReactNode } from "react";
 import { isBuilt } from "@/components/app-shell/nav";
 import { ButtonLink } from "@/components/ui/button";
 import { PageHeader, Skeleton } from "@/components/ui/misc";
-import { MetricCard, type Hue } from "@/components/ui/stat";
+import { KpiCard, MoneyFigure, type KpiProps } from "@/components/ui/kpi";
 import { formatDate, firstName, formatRupiah, formatRupiahCompact } from "@/lib/format";
 import { one } from "@/lib/url";
 import { getPipelineMetrics, getWonThisMonth } from "@/server/dashboard/dashboard";
-import { countTodayCustomers, getFollowUpCounts } from "@/server/follow-ups/follow-up-views";
+import { getDashboardTrends, type DashboardTrendsDto } from "@/server/dashboard/trends";
+import { getFollowUpCounts } from "@/server/follow-ups/follow-up-views";
 import { getInvoiceSummary, getReceivedThisMonth } from "@/server/invoices/invoice-views";
 import { logger } from "@/server/shared/logger";
 import { requireWorkspace } from "../workspace";
+import { CHART_RANGES, PipelineChart, type ChartMetric, type ChartRange } from "./pipeline-chart";
 import { AgendaWidget, CloserWidget, FeedWidget, NearestDueWidget, PipelineWidget, ReadyToInvoiceWidget, RecentPaymentsWidget } from "./widgets";
 
 export const metadata: Metadata = { title: "Ringkasan · DealFlow" };
-
-// Tiles show "Rp134,25 jt" as in the design; the title attribute keeps the exact value.
-const amount = (value: string) => formatRupiahCompact(value);
 
 // A KPI whose read fails shows a dash and a retry hint instead of taking the page down.
 async function safe<T>(read: () => Promise<T>): Promise<T | null> {
@@ -31,21 +30,14 @@ async function safe<T>(read: () => Promise<T>): Promise<T | null> {
   }
 }
 
-type Kpi = { key: string; label: string; value: string; note: string; href: string; title?: string };
+const pct = (part: bigint, whole: bigint) => (whole === 0n ? 0 : Number((part * 100n) / whole));
+const change = (now: number, before: number) => (before ? Math.round(((now - before) / before) * 100) : null);
+const arrow = (value: number) => `${value < 0 ? "↓" : "↑"} ${Math.abs(value)}%`;
+/** The sparkline is always the last 30 days, whatever range the chart shows. */
+const last30 = (series: number[] | undefined | null) => (series ? series.slice(-30) : null);
 
-// Each metric keeps its category colour everywhere: deals indigo, won mint, money owed butter, overdue coral, follow-ups violet.
-const METRIC_LOOK: Record<string, { icon: LucideIcon; hue: Hue }> = {
-  pipeline: { icon: Handshake, hue: "indigo" },
-  won: { icon: Trophy, hue: "mint" },
-  outstanding: { icon: Receipt, hue: "butter" },
-  overdue: { icon: TriangleAlert, hue: "coral" },
-  received: { icon: Banknote, hue: "mint" },
-  followups: { icon: CalendarClock, hue: "violet" },
-};
-
-function Metric({ kpi }: { kpi: Kpi }) {
-  const look = METRIC_LOOK[kpi.key];
-  return <MetricCard icon={look.icon} hue={look.hue} title={kpi.label} value={kpi.value} label={kpi.note} href={kpi.href} hint={kpi.title} />;
+function sliceStages(stages: NonNullable<DashboardTrendsDto["stages"]>, days: number) {
+  return Object.fromEntries(Object.entries(stages).map(([stage, series]) => [stage, { value: series.value.slice(-days), count: series.count.slice(-days) }])) as NonNullable<DashboardTrendsDto["stages"]>;
 }
 
 function Widget({ children }: { children: ReactNode }) {
@@ -54,7 +46,9 @@ function Widget({ children }: { children: ReactNode }) {
 
 export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   const workspace = await requireWorkspace();
-  const { agenda } = await searchParams;
+  const { agenda, range: rangeParam, metric: metricParam } = await searchParams;
+  const range: ChartRange = CHART_RANGES.find((value) => String(value) === one(rangeParam)) ?? 30;
+  const metric: ChartMetric = one(metricParam) === "count" ? "count" : "value";
   const requestHeaders = await headers();
   const role = workspace.role;
   const finance = role === "FINANCE";
@@ -62,77 +56,92 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const seesSales = !finance;
   const timezone = workspace.timezone;
 
-  const [pipeline, won, invoices, followUps, followUpCustomers, received] = await Promise.all([
+  const [pipeline, won, invoices, followUps, trends, received] = await Promise.all([
     seesSales ? safe(() => getPipelineMetrics({ headers: requestHeaders })) : null,
     seesSales ? safe(() => getWonThisMonth({ headers: requestHeaders })) : null,
     seesInvoices ? safe(() => getInvoiceSummary({ headers: requestHeaders })) : null,
     seesSales ? safe(() => getFollowUpCounts({ headers: requestHeaders })) : null,
-    seesSales ? safe(() => countTodayCustomers({ headers: requestHeaders })) : null,
+    safe((): Promise<DashboardTrendsDto> => getDashboardTrends({ headers: requestHeaders, days: Math.max(range, 30) })),
     finance ? safe(() => getReceivedThisMonth({ headers: requestHeaders })) : null,
   ]);
 
-  const quiet = "Belum ada aktivitas";
-  const kpis: Kpi[] = [];
-  if (seesSales) {
-    kpis.push({
-      key: "pipeline",
-      label: "Nilai pipeline aktif",
-      value: pipeline ? amount(pipeline.totalValue) : "—",
-      note: !pipeline ? "Tidak dapat dimuat" : pipeline.totalCount > 0 ? `${pipeline.totalCount} peluang sedang berjalan` : quiet,
-      href: "/pipeline",
-      title: pipeline ? formatRupiah(pipeline.totalValue) : undefined,
-    });
-    kpis.push({
-      key: "won",
-      label: "Menang bulan ini",
-      value: won ? amount(won.value) : "—",
-      note: !won ? "Tidak dapat dimuat" : won.count > 0 ? `${won.count} deal menjadi kesepakatan` : quiet,
-      href: "/deals?stage=WON",
-      title: won ? `Nilai deal yang dimenangkan, bukan uang yang sudah diterima. ${formatRupiah(won.value)}` : undefined,
-    });
-  }
-  if (seesInvoices) {
-    kpis.push({
-      key: "outstanding",
-      label: "Tagihan belum lunas",
-      value: invoices ? amount(invoices.outstandingTotal) : "—",
-      note: !invoices ? "Tidak dapat dimuat" : invoices.outstandingCount > 0 ? `${invoices.outstandingCount} invoice belum lunas` : quiet,
-      href: "/invoices",
-      title: invoices ? formatRupiah(invoices.outstandingTotal) : undefined,
-    });
-    kpis.push({
-      key: "overdue",
-      label: "Invoice lewat jatuh tempo",
-      value: invoices ? amount(invoices.overdueTotal) : "—",
-      note: !invoices ? "Tidak dapat dimuat" : invoices.overdueCount > 0 ? `${invoices.overdueCount} invoice terlambat` : "Tidak ada invoice terlambat",
-      href: "/invoices?status=OVERDUE",
-      title: invoices ? formatRupiah(invoices.overdueTotal) : undefined,
-    });
-  }
-  if (finance) {
-    kpis.push({
-      key: "received",
-      label: "Diterima bulan ini",
-      value: received ? amount(received.total) : "—",
-      note: !received ? "Tidak dapat dimuat" : received.count > 0 ? `${received.count} pembayaran · uang masuk` : quiet,
-      href: "/invoices",
-      title: received ? formatRupiah(received.total) : undefined,
-    });
-  }
-  if (seesSales) {
-    kpis.push({
-      key: "followups",
-      label: "Follow-up hari ini",
-      value: followUpCustomers === null ? "—" : String(followUpCustomers),
-      note: !followUps ? "Tidak dapat dimuat" : followUps.today + followUps.overdue > 0 ? `${followUps.today} agenda · ${followUps.overdue} terlambat` : quiet,
-      href: "/follow-ups",
-      title: followUpCustomers !== null ? `${followUpCustomers} customer unik` : undefined,
-    });
-  }
+  const failed = "Tidak dapat dimuat";
+  const dash = "—";
+  const stageTotal = (i: number) => (trends?.stages ? trends.stages.PROPOSAL.value[i]! + trends.stages.NEGOTIATION.value[i]! + trends.stages.COMMITMENT.value[i]! : 0);
+  const pipelineSeries = trends?.stages ? trends.days.map((_, i) => stageTotal(i)).slice(-30) : null;
+  const pipelineChange = pipelineSeries ? change(pipelineSeries.at(-1)!, pipelineSeries[0]!) : null;
+  const wonChange = won && trends?.won ? change(Number(won.value), Number(trends.won.lastMonth)) : null;
 
-  // Order from the mockups: Owner/Admin see five tiles, Sales three, Finance three.
-  const order = finance ? ["outstanding", "overdue", "received"] : role === "SALES" ? ["pipeline", "won", "followups"] : ["pipeline", "won", "outstanding", "overdue", "followups"];
-  const tiles = order.map((key) => kpis.find((kpi) => kpi.key === key)!).filter(Boolean);
+  const cards: Record<string, KpiProps> = {
+    pipeline: {
+      id: "pipeline",
+      label: "Nilai pipeline aktif",
+      color: "var(--cat-store)",
+      value: pipeline ? <MoneyFigure value={pipeline.totalValue} /> : dash,
+      delta: pipelineChange === null ? undefined : { text: arrow(pipelineChange), tone: pipelineChange < 0 ? "neg" : "up" },
+      note: pipeline ? `${pipeline.totalCount} deal aktif · vs 30 hari lalu` : failed,
+      series: pipelineSeries,
+      href: "/pipeline",
+      hint: pipeline ? formatRupiah(pipeline.totalValue) : undefined,
+    },
+    won: {
+      id: "won",
+      label: "Menang bulan ini",
+      color: "var(--cat-docs)",
+      value: won ? <MoneyFigure value={won.value} /> : dash,
+      delta: wonChange === null ? undefined : { text: arrow(wonChange), tone: wonChange < 0 ? "neg" : "up" },
+      note: won ? `${won.count} deal · bulan lalu ${formatRupiahCompact(trends?.won?.lastMonth ?? "0")}` : failed,
+      series: last30(trends?.won?.series),
+      href: "/deals?stage=WON",
+      hint: won ? `Nilai deal yang dimenangkan, bukan uang yang sudah diterima. ${formatRupiah(won.value)}` : undefined,
+    },
+    outstanding: {
+      id: "outstanding",
+      label: "Tagihan belum lunas",
+      color: "var(--cat-billing)",
+      value: invoices ? <MoneyFigure value={invoices.outstandingTotal} /> : dash,
+      delta: trends?.outstanding ? { text: `${pct(BigInt(trends.outstanding.collected), BigInt(trends.outstanding.billed))}% terkumpul` } : undefined,
+      note: invoices ? `${invoices.outstandingCount} invoice · ${formatRupiahCompact(invoices.overdueTotal)} lewat tempo` : failed,
+      series: last30(trends?.outstanding?.series),
+      href: "/invoices",
+      hint: invoices ? formatRupiah(invoices.outstandingTotal) : undefined,
+    },
+    overdue: {
+      id: "overdue",
+      label: "Lewat jatuh tempo",
+      color: "var(--cat-infra)",
+      value: invoices ? <MoneyFigure value={invoices.overdueTotal} /> : dash,
+      delta: invoices ? { text: `${invoices.overdueCount} invoice`, tone: invoices.overdueCount > 0 ? "neg" : "flat" } : undefined,
+      note: invoices ? (invoices.overdueCount > 0 ? "Perlu ditagih" : "Tidak ada invoice terlambat") : failed,
+      series: last30(trends?.outstanding?.overdue),
+      href: "/invoices?status=OVERDUE",
+      hint: invoices ? formatRupiah(invoices.overdueTotal) : undefined,
+    },
+    received: {
+      id: "received",
+      label: "Diterima bulan ini",
+      color: "var(--cat-docs)",
+      value: received ? <MoneyFigure value={received.total} /> : dash,
+      delta: received ? { text: `${received.count} pembayaran`, tone: "flat" } : undefined,
+      note: received ? "Uang masuk bulan ini" : failed,
+      series: last30(trends?.received),
+      href: "/receipts",
+      hint: received ? formatRupiah(received.total) : undefined,
+    },
+    followups: {
+      id: "followups",
+      label: "Follow-up hari ini",
+      color: "var(--cat-infra)",
+      value: followUps ? String(followUps.today + followUps.overdue) : dash,
+      delta: followUps && followUps.overdue > 0 ? { text: `${followUps.overdue} terlambat`, tone: "neg" } : undefined,
+      note: followUps ? `${followUps.upcoming} follow-up mendatang` : failed,
+      series: last30(trends?.followUps),
+      href: "/follow-ups",
+    },
+  };
+
+  // Prototype order: Owner/Admin four cards, Sales and Finance three.
+  const order = finance ? ["outstanding", "overdue", "received"] : role === "SALES" ? ["pipeline", "won", "followups"] : ["pipeline", "won", "outstanding", "followups"];
 
   const fresh =
     seesSales &&
@@ -193,11 +202,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           </ol>
         </section>
       ) : (
-        <div className="metrics">
-          {tiles.map((kpi) => (
-            <Metric key={kpi.key} kpi={kpi} />
-          ))}
-        </div>
+        <>
+          <section className={order.length === 3 ? "kpis n3" : "kpis"} aria-label="Ringkasan angka">
+            {order.map((key) => (
+              <KpiCard key={key} {...cards[key]!} />
+            ))}
+          </section>
+          {seesSales && trends ? <PipelineChart trends={{ ...trends, days: trends.days.slice(-range), stages: trends.stages ? sliceStages(trends.stages, range) : null }} range={range} metric={metric} /> : null}
+        </>
       )}
 
       {fresh ? null : finance ? (

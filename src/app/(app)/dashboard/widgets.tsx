@@ -69,7 +69,7 @@ export async function PipelineWidget() {
               return (
                 <Link key={stage.status} className="bar" href="/pipeline" title={`${DEAL_STAGE[stage.status].label}: ${stage.count} deal · ${formatRupiah(stage.value)}`}>
                   <b>{formatRupiahCompact(stage.value)}</b>
-                  <i style={{ height: `${height}%`, ["--mobile" as string]: `${height}%` }} />
+                  <i style={{ height: `${height}%`, ["--mobile" as string]: `${height}%`, background: `var(--stage-${stage.status})` }} />
                   <small>{DEAL_STAGE[stage.status].label}</small>
                 </Link>
               );
