@@ -36,7 +36,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
           }
         />
       ) : (
-        <InvoiceWizard initialDeals={deals} initialContext={context} today={workspace.today} />
+        <InvoiceWizard initialDeals={deals} initialContext={context} today={workspace.today} replacesInvoiceId={one(params.replaces)} />
       )}
     </>
   );

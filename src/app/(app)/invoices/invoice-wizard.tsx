@@ -52,7 +52,18 @@ function contentFrom(source: InvoiceSourceContentDto | null, defaultTerms: strin
  * ones (a won deal, one invoice per deal, a source that has not changed);
  * the wizard lets the user see each of them before they matter.
  */
-export function InvoiceWizard({ initialDeals, initialContext, today }: { initialDeals: InvoiceableItemDto[]; initialContext: InvoiceDraftContextDto | null; today: string }) {
+export function InvoiceWizard({
+  initialDeals,
+  initialContext,
+  today,
+  replacesInvoiceId,
+}: {
+  initialDeals: InvoiceableItemDto[];
+  initialContext: InvoiceDraftContextDto | null;
+  today: string;
+  /** INV-08: the voided invoice this one replaces. */
+  replacesInvoiceId?: string;
+}) {
   const router = useRouter();
   const toast = useToast();
 
@@ -140,6 +151,7 @@ export function InvoiceWizard({ initialDeals, initialContext, today }: { initial
     try {
       result = await issueInvoiceAction({
         billingItemId: context.target.id,
+        replacesInvoiceId,
         quotationId: sourceId || undefined,
         expectedSourceEditVersion: sourceId ? content.editVersion : undefined,
         issueDate,

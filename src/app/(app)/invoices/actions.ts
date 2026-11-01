@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import type { ActionResult } from "@/lib/action-result";
-import { createInvoice } from "@/server/invoices/invoices";
+import { createInvoice, voidInvoice } from "@/server/invoices/invoices";
+import { reverseSettlement, settleInvoice } from "@/server/receipts/receipts";
 import {
   getInvoiceDraftContext,
   getInvoiceSourceContent,
@@ -18,6 +19,7 @@ import { runAction } from "@/server/shared/action";
 
 export type IssueInvoiceValues = {
   billingItemId: string;
+  replacesInvoiceId?: string;
   quotationId?: string;
   expectedSourceEditVersion?: number;
   issueDate: string;
@@ -89,5 +91,45 @@ export async function sendInvoiceEmailAction(input: { invoiceId: string; to?: st
     });
     revalidatePath(`/invoices/${input.invoiceId}`);
     return { queued: result.queued };
+  });
+}
+
+/** INV-08: void needs a reason and no live settlement; the termin is ready again for a replacement. */
+export async function voidInvoiceAction(input: { invoiceId: string; reason: string }): Promise<ActionResult<{ billingItemId: string }>> {
+  return runAction(async () => {
+    const invoice = await voidInvoice({ headers: await headers(), invoiceId: input.invoiceId, input: { reason: input.reason } });
+    refresh(invoice.dealId, invoice.id);
+    revalidatePath(`/orders/${invoice.orderId}`);
+    return { billingItemId: invoice.billingItemId };
+  });
+}
+
+/** SET-01: withholding tax (with the slip number) or a small write-off, neither of which is cash. */
+export async function settleInvoiceAction(input: {
+  invoiceId: string;
+  kind: "WITHHOLDING" | "WRITE_OFF";
+  amount: string;
+  reference?: string;
+  note?: string;
+  idempotencyKey: string;
+}): Promise<ActionResult<null>> {
+  return runAction(async () => {
+    await settleInvoice({
+      headers: await headers(),
+      invoiceId: input.invoiceId,
+      input: { kind: input.kind, amount: input.amount, reference: input.reference || undefined, note: input.note || undefined, idempotencyKey: input.idempotencyKey },
+    });
+    refresh(null, input.invoiceId);
+    return null;
+  });
+}
+
+/** A wrong settlement is reversed, never deleted; the money goes back to its receipt. */
+export async function reverseSettlementAction(input: { invoiceId: string; settlementId: string; reason: string }): Promise<ActionResult<null>> {
+  return runAction(async () => {
+    await reverseSettlement({ headers: await headers(), settlementId: input.settlementId, input: { reason: input.reason } });
+    refresh(null, input.invoiceId);
+    revalidatePath("/receipts");
+    return null;
   });
 }
