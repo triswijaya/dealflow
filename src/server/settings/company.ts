@@ -5,6 +5,7 @@ import { requirePermission } from "@/server/auth/require-membership";
 import { db } from "@/server/db/client";
 import { organization, organizationSettings } from "@/server/db/schema";
 import { recordAudit } from "@/server/audit/audit";
+import { moneyAmountSchema } from "@/server/money/amount";
 import { toIsoDto } from "@/server/shared/dto";
 
 // S-01: company profile. The name lives on Better Auth's organization row;
@@ -144,4 +145,32 @@ export async function updateCompanySettings(params: {
     }
   });
   return read(actor.organizationId);
+}
+
+/** SET-01: how much a Finance member may write off on one invoice; Owner and Admin are not bound by it. */
+export async function getWriteOffLimit(params: { headers: Headers }): Promise<string> {
+  const actor = await requirePermission({ headers: params.headers, permission: { organization: ["update"] } });
+  const settings = await db.query.organizationSettings.findFirst({ where: eq(organizationSettings.organizationId, actor.organizationId), columns: { writeOffLimit: true } });
+  if (!settings) throw new APIError("NOT_FOUND", { message: "Organization settings not found" });
+  return settings.writeOffLimit.toString();
+}
+
+export async function updateWriteOffLimit(params: { headers: Headers; input: unknown }): Promise<string> {
+  const actor = await requirePermission({ headers: params.headers, permission: { organization: ["update"] } });
+  const { writeOffLimit } = z.object({ writeOffLimit: moneyAmountSchema }).parse(params.input);
+  await db.transaction(async (tx) => {
+    const [current] = await tx.select().from(organizationSettings).where(eq(organizationSettings.organizationId, actor.organizationId)).for("update");
+    if (!current) throw new APIError("NOT_FOUND", { message: "Organization settings not found" });
+    if (current.writeOffLimit === writeOffLimit) return;
+    await tx.update(organizationSettings).set({ writeOffLimit }).where(eq(organizationSettings.organizationId, actor.organizationId));
+    await recordAudit(tx, {
+      organizationId: actor.organizationId,
+      actorId: actor.userId,
+      action: "settings.updated",
+      targetType: "organization_settings",
+      targetId: current.id,
+      metadata: { changedFields: ["writeOffLimit"], writeOffLimit: { from: current.writeOffLimit.toString(), to: writeOffLimit.toString() } },
+    });
+  });
+  return writeOffLimit.toString();
 }

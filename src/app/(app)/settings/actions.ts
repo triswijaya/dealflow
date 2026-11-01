@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { cancelInvitation, deactivateMember, inviteMember, reactivateMember, updateMemberRole } from "@/server/auth/members";
 import { requirePermission } from "@/server/auth/require-membership";
-import { updateCompanySettings, type CompanySettingsDto } from "@/server/settings/company";
+import { updateCompanySettings, updateWriteOffLimit, type CompanySettingsDto } from "@/server/settings/company";
 import { runAction } from "@/server/shared/action";
 
 const inviteSchema = z.object({
@@ -19,6 +19,14 @@ export async function saveCompanySettingsAction(input: { expectedUpdatedAt: stri
     const saved = await updateCompanySettings({ headers: await headers(), expectedUpdatedAt: input.expectedUpdatedAt, input: input.values });
     // The company name is in the sidebar of every page.
     revalidatePath("/", "layout");
+    return saved;
+  });
+}
+
+export async function saveWriteOffLimitAction(input: { writeOffLimit: string }): Promise<ActionResult<string>> {
+  return runAction(async () => {
+    const saved = await updateWriteOffLimit({ headers: await headers(), input });
+    revalidatePath("/settings/finance");
     return saved;
   });
 }
