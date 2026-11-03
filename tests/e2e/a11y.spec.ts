@@ -44,3 +44,15 @@ test("signed-in screens have no accessibility violations", async ({ page }) => {
     await scan(page, path);
   }
 });
+
+test("signed-in screens have no accessibility violations in night mode", async ({ page }) => {
+  // The head script reads the saved choice before first paint, so set it before any page loads.
+  await page.addInitScript(() => localStorage.setItem("df-theme", "dark"));
+  await signInAndWait(page, "owner");
+  for (const path of ["/dashboard", "/pipeline", "/customers", "/invoices", "/follow-ups", "/reports"]) {
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await scan(page, `${path} (night)`);
+  }
+});
