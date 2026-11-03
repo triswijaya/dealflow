@@ -1,4 +1,3 @@
-import { Package } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +23,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/orders">)
     <>
       <PageHeader title="Pesanan" description="Komitmen pembelian dan rencana tagihnya. Uang ditagih per termin." />
       {result.items.length === 0 ? (
-        <EmptyState icon={Package} title="Belum ada pesanan" description="Pesanan dibuat saat deal dikonfirmasi menang dengan bukti PO, kontrak, atau pembayaran." />
+        <EmptyState title="Belum ada pesanan" description="Pesanan dibuat saat deal dikonfirmasi menang dengan bukti PO, kontrak, atau pembayaran." />
       ) : (
         <div className="table-wrap" style={{ marginTop: 20 }}>
           <table>

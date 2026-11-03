@@ -32,6 +32,8 @@
 .df button{cursor:pointer}
 .df button:disabled{cursor:not-allowed}
 .df :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+:root[data-theme=dark] .df{color-scheme:dark}
+html:has(.df){background:var(--surface-shell)}
 .df svg{width:16px;height:16px;flex-shrink:0;vertical-align:middle;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .df .muted{color:var(--text-secondary)}
 .df small{font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--text-secondary)}
@@ -100,6 +102,10 @@
 .df .user-chip small{display:block}
 .df .user-chip .chev{width:16px;height:16px;color:var(--neutral-500)}
 .df .usermenu .menu-content{min-width:240px}
+.df .theme-switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;margin-bottom:4px;border-bottom:1px solid var(--border-divider);font-size:13px;color:var(--text-secondary)}
+.df .theme-switch .seg{height:30px;padding:2px}
+.df .menu-content .theme-switch .btn{width:auto;height:26px;padding:0 8px;font-size:12px}
+.df dialog .theme-switch{border:0;padding:10px}
 
 /* The panel is the only thing that scrolls (DESIGN.md 8.1). */
 .df .panel{display:flex;flex-direction:column;min-width:0;overflow:hidden}
@@ -262,7 +268,7 @@
 .df .toggle input{appearance:none;position:relative;flex-shrink:0;width:32px;height:18px;margin:0;border-radius:var(--radius-full);background:var(--neutral-200);transition:background-color var(--duration-fast) var(--ease-standard)}
 .df .toggle input:checked{background:var(--ink)}
 .df .toggle input::before{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:var(--shadow-xs);transition:left var(--duration-fast) var(--ease-standard)}
-.df .toggle input:checked::before{left:16px}
+.df .toggle input:checked::before{left:16px;background:var(--on-ink)}
 
 /* ------------------------------------------------------------------ */
 /* 6. Chips and tabs: pills you press                                  */
@@ -300,23 +306,31 @@
 .df .dealmeta dt{margin-bottom:4px;font-size:12px}
 .df .dealmeta dd{font-size:13px;font-weight:500}
 .df .dealmeta dd strong{font-size:22px!important;line-height:30px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
-/* A state block: soft icon chip, title, description, actions, centred.
-   Page size under a page header; region size inside a section or tab. */
+/* A state block: a faint sketch of rows (the skeleton's shape, at rest), title,
+   description, actions, centred. Page size under a page header; region size
+   inside a section or tab. Tone tints the sketch's first row only. */
 .df .empty{display:flex;flex-direction:column;align-items:center;padding:var(--space-16) var(--space-6);text-align:center}
-.df .empty .empty-icon{width:48px;height:48px;display:grid;place-items:center;margin-bottom:var(--space-4);border-radius:var(--radius-full);background:var(--surface-muted);color:var(--neutral-800)}
-.df .empty .empty-icon svg{width:20px;height:20px}
-.df .empty h2,.df .empty h3{font-size:16px;line-height:24px;font-weight:500;color:var(--text-primary)}
-.df .empty p{max-width:360px;margin:4px auto 0;font-size:13px;line-height:20px;color:var(--text-secondary)}
+.df .empty-sketch{display:grid;gap:8px;width:152px;margin-bottom:var(--space-5);padding:12px;border:1px solid var(--border-subtle);border-radius:var(--radius-lg);background:var(--surface-raised);box-shadow:var(--shadow-card);-webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
+.df .empty-sketch span{display:flex;align-items:center;gap:8px;height:12px}
+.df .empty-sketch span::before{content:"";width:12px;height:12px;flex-shrink:0;border-radius:var(--radius-2xs);background:var(--neutral-150)}
+.df .empty-sketch span::after{content:"";height:6px;flex:0 1 72%;border-radius:var(--radius-full);background:var(--neutral-100)}
+.df .empty-sketch span:nth-child(2)::after{flex-basis:52%}
+.df .empty-sketch span:nth-child(3)::after{flex-basis:64%}
+.df .empty-success .empty-sketch span:first-child::before{background:var(--status-success-fill)}
+.df .empty-error .empty-sketch span:first-child::before{background:var(--status-danger-fill)}
+.df .empty h2,.df .empty h3{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.01em;color:var(--text-primary)}
+.df .empty p{max-width:380px;margin:6px auto 0;font-size:13px;line-height:20px;color:var(--text-secondary);text-wrap:pretty}
 .df .empty-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:var(--space-5)}
-.df .empty-region{padding:var(--space-12) var(--space-4)}
-.df .empty-region .empty-icon{width:40px;height:40px;margin-bottom:var(--space-3)}
+.df .empty-region{padding:var(--space-10) var(--space-4)}
+.df .empty-region .empty-sketch{width:128px;margin-bottom:var(--space-4);padding:10px}
 .df .empty-region h3{font-size:14px;line-height:20px}
-.df .empty-success .empty-icon{background:var(--mint-100);color:var(--mint-600)}
-.df .empty-error .empty-icon{background:var(--coral-100);color:var(--coral-600)}
 .df .quiet-empty{display:flex;align-items:center;justify-content:center;min-height:88px;margin:0;font-size:13px;line-height:20px;color:var(--text-tertiary);text-align:center}
+/* Skeletons: bars only, sized by the component; the real page markup around
+   them (pagehead, table, lanes) keeps every height true. */
 .df .skeleton{display:grid;gap:12px}
-.df .skel{height:12px;border-radius:var(--radius-2xs);background:linear-gradient(90deg,var(--neutral-75),var(--neutral-100),var(--neutral-75));background-size:200% 100%;animation:ds-shimmer 1.4s linear infinite}
+.df .skel{display:block;max-width:100%;height:12px;border-radius:var(--radius-xs);background:linear-gradient(90deg,var(--neutral-75) 30%,var(--neutral-100) 50%,var(--neutral-75) 70%);background-size:300% 100%;animation:ds-shimmer 1.6s var(--ease-standard) infinite}
 .df .skeleton .skel:nth-child(even){width:62%}
+.df tbody tr:has(.skel):hover{background:none}
 .df .alert{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:var(--radius-lg);background:var(--status-info-wash);color:var(--text-secondary);font-size:13px;line-height:20px}
 .df .alert>svg{margin-top:2px;color:var(--status-info-glyph)}
 .df .alert.warning{background:var(--status-warning-wash)}
@@ -396,7 +410,8 @@
 .df .status-tile[data-status=caution]{--s-glyph:var(--status-warning-glyph);--s-soft:var(--status-warning-soft)}
 .df .status-tile[data-status=danger]{--s-glyph:var(--status-danger-glyph);--s-soft:var(--status-danger-soft)}
 .df .status-tile[data-status=info]{--s-glyph:var(--status-info-glyph);--s-soft:var(--status-info-soft)}
-.df .status-tile[aria-current=true]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+/* Selected: the tile takes a wash of its own status colour; no ink ring. */
+.df .status-tile[aria-current=true]{border-color:color-mix(in srgb,var(--s-glyph) 35%,var(--border-subtle));background:color-mix(in srgb,var(--s-soft) 60%,var(--surface-raised))}
 .df .icon-chip{width:36px;height:36px;flex-shrink:0;display:grid;place-items:center;border-radius:var(--radius-md);background:var(--s-soft,var(--neutral-75));color:var(--s-glyph,var(--neutral-800))}
 .df .icon-chip svg{width:16px;height:16px}
 .df .status-tile .tile-text{flex:1;min-width:0}
@@ -415,8 +430,8 @@
 .df .unit{font-size:.6em;font-weight:500;letter-spacing:0;color:var(--text-secondary)}
 .df .unit.pre{margin-right:.12em}
 .df .unit.post{margin-left:.15em}
-.df .delta{padding:4px 7px;border-radius:6px;background:var(--status-success-soft);color:#15803D;font-size:12px;line-height:1;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
-.df .delta.neg{background:var(--status-danger-soft);color:#B91C1C}
+.df .delta{padding:4px 7px;border-radius:6px;background:var(--status-success-soft);color:var(--status-success-ink);font-size:12px;line-height:1;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.df .delta.neg{background:var(--status-danger-soft);color:var(--status-danger-ink)}
 .df .delta.flat{background:var(--border-divider);color:var(--text-secondary)}
 .df .kpi-vs{margin-top:4px;font-size:12px;line-height:18px;color:var(--text-tertiary)}
 .df .kpi .sp{position:absolute;left:0;right:0;bottom:0;width:100%;height:64px}
@@ -693,7 +708,7 @@
 .df .qcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--grid-gap)}
 .df .qcard{display:flex;flex-direction:column;gap:4px;padding:16px;background:var(--neutral-0);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);color:var(--text-primary);text-decoration:none}
 .df .qcard:hover{border-color:var(--border-control)}
-.df .qcard[aria-current=true]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.df .qcard[aria-current=true]{border-color:var(--border-control);background:var(--surface-subtle);box-shadow:inset 0 -2px 0 var(--text-primary)}
 .df .qcard.hot .qcard-n{color:var(--status-danger-ink)}
 .df .qcard-h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text-secondary)}
 .df .qcard-h svg{width:16px;height:16px}
@@ -741,7 +756,10 @@
 /* 13. Signed-out screens: one centred card on the shell (DESIGN.md 8.12)  */
 /* ------------------------------------------------------------------ */
 .df .auth-page{display:flex;flex-direction:column;min-height:100svh;padding:var(--space-5) var(--space-6)}
-.df .auth-top{display:flex;align-items:center;justify-content:space-between;min-height:40px}
+.df .auth-brand{margin-bottom:var(--space-2)}
+.df .auth-brand .brand{font-size:17px;gap:10px}
+.df .auth-brand .brand-mark{width:34px;height:34px;border-radius:var(--radius-md)}
+.df .auth-brand .brand-mark svg{width:20px;height:20px}
 .df .auth-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-6);padding:var(--space-10) 0}
 .df .auth-card{width:100%;max-width:420px;padding:var(--space-8);background:var(--surface-panel);border:1px solid var(--border-subtle);border-radius:var(--radius-2xl);box-shadow:var(--shadow-card)}
 .df .auth-card>h1{margin-bottom:6px;font-size:var(--fs-title-lg);line-height:var(--lh-title-lg)}
@@ -753,9 +771,9 @@
 .df .auth-card-state{display:flex;flex-direction:column;gap:12px}
 .df .auth-card-state>h1{margin:0;font-size:var(--fs-title-md);line-height:var(--lh-title-md)}
 .df .auth-card-state>.btn{align-self:stretch;height:var(--control-lg);margin-top:var(--space-3)}
-.df .auth-points{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--space-2) var(--space-6);margin:0;padding:0;list-style:none}
-.df .auth-points li{display:inline-flex;align-items:center;gap:8px;font-size:12px;line-height:16px;color:var(--text-secondary)}
-.df .auth-points svg{width:14px;height:14px;color:var(--text-primary)}
+.df .auth-points{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--space-2) 0;margin:0;padding:0;list-style:none}
+.df .auth-points li{font-size:12px;line-height:16px;color:var(--text-secondary)}
+.df .auth-points li+li::before{content:"·";margin:0 12px;color:var(--text-disabled)}
 .df .auth-foot{font-size:12px;line-height:16px;color:var(--text-secondary);text-align:center}
 
 /* ------------------------------------------------------------------ */

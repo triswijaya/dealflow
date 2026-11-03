@@ -1,4 +1,3 @@
-import { SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import { SearchGroups, hasResults } from "@/components/domain/search-results";
 import { Alert } from "@/components/ui/alert";
@@ -41,7 +40,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
             {looksLikePhone && results.customers.length > 0 ? <Alert tone="info" className="mt">Pencarian nomor telepon mencocokkan format 08xx dan +62 ke customer yang sama.</Alert> : null}
           </div>
         ) : (
-          <EmptyState icon={SearchX} title={`Tidak ditemukan hasil untuk '${query}'`} description="Cek ejaan atau coba kata yang lebih singkat." />
+          <EmptyState title={`Tidak ditemukan hasil untuk '${query}'`} description="Cek ejaan atau coba kata yang lebih singkat." />
         )}
       </Card>
     </>

@@ -1,4 +1,3 @@
-import { Receipt } from "lucide-react";
 import type { Metadata } from "next";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/ui/misc";
@@ -26,7 +25,6 @@ export default async function NewInvoicePage({ searchParams }: PageProps<"/invoi
       <PageHeader title="Buat invoice" description="Terbitkan tagihan dari termin pesanan yang sudah siap." />
       {nothingReady ? (
         <EmptyState
-          icon={Receipt}
           title="Tidak ada termin yang siap ditagih"
           description="Invoice dibuat dari termin pesanan yang sudah siap ditagih dan belum punya invoice."
           action={

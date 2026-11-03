@@ -1,4 +1,3 @@
-import { Kanban, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import { ButtonLink } from "@/components/ui/button";
 import { ChipLink, PageHeader, EmptyState } from "@/components/ui/misc";
@@ -77,7 +76,6 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
       {empty ? (
         filtered ? (
           <EmptyState
-            icon={SearchX}
             title={held ? "Tidak ada deal yang ditahan" : "Tidak ada hasil untuk filter ini"}
             description={held ? "Semua deal sedang berjalan di pipeline." : "Coba ubah kata pencarian atau pilihan filter."}
             action={
@@ -88,7 +86,6 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
           />
         ) : (
           <EmptyState
-            icon={Kanban}
             title="Belum ada deal aktif"
             description="Buat peluang pertama untuk mulai mengelola pipeline."
             action={<NewDealButton members={members} actor={actor} />}

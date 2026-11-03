@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw, TriangleAlert } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/misc";
@@ -14,7 +14,6 @@ export function WidgetError({ title }: { title: string }) {
       <EmptyState
         size="region"
         tone="error"
-        icon={TriangleAlert}
         title="Gagal memuat data"
         description="Bagian lain tetap bisa dipakai. Coba muat ulang bagian ini."
         action={

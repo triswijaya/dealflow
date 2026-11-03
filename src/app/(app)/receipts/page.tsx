@@ -1,4 +1,3 @@
-import { Banknote, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +35,6 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
       {result.items.length === 0 ? (
         open ? (
           <EmptyState
-            icon={SearchX}
             title="Semua uang masuk sudah teralokasi"
             description="Tidak ada sisa yang menunggu dialokasikan."
             action={
@@ -46,7 +44,7 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
             }
           />
         ) : (
-          <EmptyState icon={Banknote} title="Belum ada uang masuk" description="Catat setiap transfer yang masuk, termasuk DP sebelum invoice terbit." />
+          <EmptyState title="Belum ada uang masuk" description="Catat setiap transfer yang masuk, termasuk DP sebelum invoice terbit." />
         )
       ) : (
         <div className="table-wrap">

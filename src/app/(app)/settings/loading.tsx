@@ -1,5 +1,5 @@
-import { Skeleton } from "@/components/ui/misc";
+import { FormSkeleton } from "@/components/ui/misc";
 
 export default function Loading() {
-  return <Skeleton lines={8} />;
+  return <FormSkeleton />;
 }

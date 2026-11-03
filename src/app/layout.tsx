@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { env } from "@/server/env";
+import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 // One family for text and numbers; tabular-nums keeps figures aligned.
@@ -15,7 +16,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="id" className={jakarta.variable} data-scroll-behavior="smooth">
+    // The theme script sets data-theme before hydration, hence the warning opt-out.
+    <html lang="id" className={jakarta.variable} data-scroll-behavior="smooth" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="font-sans">{children}</body>
     </html>
   );

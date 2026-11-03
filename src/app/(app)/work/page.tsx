@@ -1,4 +1,4 @@
-import { Banknote, CircleCheck, Pause, PhoneCall, Receipt, type LucideIcon } from "lucide-react";
+import { Banknote, Pause, PhoneCall, Receipt, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -68,7 +68,7 @@ export default async function WorkPage({ searchParams }: PageProps<"/work">) {
             </div>
           </div>
           {current.count === 0 ? (
-            <EmptyState size="region" icon={CircleCheck} title="Antrian kosong" description={current.empty} />
+            <EmptyState size="region" title="Antrian kosong" description={current.empty} />
           ) : (
             <ul className="queue-list">
               {current.key === "ready" &&

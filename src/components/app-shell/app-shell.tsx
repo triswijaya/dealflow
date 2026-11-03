@@ -15,6 +15,7 @@ import { authClient } from "@/lib/auth-client";
 import { ROLE_LABEL, type Role } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { GlobalSearchBox } from "./global-search";
+import { ThemeSwitch } from "./theme-switch";
 import { NAV_GROUP_LABEL, SEARCH_READY, bottomNavItems, sectionFor, sidebarItems, type NavGroup, type NavItem } from "./nav";
 
 export type ShellWorkspace = {
@@ -163,6 +164,7 @@ function UserMenu({ workspace }: { workspace: ShellWorkspace }) {
             <strong>{workspace.userName}</strong>
             <small>{workspace.userEmail}</small>
           </div>
+          <ThemeSwitch />
           <div role="menu" aria-label="Akun">
             <button type="button" role="menuitem" onClick={() => signOut(router)}>
               <LogOut aria-hidden="true" />
@@ -361,6 +363,7 @@ export function AppShell({
                 </Link>
               );
             })}
+            <ThemeSwitch />
             <button type="button" className="navitem" style={{ border: 0, background: "none", width: "100%" }} onClick={() => signOut(router)}>
               <LogOut aria-hidden="true" />
               Keluar

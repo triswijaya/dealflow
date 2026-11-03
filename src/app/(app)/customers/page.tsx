@@ -1,4 +1,4 @@
-import { Building2, MessageCircle, SearchX } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { isBuilt } from "@/components/app-shell/nav";
@@ -65,7 +65,6 @@ export default async function CustomersPage({ searchParams }: PageProps<"/custom
       {result.items.length === 0 ? (
         filtered || result.totalItems > 0 ? (
           <EmptyState
-            icon={SearchX}
             title="Tidak ada hasil untuk filter ini"
             description="Coba ubah kata pencarian atau pilihan filter."
             action={
@@ -76,7 +75,6 @@ export default async function CustomersPage({ searchParams }: PageProps<"/custom
           />
         ) : (
           <EmptyState
-            icon={Building2}
             title="Belum ada customer"
             description={canWrite ? "Tambahkan customer pertama untuk mulai membuat deal." : "Customer akan muncul di sini setelah tim sales menambahkannya."}
             action={canWrite ? <NewCustomerButton>Tambah customer</NewCustomerButton> : undefined}

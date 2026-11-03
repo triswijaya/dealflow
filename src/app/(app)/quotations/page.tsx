@@ -1,4 +1,3 @@
-import { FileText, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -74,7 +73,6 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/quota
       {result.items.length === 0 ? (
         filtered || result.totalItems > 0 ? (
           <EmptyState
-            icon={SearchX}
             title="Tidak ada hasil untuk filter ini"
             description="Coba ubah kata pencarian atau pilihan filter."
             action={
@@ -84,7 +82,7 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/quota
             }
           />
         ) : (
-          <EmptyState icon={FileText} title="Belum ada quotation" description="Buat quotation dari halaman deal, atau pilih deal dengan tombol di atas." />
+          <EmptyState title="Belum ada quotation" description="Buat quotation dari halaman deal, atau pilih deal dengan tombol di atas." />
         )
       ) : (
         <div className="table-wrap">

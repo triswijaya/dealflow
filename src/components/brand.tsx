@@ -1,12 +1,12 @@
 import Link from "next/link";
 
+/** The "D." monogram: a solid D with a signal dot, drawn filled so it reads at 16px. */
 export function BrandMark() {
   return (
     <span className="brand-mark" aria-hidden="true">
       <svg viewBox="0 0 24 24">
-        <rect x="3" y="4" width="5" height="16" rx="1" />
-        <rect x="10" y="4" width="5" height="11" rx="1" />
-        <rect x="17" y="4" width="4" height="7" rx="1" />
+        <path fill="currentColor" stroke="none" fillRule="evenodd" d="M5 5h5.5a7 7 0 0 1 0 14H5zm3.25 3.25v7.5h2.25a3.75 3.75 0 0 0 0-7.5z" />
+        <circle cx="20" cy="17.25" r="1.75" stroke="none" style={{ fill: "var(--signal)" }} />
       </svg>
     </span>
   );

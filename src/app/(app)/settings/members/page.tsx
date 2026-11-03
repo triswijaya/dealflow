@@ -1,4 +1,3 @@
-import { Users } from "lucide-react";
 import { Avatar, EmptyState, PageHeader } from "@/components/ui/misc";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/format";
@@ -66,7 +65,7 @@ export default async function MembersPage() {
         <section className="region">
           <h2 style={{ marginLeft: "var(--content-inset)" }}>Undangan tertunda</h2>
           {team.invitations.length === 0 ? (
-            <EmptyState size="region" icon={Users} title="Tidak ada undangan tertunda" description="Undangan yang dikirim akan tampil di sini sampai diterima." />
+            <EmptyState size="region" title="Tidak ada undangan tertunda" description="Undangan yang dikirim akan tampil di sini sampai diterima." />
           ) : (
             <div className="table-wrap">
               <table>

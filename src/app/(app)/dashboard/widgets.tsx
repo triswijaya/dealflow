@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { Activity, CalendarClock, CalendarPlus, ChevronRight, CircleCheck, Clock, Handshake, TriangleAlert, WalletCards } from "lucide-react";
+import { CalendarClock, ChevronRight, Clock, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ActivityTimeline } from "@/components/domain/activity-timeline";
@@ -167,14 +167,14 @@ export async function AgendaWidget({ agenda, timezone, today }: { agenda: string
 }
 
 const AGENDA_EMPTY = {
-  TODAY: { tone: "success", icon: CircleCheck, title: "Agenda hari ini sudah bersih", description: "Tidak ada follow-up yang dijadwalkan hari ini." },
-  OVERDUE: { tone: "success", icon: CircleCheck, title: "Tidak ada yang terlambat", description: "Semua follow-up masih sesuai jadwal." },
-  UPCOMING: { tone: "neutral", icon: CalendarPlus, title: "Belum ada follow-up mendatang", description: "Jadwalkan percakapan berikutnya dari halaman deal." },
+  TODAY: { tone: "success", title: "Agenda hari ini sudah bersih", description: "Tidak ada follow-up yang dijadwalkan hari ini." },
+  OVERDUE: { tone: "success", title: "Tidak ada yang terlambat", description: "Semua follow-up masih sesuai jadwal." },
+  UPCOMING: { tone: "neutral", title: "Belum ada follow-up mendatang", description: "Jadwalkan percakapan berikutnya dari halaman deal." },
 } as const;
 
 function AgendaEmpty({ tab }: { tab: keyof typeof AGENDA_EMPTY }) {
   const empty = AGENDA_EMPTY[tab];
-  return <EmptyState size="region" tone={empty.tone} icon={empty.icon} title={empty.title} description={empty.description} />;
+  return <EmptyState size="region" tone={empty.tone} title={empty.title} description={empty.description} />;
 }
 
 export async function CloserWidget({ timezone }: { timezone: string }) {
@@ -209,7 +209,7 @@ export async function CloserWidget({ timezone }: { timezone: string }) {
             </KeyValue>
           </dl>
         ) : (
-          <EmptyState size="region" icon={Handshake} title="Belum ada deal di tahap negosiasi" description="Deal yang masuk negosiasi akan muncul di sini." />
+          <EmptyState size="region" title="Belum ada deal di tahap negosiasi" description="Deal yang masuk negosiasi akan muncul di sini." />
         )}
       </section>
     ),
@@ -224,7 +224,7 @@ export async function FeedWidget({ timezone, title = "Kabar dari tim" }: { timez
       <section className="region">
         <h2>{title}</h2>
         {events.length === 0 ? (
-          <EmptyState size="region" icon={Activity} title="Belum ada aktivitas" description="Catatan, perubahan tahap, dan dokumen dari tim akan muncul di sini." />
+          <EmptyState size="region" title="Belum ada aktivitas" description="Catatan, perubahan tahap, dan dokumen dari tim akan muncul di sini." />
         ) : (
           <ActivityTimeline events={events} timezone={timezone} showDeal />
         )}
@@ -247,7 +247,6 @@ export async function ReadyToInvoiceWidget() {
           <EmptyState
             size="region"
             tone="success"
-            icon={CircleCheck}
             title="Semua termin siap sudah ditagih"
             description="Termin yang siap ditagih akan muncul di sini sampai invoice diterbitkan."
             action={
@@ -294,7 +293,7 @@ export async function NearestDueWidget() {
           }
         />
         {invoices.length === 0 ? (
-          <EmptyState size="region" tone="success" icon={CircleCheck} title="Tidak ada tagihan yang menunggu" description="Invoice yang belum lunas akan muncul di sini, diurutkan dari jatuh tempo terdekat." />
+          <EmptyState size="region" tone="success" title="Tidak ada tagihan yang menunggu" description="Invoice yang belum lunas akan muncul di sini, diurutkan dari jatuh tempo terdekat." />
         ) : (
           <div className="table-wrap">
             <table>
@@ -351,7 +350,7 @@ export async function RecentPaymentsWidget() {
       <section className="region">
         <h2>Pembayaran terbaru</h2>
         {payments.length === 0 ? (
-          <EmptyState size="region" icon={WalletCards} title="Belum ada pembayaran tercatat" description="Pembayaran yang dicatat di invoice akan muncul di sini." />
+          <EmptyState size="region" title="Belum ada pembayaran tercatat" description="Pembayaran yang dicatat di invoice akan muncul di sini." />
         ) : (
           <div className="table-wrap">
             <table>

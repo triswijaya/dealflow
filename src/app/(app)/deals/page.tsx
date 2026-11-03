@@ -1,4 +1,3 @@
-import { HandCoins, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
@@ -155,7 +154,6 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
       {result.items.length === 0 ? (
         filtered || result.totalItems > 0 ? (
           <EmptyState
-            icon={SearchX}
             title="Tidak ada hasil untuk filter ini"
             description="Coba ubah kata pencarian atau pilihan filter."
             action={
@@ -166,7 +164,6 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
           />
         ) : (
           <EmptyState
-            icon={HandCoins}
             title={finance ? "Belum ada deal menang" : "Belum ada deal"}
             description={finance ? "Deal yang dimenangkan tim sales akan muncul di sini." : "Buat peluang pertama untuk mulai mengelola pipeline."}
             action={finance ? undefined : <NewDealButton members={members} actor={actor} />}

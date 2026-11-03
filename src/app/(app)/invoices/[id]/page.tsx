@@ -19,7 +19,7 @@ import { load, requireWorkspace } from "../../workspace";
 import { CancelTaskButton, CollectionTaskButton, CollectionWhatsAppButton, CompleteTaskButton } from "../collection-controls";
 import { InvoiceMoreActions, ReverseSettlementButton, UseCreditButton } from "../invoice-actions";
 import { RecordPaymentButton } from "../invoice-controls";
-import { CircleCheck, Clock, Receipt, TriangleAlert, WalletCards } from "lucide-react";
+import { CircleCheck, Clock, Receipt, TriangleAlert } from "lucide-react";
 
 export const metadata: Metadata = { title: "Detail invoice · DealFlow" };
 
@@ -200,7 +200,7 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
         <section className="region" id="riwayat-pembayaran">
           <h2>Riwayat pelunasan</h2>
           {invoice.payments.length === 0 ? (
-            <EmptyState size="region" icon={WalletCards} title="Belum ada pelunasan" description="Pembayaran, potongan PPh, dan penghapusan selisih tampil di sini." />
+            <EmptyState size="region" title="Belum ada pelunasan" description="Pembayaran, potongan PPh, dan penghapusan selisih tampil di sini." />
           ) : (
             <div className="table-wrap">
               <table>

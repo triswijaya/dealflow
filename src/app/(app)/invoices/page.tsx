@@ -1,4 +1,4 @@
-import { CircleCheck, Receipt, SearchX, TriangleAlert } from "lucide-react";
+import { CircleCheck, Receipt, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -115,7 +115,6 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
       {result.items.length === 0 ? (
         filtered || result.totalItems > 0 ? (
           <EmptyState
-            icon={SearchX}
             title="Tidak ada hasil untuk filter ini"
             description="Coba ubah kata pencarian atau pilihan filter."
             action={
@@ -126,7 +125,6 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
           />
         ) : (
           <EmptyState
-            icon={Receipt}
             title="Belum ada invoice"
             description="Invoice dibuat dari deal yang sudah menang."
             action={
