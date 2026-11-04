@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { CalendarClock, ChevronRight, Clock, TriangleAlert } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ActivityTimeline } from "@/components/domain/activity-timeline";
@@ -8,6 +8,7 @@ import { Avatar, EmptyState, KeyValue } from "@/components/ui/misc";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { CardHeading } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { formatDate, formatDateTime, formatRelative, formatRupiah, formatRupiahCompact } from "@/lib/format";
 import { DEAL_STAGE, INVOICE_STATUS, paymentMethodLabel } from "@/lib/labels";
 import { getPipelineMetrics } from "@/server/dashboard/dashboard";
@@ -102,9 +103,6 @@ const AGENDA_TABS = [
   { key: "mendatang", tab: "UPCOMING", label: "Mendatang", count: "upcoming" },
 ] as const;
 
-const AGENDA_GLYPH = { "hari-ini": Clock, terlambat: TriangleAlert, mendatang: CalendarClock } as const;
-const AGENDA_STATUS = { "hari-ini": "warning", terlambat: "danger", mendatang: "pending" } as const;
-
 export async function AgendaWidget({ agenda, timezone, today }: { agenda: string | undefined; timezone: string; today: string }) {
   const current = AGENDA_TABS.find((candidate) => candidate.key === agenda) ?? AGENDA_TABS[0];
   return guard(
@@ -121,36 +119,31 @@ export async function AgendaWidget({ agenda, timezone, today }: { agenda: string
       <section className="region dashboard-agenda">
         <CardHeading
           title="Agenda follow-up"
+          description="Percakapan yang perlu dilanjutkan"
           action={
             <ButtonLink variant="tertiary" href="/follow-ups">
               Lihat semua
+              <ArrowRight aria-hidden="true" />
             </ButtonLink>
           }
         />
-        <div className="tiles stacked" role="group" aria-label="Pilih agenda">
+        <nav className="seg" aria-label="Pilih agenda">
           {AGENDA_TABS.map((tab) => {
-            const Glyph = AGENDA_GLYPH[tab.key];
             const selected = tab.key === current.key;
             return (
               <Link
                 key={tab.key}
-                className="status-tile"
-                data-status={AGENDA_STATUS[tab.key]}
+                className={cn("btn", selected && "secondary")}
                 aria-current={selected ? "true" : undefined}
                 href={tab.key === "hari-ini" ? "/dashboard" : `/dashboard?agenda=${tab.key}`}
+                scroll={false}
               >
-                <span className="icon-chip">
-                  <Glyph aria-hidden="true" />
-                </span>
-                <span className="tile-text">
-                  <strong>{counts[tab.count]}</strong>
-                  <small>{tab.label}</small>
-                </span>
-                <ChevronRight className="chev" aria-hidden="true" />
+                {tab.label}
+                <span className="n">{counts[tab.count]}</span>
               </Link>
             );
           })}
-        </div>
+        </nav>
         {rows.length === 0 ? (
           <AgendaEmpty tab={current.tab} />
         ) : (

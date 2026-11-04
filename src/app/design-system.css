@@ -71,63 +71,60 @@ html:has(.df){background:var(--surface-shell)}
 .df .app[data-collapsed="true"]{grid-template-columns:var(--sidebar-w-collapsed) minmax(0,1fr)}
 
 .df .sidebar{display:flex;flex-direction:column;min-height:0;padding:var(--sidebar-pad);overflow-x:hidden;overflow-y:auto;scrollbar-width:none;background:var(--surface-sidebar);border-right:1px solid var(--border-subtle)}
-.df .sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;height:36px;margin:0 0 20px 4px}
-.df .brand{display:inline-flex;align-items:center;gap:10px;min-height:32px;font-size:15px;line-height:20px;font-weight:700;letter-spacing:-.02em;color:var(--text-primary)}
+.df .sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 26px;padding:4px 6px 0 10px}
+.df .brand{display:inline-flex;align-items:center;gap:10px;min-height:32px;font-family:var(--font-mono);font-size:17px;line-height:22px;font-weight:500;letter-spacing:0;color:var(--text-primary)}
 .df a.brand:hover{text-decoration:none}
-.df .brand-mark{width:30px;height:30px;flex-shrink:0;display:grid;place-items:center;border-radius:var(--radius-sm);background:var(--ink);color:var(--on-ink)}
-.df .brand-mark svg{width:16px;height:16px;stroke-width:1.75}
+.df .brand-mark{width:30px;height:30px;flex-shrink:0;display:grid;place-items:center;color:var(--ink)}
+.df .brand-mark svg{width:30px;height:30px;stroke:none}
 .df .brand-text{display:flex;flex-direction:column;min-width:0}
-.df .brand-text small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.df .brand-text small{font-family:var(--font-sans);font-size:12px;line-height:16px;font-weight:400;letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .df .collapse-toggle{flex-shrink:0}
 .df .nav-group{display:flex;flex-direction:column;gap:var(--nav-item-gap)}
-.df .nav-group+.nav-group{margin-top:var(--space-5)}
-.df .nav-label{margin:0 0 6px;padding-left:10px;font-size:12px;line-height:16px;font-weight:500;color:var(--text-tertiary);white-space:nowrap}
+.df .nav-group+.nav-group{margin-top:30px}
+.df .nav-label{margin:0 0 10px;padding-left:10px;letter-spacing:.02em;font-size:12px;line-height:16px;font-weight:500;color:var(--text-tertiary);white-space:nowrap}
 .df .sidebar nav{display:flex;flex-direction:column;gap:var(--nav-item-gap)}
-.df .navitem{display:flex;align-items:center;gap:10px;height:var(--nav-item-h);padding:0 10px;border-radius:var(--radius-sm);color:var(--text-secondary);font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard)}
-.df .navitem svg{width:18px;height:18px;color:var(--neutral-400)}
+.df .navitem{display:flex;align-items:center;gap:12px;height:var(--nav-item-h);padding:0 12px;border-radius:var(--radius-md);color:var(--text-secondary);font-size:15px;line-height:22px;font-weight:400;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard)}
+.df .navitem svg{width:18px;height:18px;color:var(--neutral-400);stroke-width:1.8}
 .df .navitem:hover{background:var(--neutral-75);color:var(--text-primary);text-decoration:none}
 .df .navitem:active{background:var(--action-ghost-pressed)}
 .df .navitem.active{background:var(--neutral-0);color:var(--text-primary);box-shadow:0 0 0 1px var(--border-subtle),var(--shadow-xs)}
 .df .navitem.active svg{color:var(--text-primary)}
-.df .navitem .count{margin-left:auto}
+.df .navitem .count{margin-left:auto;min-width:0;height:auto;padding:0;border-radius:0;background:none;color:var(--status-danger-glyph);font-family:var(--font-mono);font-size:13px;line-height:20px;font-weight:400}
 .df .navtext{overflow:hidden;text-overflow:ellipsis}
-.df .sidebar-foot{margin-top:auto;display:flex;flex-direction:column;gap:var(--space-3);padding-top:var(--space-6)}
-.df .sidebar-foot .usermenu{padding-top:var(--space-3);border-top:1px solid var(--border-subtle)}
+.df .sidebar-foot{margin-top:auto;display:flex;flex-direction:column;gap:14px;padding-top:var(--space-6)}
+.df .sidebar-foot .foot-row{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:16px 4px 0;border-top:1px solid var(--border-subtle)}
+.df .sidebar-foot .usermenu{flex:1;min-width:0}
 .df .usermenu{position:relative}
-.df .user-chip{display:flex;align-items:center;gap:10px;width:100%;padding:4px;border:0;border-radius:var(--radius-lg);background:transparent;text-align:left;transition:background-color var(--duration-fast) var(--ease-standard)}
+.df .user-chip{display:flex;align-items:center;gap:10px;width:100%;padding:6px;border:0;border-radius:var(--radius-md);background:transparent;text-align:left;transition:background-color var(--duration-fast) var(--ease-standard)}
 .df .user-chip:hover{background:var(--action-ghost-hover)}
-.df .user-chip .avatar{width:32px;height:32px;font-size:12px;font-weight:600}
+.df .user-chip .avatar{width:32px;height:32px;font-size:11.5px;font-weight:400}
 .df .user-chip .usertext{flex:1;min-width:0}
-.df .user-chip strong{display:block;font-size:14px;line-height:20px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.df .user-chip small{display:block}
-.df .user-chip .chev{width:16px;height:16px;color:var(--neutral-500)}
+.df .user-chip strong{display:block;font-size:14px;line-height:17px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.df .user-chip small{display:block;font-size:12.5px;line-height:16px;color:var(--text-tertiary)}
 .df .usermenu .menu-content{min-width:240px}
-.df .theme-switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;margin-bottom:4px;border-bottom:1px solid var(--border-divider);font-size:13px;color:var(--text-secondary)}
-.df .theme-switch .seg{height:30px;padding:2px}
-.df .menu-content .theme-switch .btn{width:auto;height:26px;padding:0 8px;font-size:12px}
-.df dialog .theme-switch{border:0;padding:10px}
 
 /* The panel is the only thing that scrolls (DESIGN.md 8.1). */
 .df .panel{display:flex;flex-direction:column;min-width:0;overflow:hidden}
 .df .panel-scroll{flex:1;min-height:0;overflow:auto;scroll-padding-top:72px}
 .df .topbar-wrap{position:sticky;top:0;z-index:var(--z-sticky);padding:0 var(--content-inset);background:color-mix(in srgb,var(--surface-shell) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px)}
-.df .topbar{max-width:var(--content-max);height:var(--topbar-h);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.df .topbar{max-width:var(--content-max);height:var(--topbar-h);padding-top:22px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px}
 .df .topbar-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.df .breadcrumb{display:flex;align-items:center;gap:6px;min-width:0;font-size:13px;line-height:20px;color:var(--text-tertiary)}
+.df .breadcrumb{display:flex;align-items:center;gap:8px;min-width:0;font-size:14px;line-height:20px;color:var(--text-tertiary)}
 .df .breadcrumb>*{white-space:nowrap}
 .df .breadcrumb a:hover{color:var(--text-primary);text-decoration:none}
 .df .breadcrumb svg{width:12px;height:12px;color:var(--neutral-400)}
-.df .breadcrumb [aria-current]{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary);font-weight:500}
+.df .breadcrumb [aria-current]{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text-secondary);font-weight:500}
+.df .breadcrumb .sep{color:var(--neutral-300)}
 .df .breadcrumb [aria-current] svg{width:16px;height:16px;color:var(--text-primary)}
-.df .global-search{position:relative;display:flex;align-items:center;gap:8px;width:300px;max-width:40vw;height:var(--control-lg);padding:0 6px 0 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--neutral-0);color:var(--text-tertiary);transition:background-color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),box-shadow var(--duration-fast) var(--ease-standard)}
+.df .global-search{position:relative;display:flex;align-items:center;gap:8px;width:300px;max-width:40vw;height:38px;padding:0 8px 0 12px;border:1px solid var(--border-subtle);border-radius:11px;background:var(--neutral-0);color:var(--text-tertiary);transition:background-color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),box-shadow var(--duration-fast) var(--ease-standard)}
 .df .global-search:hover{border-color:var(--neutral-300)}
 .df .global-search:focus-within{background:var(--neutral-0);border-color:var(--ink);box-shadow:var(--input-halo)}
 .df .global-search>svg{width:16px;height:16px;color:var(--text-secondary)}
-.df .global-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:13px;line-height:20px;color:var(--text-primary)}
+.df .global-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:14px;line-height:20px;color:var(--text-primary)}
 .df .global-search input:focus-visible{outline:0}
 .df .global-search input::placeholder{color:var(--text-tertiary)}
 .df .global-search input[type=search]::-webkit-search-cancel-button{cursor:pointer}
-.df .kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:var(--radius-xs);background:var(--neutral-50);box-shadow:inset 0 0 0 1px var(--border-subtle);color:var(--text-secondary);font:500 11px/20px var(--font-sans);white-space:nowrap}
+.df .kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:var(--radius-xs);background:var(--neutral-50);box-shadow:inset 0 0 0 1px var(--border-subtle);color:var(--text-secondary);font:400 12px/20px var(--font-mono);white-space:nowrap}
 .df .main{max-width:calc(var(--content-max) + var(--content-inset) * 2);margin:0 auto;padding:0 0 var(--space-12)}
 /* Everything text-leading starts at the 24px content inset. The page header
    and anything marked .bleed run edge to edge, as tables do. */
@@ -144,15 +141,17 @@ html:has(.df){background:var(--surface-shell)}
 /* ------------------------------------------------------------------ */
 .df .pagehead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:12px var(--content-inset) 0}
 .df .pagehead>div:first-child{min-width:0}
-.df .pagehead p{margin-top:4px;max-width:720px;font-size:14px;line-height:20px;color:var(--text-secondary)}
-.df .pagehead .actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-left:auto}
+.df .pagehead p{margin-top:4px;max-width:720px;font-size:15px;line-height:22px;color:var(--text-secondary)}
+.df .pagehead h1{margin-top:6px;font-size:32px;line-height:37px;font-weight:600;letter-spacing:-.025em}
+@media (max-width:767px){.df .pagehead h1{font-size:26px;line-height:30px}}
+.df .pagehead .actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin-left:auto}
 .df .date-chip svg{width:14px;height:14px}
 .df .pagehead>.detail-head{display:flex;align-items:flex-start;gap:12px}
 .df .detail-head .iconbtn{margin-top:-2px}
 .df .title-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px}
 .df .section-head,.df .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:32px;margin-bottom:var(--space-3)}
 .df .section-head>div,.df .card-head>div{min-width:0}
-.df .section-head p,.df .card-head p{margin-top:2px;font-size:13px;line-height:20px;color:var(--text-secondary)}
+.df .section-head p,.df .card-head p{margin-top:2px;font-size:14px;line-height:20px;color:var(--text-tertiary)}
 .df .section-head .btn.tertiary,.df .card-head .btn.tertiary{margin-right:-8px}
 .df .form-flat{max-width:var(--form-max)}
 .df .region{min-width:0}
@@ -162,8 +161,8 @@ html:has(.df){background:var(--surface-shell)}
 /* ------------------------------------------------------------------ */
 /* 4. Buttons, icon buttons, menus, segmented controls                  */
 /* ------------------------------------------------------------------ */
-.df .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:var(--control-md);padding:0 14px;border:1px solid transparent;border-radius:var(--radius-md);background:transparent;font-size:13px;line-height:20px;font-weight:600;text-align:center;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
-.df .btn svg{width:14px;height:14px}
+.df .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:1px solid transparent;border-radius:12px;background:transparent;font-size:14px;line-height:20px;font-weight:500;text-align:center;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
+.df .btn svg{width:16px;height:16px}
 .df .btn:hover{text-decoration:none}
 .df .primary{background:var(--action-primary);color:var(--on-ink)}
 .df .primary:hover{background:var(--action-primary-hover)}
@@ -190,7 +189,7 @@ html:has(.df){background:var(--surface-shell)}
 .df .iconbtn:active{background:var(--neutral-150)}
 .df .iconbtn:disabled{background:var(--neutral-50);color:var(--text-disabled)}
 /* Square bordered icon button: the topbar. */
-.df .iconbtn.square{position:relative;width:var(--control-lg);height:var(--control-lg);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--neutral-0);color:var(--text-secondary)}
+.df .iconbtn.square{position:relative;width:36px;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--neutral-0);color:var(--text-secondary)}
 .df .iconbtn.square svg{width:18px;height:18px}
 .df .iconbtn.square:hover{background:var(--neutral-50)}
 .df .signal{position:absolute;right:7px;top:7px;width:7px;height:7px;border-radius:50%;background:var(--status-danger-glyph);box-shadow:0 0 0 2px var(--neutral-0)}
@@ -199,10 +198,10 @@ html:has(.df){background:var(--surface-shell)}
 .df td .iconbtn:hover,.df .deal-card .iconbtn:hover,.df .password .iconbtn:hover,.df .dialog-close:hover,.df .editor-table .iconbtn:hover,.df .picker-clear:hover,.df .collapse-toggle:hover{background:var(--action-ghost-hover);color:var(--text-primary)}
 .df .footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:var(--space-6)}
 
-.df .seg{display:inline-flex;align-items:center;gap:2px;height:var(--control-lg);padding:3px;border-radius:var(--radius-md);background:var(--neutral-100)}
-.df .seg .btn{height:30px;padding:0 12px;border:0;border-radius:var(--radius-sm);box-shadow:none;background:transparent;color:var(--text-secondary);font-size:13px;line-height:16px;font-weight:500}
+.df .seg{display:inline-flex;align-items:center;gap:2px;padding:4px;border-radius:12px;background:var(--neutral-100)}
+.df .seg .btn{height:34px;padding:0 14px;border:0;border-radius:9px;box-shadow:none;background:transparent;color:var(--text-secondary);font-size:14px;line-height:20px;font-weight:400}
 .df .seg .btn:hover{color:var(--text-primary);background:transparent}
-.df .seg .secondary{background:var(--neutral-0);color:var(--text-primary);box-shadow:0 0 0 1px var(--border-subtle),var(--shadow-xs)}
+.df .seg .secondary{background:var(--neutral-0);color:var(--text-primary);box-shadow:0 1px 2px rgba(17,24,39,.08),0 0 0 1px var(--border-subtle)}
 .df .seg .secondary:hover{background:var(--neutral-0)}
 
 .df .menu{position:relative;display:inline-block}
@@ -274,11 +273,11 @@ html:has(.df){background:var(--surface-shell)}
 /* 6. Chips and tabs: pills you press                                  */
 /* ------------------------------------------------------------------ */
 .df .chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.df .chip{display:inline-flex;align-items:center;gap:6px;height:var(--control-md);padding:0 12px;border:0;border-radius:var(--radius-md);background:var(--neutral-0);box-shadow:inset 0 0 0 1px var(--border-subtle);color:var(--text-secondary);font-size:13px;line-height:20px;font-weight:500;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
+.df .chip{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:0;border-radius:11px;background:var(--neutral-50);box-shadow:inset 0 0 0 1px var(--border-subtle);color:var(--text-primary);font-size:14px;line-height:20px;font-weight:400;white-space:nowrap;transition:background-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
 .df a.chip:hover,.df button.chip:hover{background:var(--neutral-50);color:var(--text-primary);text-decoration:none}
 .df .chip.active{background:var(--ink);color:var(--on-ink);box-shadow:none}
 .df a.chip.active:hover{background:var(--ink-hover);color:var(--on-ink)}
-.df .chip svg{width:14px;height:14px}
+.df .chip svg{width:15px;height:15px}
 /* The view switch (list / board) is a segmented control. */
 .df .chips.seg{flex-wrap:nowrap;gap:0}
 .df .tabs{display:flex;gap:2px;width:max-content;max-width:100%;margin-bottom:var(--space-4);padding:3px;border-radius:var(--radius-md);background:var(--neutral-100);overflow-x:auto;scrollbar-width:none}
@@ -357,12 +356,13 @@ html:has(.df){background:var(--surface-shell)}
 .df .b-danger svg{color:var(--status-danger-glyph)}
 .df .b-outline{background:var(--neutral-0);box-shadow:inset 0 0 0 1px var(--border-subtle)}
 .df .count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-full);background:var(--ink);color:var(--on-ink);font-size:11px;line-height:18px;font-weight:600;font-variant-numeric:tabular-nums}
-.df .avatar{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--indigo-100);color:var(--indigo-800);font-size:12px;line-height:1;font-weight:600}
+.df .avatar{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--neutral-100);color:var(--text-secondary);font-family:var(--font-mono);font-size:11.5px;line-height:1;font-weight:400}
 .df .avatar.sm{width:24px;height:24px;font-size:10px}
 .df .avatar.xs{width:20px;height:20px;font-size:9px}
 .df .avatar.lg{width:56px;height:56px;font-size:18px;font-weight:500}
 .df .av-0{background:var(--violet-100);color:var(--violet-800)}
 .df .av-1{background:var(--indigo-100);color:var(--indigo-800)}
+.df .avatar[class*=av-]{background:var(--neutral-100);color:var(--text-secondary)}
 .df .av-2{background:var(--sky-100);color:var(--sky-800)}
 .df .av-3{background:var(--mint-100);color:var(--mint-800)}
 .df .av-4{background:var(--butter-100);color:var(--butter-800)}
@@ -421,38 +421,41 @@ html:has(.df){background:var(--surface-shell)}
 /* Dashboard KPI (prototype .kpi): dot label, big number with small Rp/jt, delta pill, sparkline on the bottom edge. */
 .df .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--grid-gap)}
 .df .kpis.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.df .kpi{position:relative;display:block;overflow:hidden;min-width:0;height:188px;padding:20px 20px 0;background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);color:inherit;transition:border-color var(--duration-fast) var(--ease-standard)}
+.df .kpi{position:relative;display:block;overflow:hidden;min-width:0;height:216px;padding:22px 24px 0;background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);color:inherit;transition:border-color var(--duration-fast) var(--ease-standard)}
 .df a.kpi:hover{border-color:var(--neutral-400);text-decoration:none}
-.df .kpi-lbl{display:flex;align-items:center;gap:8px;font-size:13px;line-height:18px;font-weight:500;color:var(--text-secondary)}
+.df .kpi-lbl{display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;font-weight:400;color:var(--text-secondary)}
 .df .kpi-lbl i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .df .kpi-val{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;margin-top:10px}
-.df .kpi-num{font-size:var(--fs-kpi);line-height:var(--lh-kpi);font-weight:600;letter-spacing:var(--ls-kpi);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-primary)}
+.df .kpi-num{font-family:var(--font-mono);font-size:34px;line-height:40px;font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-primary)}
 .df .unit{font-size:.6em;font-weight:500;letter-spacing:0;color:var(--text-secondary)}
 .df .unit.pre{margin-right:.12em}
 .df .unit.post{margin-left:.15em}
-.df .delta{padding:4px 7px;border-radius:6px;background:var(--status-success-soft);color:var(--status-success-ink);font-size:12px;line-height:1;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.df .kpi-num .unit,.df .chart-big .unit{font-size:inherit;font-weight:inherit;letter-spacing:inherit;color:inherit}
+.df .kpi-num .unit.pre,.df .chart-big .unit.pre{margin-right:0}
+.df .kpi-num .unit.post,.df .chart-big .unit.post{margin-left:.3em}
+.df .delta{padding:2px 6px;border-radius:6px;background:var(--status-success-soft);color:var(--status-success-ink);font-family:var(--font-mono);font-size:12px;line-height:18px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap}
 .df .delta.neg{background:var(--status-danger-soft);color:var(--status-danger-ink)}
 .df .delta.flat{background:var(--border-divider);color:var(--text-secondary)}
-.df .kpi-vs{margin-top:4px;font-size:12px;line-height:18px;color:var(--text-tertiary)}
-.df .kpi .sp{position:absolute;left:0;right:0;bottom:0;width:100%;height:64px}
+.df .kpi-vs{margin-top:4px;font-size:13px;line-height:18px;color:var(--text-tertiary)}
+.df .kpi .sp{position:absolute;left:0;right:0;bottom:0;width:100%;height:72px;stroke:none}
 /* Pipeline chart card (prototype .chart-card). */
-.df .chart-card{margin-top:var(--grid-gap);padding:24px 24px 20px;background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card)}
+.df .chart-card{margin-top:var(--grid-gap);padding:28px 30px 24px;background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card)}
 .df .chart-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
-.df .chart-top .t{font-size:13px;line-height:18px;font-weight:500;color:var(--text-secondary)}
-.df .chart-big{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px;margin-top:4px;font-size:var(--fs-hero);line-height:var(--lh-hero);font-weight:600;letter-spacing:var(--ls-hero);font-variant-numeric:tabular-nums}
-.df .chart-big .delta{letter-spacing:0}
-.df .chart-segs{display:flex;gap:8px;flex-wrap:wrap}
-.df .segl{display:inline-flex;gap:2px;padding:3px;border-radius:var(--radius-md);background:var(--neutral-100)}
-.df .segl a{display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;color:var(--text-secondary);white-space:nowrap}
+.df .chart-top .t{font-size:14px;line-height:20px;font-weight:400;color:var(--text-secondary)}
+.df .chart-big{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px;margin-top:4px;font-family:var(--font-mono);font-size:52px;line-height:57px;font-weight:500;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.df .chart-big .delta{letter-spacing:0;font-size:13px}
+.df .chart-segs{display:flex;gap:10px;flex-wrap:wrap}
+.df .segl{display:inline-flex;gap:2px;padding:4px;border-radius:12px;background:var(--neutral-100)}
+.df .segl a{display:inline-flex;align-items:center;height:34px;padding:0 14px;border-radius:9px;font-size:14px;font-weight:400;color:var(--text-secondary);white-space:nowrap}
 .df .segl a:hover{color:var(--text-primary);text-decoration:none}
 .df .segl a[aria-current=true]{background:var(--neutral-0);color:var(--text-primary);box-shadow:0 1px 2px rgba(17,24,39,.08),0 0 0 1px var(--border-subtle)}
-.df .area{margin-top:16px;height:260px}
-.df .area svg{display:block;width:100%;height:100%;overflow:visible}
-.df .chart-axis-dates{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;line-height:16px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
-.df .area-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.df .area-legend span{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--neutral-50);font-size:12px;font-weight:500}
-.df .area-legend i{width:8px;height:8px;border-radius:50%}
-.df .area-legend b{font-weight:500;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+.df .area{margin-top:16px;height:340px}
+.df .area svg{display:block;width:100%;height:100%;overflow:visible;stroke:none}
+.df .chart-axis-dates{display:flex;justify-content:space-between;margin-top:8px;font-family:var(--font-mono);font-size:13px;line-height:18px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.df .area-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.df .area-legend span{display:inline-flex;align-items:center;gap:9px;padding:7px 12px;border:1px solid var(--border-subtle);border-radius:11px;background:var(--neutral-50);font-size:14px;line-height:20px;font-weight:400}
+.df .area-legend i{width:9px;height:9px;border-radius:50%}
+.df .area-legend b{font-family:var(--font-mono);font-size:12.5px;font-weight:400;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
 @media (max-width:1279px){.df .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:767px){.df .kpis,.df .kpis.n3{grid-template-columns:minmax(0,1fr)}.df .kpi{height:164px;padding:16px 16px 0}.df .area{height:220px}.df .chart-card{padding:16px}}
 .df .chart-summary{display:flex;flex-wrap:wrap;gap:8px 0;margin-bottom:var(--space-5)}
@@ -478,6 +481,9 @@ html:has(.df){background:var(--surface-shell)}
 /* Main region and a right rail, divided by one hairline (DESIGN.md 8.6). */
 .df .with-rail{display:grid;grid-template-columns:minmax(0,1fr) var(--rail-w);gap:var(--grid-gap);align-items:start}
 .df .with-rail>.rail-divider{display:none}
+/* The dashboard splits 1.42 : 1 like the prototype; below 1280px it stacks. */
+.df .with-rail.dashboard-grid{grid-template-columns:minmax(0,1.42fr) minmax(0,1fr)}
+@media (max-width:1279px){.df .with-rail.dashboard-grid{grid-template-columns:minmax(0,1fr)}}
 .df .rail-main,.df .rail-side{display:flex;flex-direction:column;gap:var(--grid-gap);min-width:0}
 .df .rail-main>.tabs{margin-bottom:0}
 /* Content blocks are white cards on the grey work area. */
@@ -575,6 +581,24 @@ html:has(.df){background:var(--surface-shell)}
 .df .follow p{margin-top:0;font-size:12px;line-height:16px;color:var(--text-secondary)}
 .df .follow small{display:block;margin-top:2px;color:var(--text-tertiary)}
 .df .follow-actions{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+/* Dashboard agenda (refined prototype .fu): dashed check, title with a type tag, customer and deal, then the time. */
+.df .follow.compact{align-items:start;gap:14px;padding:14px 0}
+.df .follow.compact h3{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:15px;line-height:22px;font-weight:500}
+.df .follow.compact p{margin-top:3px;font-size:13.5px;line-height:20px;color:var(--text-secondary)}
+.df .follow.compact p a:hover{color:var(--text-primary)}
+.df .follow.compact small{margin-top:2px;font-size:13px;line-height:18px;color:var(--text-tertiary)}
+.df .follow.compact .follow-actions{padding-top:1px}
+.df .follow.compact .iconbtn{background:transparent;color:var(--text-secondary)}
+.df .follow.compact .iconbtn:hover{background:var(--action-ghost-hover);color:var(--text-primary)}
+.df .check{width:22px;height:22px;margin-top:1px;padding:0;display:grid;place-items:center;border:1.5px dashed var(--neutral-400);border-radius:50%;background:transparent;color:transparent;transition:color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard)}
+.df .check svg{width:12px;height:12px;stroke-width:2.4}
+.df .check:hover{border:1.5px solid var(--status-success-glyph);color:var(--status-success-glyph)}
+.df .type-tag{display:inline-flex;align-items:center;gap:6px;padding:1px 8px;border:1px solid var(--border-subtle);border-radius:7px;background:var(--neutral-0);color:var(--text-secondary);font-size:12.5px;line-height:20px;font-weight:400;white-space:nowrap}
+.df .type-tag svg{width:13px;height:13px}
+.df .seg .n{font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary)}
+.df .dashboard-agenda .seg{margin-bottom:var(--space-2)}
+.df .more-link{display:inline-flex;align-items:center;gap:6px;color:var(--text-secondary)}
+.df .more-link svg{width:15px;height:15px}
 /* Deal path: numbered circles joined by hairlines. Done is mint, now is ink. */
 .df .stepper{display:flex;align-items:flex-start;margin:0;overflow-x:auto}
 .df .step{position:relative;flex:1;min-width:104px;text-align:center;font-size:13px;line-height:20px;font-weight:500;color:var(--text-primary)}
@@ -758,8 +782,8 @@ html:has(.df){background:var(--surface-shell)}
 .df .auth-page{display:flex;flex-direction:column;min-height:100svh;padding:var(--space-5) var(--space-6)}
 .df .auth-brand{margin-bottom:var(--space-2)}
 .df .auth-brand .brand{font-size:17px;gap:10px}
-.df .auth-brand .brand-mark{width:34px;height:34px;border-radius:var(--radius-md)}
-.df .auth-brand .brand-mark svg{width:20px;height:20px}
+.df .auth-brand .brand-mark{width:34px;height:34px;border-radius:0}
+.df .auth-brand .brand-mark svg{width:34px;height:34px}
 .df .auth-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-6);padding:var(--space-10) 0}
 .df .auth-card{width:100%;max-width:420px;padding:var(--space-8);background:var(--surface-panel);border:1px solid var(--border-subtle);border-radius:var(--radius-2xl);box-shadow:var(--shadow-card)}
 .df .auth-card>h1{margin-bottom:6px;font-size:var(--fs-title-lg);line-height:var(--lh-title-lg)}
@@ -817,6 +841,7 @@ html:has(.df){background:var(--surface-shell)}
 .df .app[data-collapsed="true"] .sidebar nav{align-items:center}
 .df .app[data-collapsed="true"] .navitem{width:44px;justify-content:center;padding:0}
 .df .app[data-collapsed="true"] .user-chip{justify-content:center;width:auto;padding:0}
+.df .app[data-collapsed="true"] .sidebar-foot .foot-row{flex-direction:column-reverse;gap:var(--space-4)}
 }
 
 /* ------------------------------------------------------------------ */

@@ -1,7 +1,9 @@
 /* Inkwash design tokens (DESIGN.md §15.1), pasted unchanged except for the
    Product layer at the end. Components read the semantic tokens; primitives
-   are read directly only for categorical colour. */
-:root {
+   are read directly only for categorical colour. The document preview repeats
+   the light set so a quotation or invoice stays on white paper in night mode. */
+:root,
+:root[data-theme="dark"] .df .document {
   /* ───────── Primitives: neutrals ───────── */
   /* Cool greys from the final prototype (Prototype/dealflow-final.html). */
   --neutral-0:   #FFFFFF;  --neutral-25:  #FBFBFC;  --neutral-50:  #F7F8FA;
@@ -86,8 +88,8 @@
   --status-info-wash:#F5F6FE;    --status-info-soft:#ECEEFD;    --status-info-glyph:#4F56D9;    --status-info-fill:#A5A9FF;    --status-info-ink:#2E3392;
 
   /* ───────── Typography ───────── */
-  --font-sans: var(--font-jakarta), "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-sans: var(--font-geist), "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --weight-regular: 400;  --weight-medium: 500;  --weight-semibold: 600;
   /* size / line-height pairs */
   /* The prototype scale at SaaS density: hero 48→40, kpi 32→28, h1 28→24, h2 18→16. */
@@ -95,7 +97,7 @@
   --fs-kpi: 28px;      --lh-kpi: 32px;      --ls-kpi: -0.025em;
   --fs-display: 32px;  --lh-display: 40px;  --ls-display: -0.02em;
   --fs-title-lg: 24px; --lh-title-lg: 32px; --ls-title-lg: -0.015em;
-  --fs-title-md: 16px; --lh-title-md: 24px; --ls-title-md: -0.005em;
+  --fs-title-md: 18px; --lh-title-md: 26px; --ls-title-md: -0.005em;
   --fs-title-sm: 14px; --lh-title-sm: 20px;
   --fs-body: 14px;     --lh-body: 20px;
   --fs-body-sm: 13px;  --lh-body-sm: 20px;
@@ -113,24 +115,24 @@
      24px page titles, 36px primary controls, content capped near 1400px so
      a 13-16" laptop at 100% zoom fits without feeling oversized. */
   --shell-gutter: 0px;
-  --sidebar-w: 240px;  --sidebar-w-collapsed: 68px;
-  --sidebar-pad: 18px 12px 14px;
-  --topbar-h: 56px;  --topbar-inset: 0px;
-  --content-inset: 32px;  --content-max: 1400px;
-  --card-pad: 20px;
+  --sidebar-w: 260px;  --sidebar-w-collapsed: 68px;
+  --sidebar-pad: 24px 16px 20px;
+  --topbar-h: 62px;  --topbar-inset: 0px;
+  --content-inset: 40px;  --content-max: 1480px;
+  --card-pad: 24px;
   --rail-w: 340px;
-  --grid-gap: 16px;  --gap-tight: 8px;  --section-gap: 20px;
+  --grid-gap: 18px;  --gap-tight: 8px;  --section-gap: 20px;
   --form-max: 720px;  --settings-max: 960px;  --reading-max: 72ch;
 
   /* ───────── Controls ───────── */
-  --control-xs: 24px; --control-sm: 28px; --control-md: 32px; --control-lg: 36px; --control-xl: 44px;
+  --control-xs: 24px; --control-sm: 28px; --control-md: 32px; --control-lg: 40px; --control-xl: 44px;
   --row-h: 48px;  --row-h-header: 38px;  --section-header-h: 52px;
-  --nav-item-h: 34px;  --nav-item-gap: 2px;
+  --nav-item-h: 40px;  --nav-item-gap: 2px;
   --cal-day: 44px;  --hour-h: 80px;
 
   /* ───────── Radii ───────── */
   --radius-2xs: 4px;  --radius-xs: 6px;  --radius-sm: 8px;  --radius-md: 10px;
-  --radius-lg: 12px;  --radius-xl: 16px; --radius-2xl: 24px; --radius-full: 9999px;
+  --radius-lg: 12px;  --radius-xl: 20px; --radius-2xl: 24px; --radius-full: 9999px;
 
   /* ───────── Shadows ───────── */
   --shadow-xs:  0 1px 2px rgba(10,10,10,0.05);
@@ -163,7 +165,7 @@
 }
 
 /* Responsive layout tokens (breakpoints: 480 / 768 / 1024 / 1280 / 1536) */
-@media (max-width: 1279px) { :root { --content-inset: 24px; --rail-w: 300px; } }
+@media (max-width: 1279px) { :root { --content-inset: 32px; --rail-w: 300px; } }
 @media (max-width: 1023px) { :root { --content-inset: 20px; } }
 @media (max-width: 767px)  { :root { --content-inset: 16px; --card-pad: 16px; --grid-gap: 12px;
                                       --fs-title-lg: 20px; --lh-title-lg: 28px; --fs-display: 28px; --lh-display: 36px;
@@ -176,7 +178,7 @@
 }
 
 /* Night mode. data-theme is set on <html> before first paint by the script in
-   app/layout.tsx ("system" resolves to light or dark there). Primitives are
+   app/layout.tsx (light unless the user chose dark). Primitives are
    redefined so every semantic token follows; colour families become washes
    mixed into the dark panel, with lighter glyph and ink steps for contrast. */
 :root[data-theme="dark"] {
@@ -219,6 +221,7 @@
   --shadow-md:  0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.45);
   --shadow-lg:  0 2px 6px rgba(0,0,0,0.4), 0 24px 48px rgba(0,0,0,0.55);
 }
+:root[data-theme="dark"] .df .document { color-scheme: light; color: var(--text-primary); }
 
 /* Motion safety */
 @media (prefers-reduced-motion: reduce) {

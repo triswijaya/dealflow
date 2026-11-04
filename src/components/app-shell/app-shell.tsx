@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronRight, ChevronsUpDown, Ellipsis, LogOut, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { Bell, Ellipsis, LogOut, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { createContext, Fragment, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Brand } from "@/components/brand";
 import { Dialog } from "@/components/ui/dialog";
@@ -15,7 +15,7 @@ import { authClient } from "@/lib/auth-client";
 import { ROLE_LABEL, type Role } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { GlobalSearchBox } from "./global-search";
-import { ThemeSwitch } from "./theme-switch";
+import { ThemeToggle } from "./theme-toggle";
 import { NAV_GROUP_LABEL, SEARCH_READY, bottomNavItems, sectionFor, sidebarItems, type NavGroup, type NavItem } from "./nav";
 
 export type ShellWorkspace = {
@@ -156,7 +156,6 @@ function UserMenu({ workspace }: { workspace: ShellWorkspace }) {
           <strong>{workspace.userName}</strong>
           <small>{ROLE_LABEL[workspace.role]}</small>
         </span>
-        <ChevronsUpDown className="chev" aria-hidden="true" />
       </button>
       {open ? (
         <div ref={content} className="menu-content" popover="manual">
@@ -164,7 +163,6 @@ function UserMenu({ workspace }: { workspace: ShellWorkspace }) {
             <strong>{workspace.userName}</strong>
             <small>{workspace.userEmail}</small>
           </div>
-          <ThemeSwitch />
           <div role="menu" aria-label="Akun">
             <button type="button" role="menuitem" onClick={() => signOut(router)}>
               <LogOut aria-hidden="true" />
@@ -264,7 +262,10 @@ export function AppShell({
                   ))}
                 </nav>
               ) : null}
-              <UserMenu workspace={workspace} />
+              <div className="foot-row">
+                <UserMenu workspace={workspace} />
+                <ThemeToggle />
+              </div>
             </div>
           </aside>
 
@@ -276,20 +277,21 @@ export function AppShell({
                     <span>{workspace.organizationName}</span>
                     {section ? (
                       <>
-                        <ChevronRight aria-hidden="true" />
+                        <span className="sep" aria-hidden="true">
+                          /
+                        </span>
                         {trail.length > 0 ? (
                           <Link href={section.href}>{section.label}</Link>
                         ) : (
-                          <span aria-current="page">
-                            <section.icon aria-hidden="true" />
-                            {section.label}
-                          </span>
+                          <span aria-current="page">{section.label}</span>
                         )}
                       </>
                     ) : null}
                     {trail.map((crumb, index) => (
                       <Fragment key={`${crumb}-${index}`}>
-                        <ChevronRight aria-hidden="true" />
+                        <span className="sep" aria-hidden="true">
+                          /
+                        </span>
                         <span aria-current={index === trail.length - 1 ? "page" : undefined}>{crumb}</span>
                       </Fragment>
                     ))}
@@ -319,6 +321,7 @@ export function AppShell({
                       <Search aria-hidden="true" />
                     </Link>
                   ) : null}
+                  <ThemeToggle />
                   <Avatar name={workspace.userName} />
                 </div>
               </div>
@@ -363,7 +366,6 @@ export function AppShell({
                 </Link>
               );
             })}
-            <ThemeSwitch />
             <button type="button" className="navitem" style={{ border: 0, background: "none", width: "100%" }} onClick={() => signOut(router)}>
               <LogOut aria-hidden="true" />
               Keluar

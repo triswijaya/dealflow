@@ -33,7 +33,7 @@ export function MoneyFigure({ value }: { value: string }) {
 export function Sparkline({ series, color, id }: { series: number[]; color: string; id: string }) {
   if (series.length < 2) return null;
   const W = 360;
-  const H = 72;
+  const H = 84;
   const max = Math.max(...series);
   const min = Math.min(...series);
   const low = min - (max - min) * 0.18;

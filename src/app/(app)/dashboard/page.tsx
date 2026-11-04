@@ -213,7 +213,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       )}
 
       {fresh ? null : finance ? (
-        <div className="bleed with-rail" style={{ marginTop: 24 }}>
+        <div className="bleed with-rail dashboard-grid" style={{ marginTop: 24 }}>
           <div className="rail-main">
             <Widget>
               <NearestDueWidget />
@@ -233,7 +233,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           </div>
         </div>
       ) : (
-        <div className="bleed with-rail" style={{ marginTop: 24 }}>
+        <div className="bleed with-rail dashboard-grid" style={{ marginTop: 24 }}>
           <div className="rail-main">
             <Widget>
               <PipelineWidget />

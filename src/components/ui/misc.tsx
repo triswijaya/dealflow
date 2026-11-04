@@ -150,7 +150,7 @@ function Loading({ children }: { children: ReactNode }) {
   );
 }
 
-function HeadSkeleton({ back }: { back?: boolean }) {
+function HeadSkeleton({ back, action = true }: { back?: boolean; action?: boolean }) {
   return (
     <div className="pagehead">
       <div className={back ? "detail-head" : undefined}>
@@ -162,9 +162,11 @@ function HeadSkeleton({ back }: { back?: boolean }) {
           </div>
         </div>
       </div>
-      <div className="row actions">
-        <Bar w={120} h={36} />
-      </div>
+      {action ? (
+        <div className="row actions">
+          <Bar w={120} h={36} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -307,6 +309,36 @@ export function DashboardSkeleton() {
         <Bar w={200} h={12} />
         <Bar w={120} h={32} />
         <Bar w="100%" h={220} />
+      </section>
+    </Loading>
+  );
+}
+
+/** Reports: period chips, metric cards, then the aging and export cards. */
+export function ReportsSkeleton() {
+  return (
+    <Loading>
+      <HeadSkeleton action={false} />
+      <div className="chips" style={{ marginBottom: 24 }}>
+        {[72, 88, 80, 96].map((width, index) => (
+          <Bar key={index} w={width} h={32} />
+        ))}
+      </div>
+      <div className="metrics">
+        {[0, 1, 2, 3].map((card) => (
+          <div key={card} className="metric-card">
+            <Bar w="55%" h={12} />
+            <div style={{ display: "grid", gap: 10 }}>
+              <Bar w="50%" h={24} />
+              <Bar w="70%" h={10} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <section className="region" style={{ marginTop: 16, display: "grid", gap: 16 }}>
+        <Bar w={180} h={16} />
+        <Bar w="100%" h={12} />
+        <Bar w="60%" h={10} />
       </section>
     </Loading>
   );
