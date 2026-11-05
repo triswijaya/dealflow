@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { formatRp, useCountTo, useReducedMotion, type CSSVars } from "./landing-hooks";
 
-const STAGES = ["Quotation", "Negosiasi", "Menang"] as const;
+// The last three active stages of the app pipeline (src/lib/labels.ts).
+const STAGES = ["Penawaran dikirim", "Negosiasi", "Menunggu komitmen"] as const;
 
 const OTHER_DEALS = [
   { id: "hotel", name: "Hotel Mega", value: "Rp22 jt", column: 0 },

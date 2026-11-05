@@ -47,7 +47,8 @@ export function useCountTo(target: number, duration = 700) {
     const t0 = performance.now();
     let raf = 0;
     const tick = (now: number) => {
-      const k = Math.min(1, (now - t0) / duration);
+      // rAF timestamps can predate t0; clamping keeps the eased value from overshooting below the start.
+      const k = Math.min(1, Math.max(0, (now - t0) / duration));
       const next = start + (target - start) * (1 - Math.pow(1 - k, 3));
       from.current = next;
       setValue(next);
@@ -84,22 +85,19 @@ export function useReveal(rootRef: RefObject<HTMLElement | null>) {
 }
 
 type ScrollTargets = {
-  progress: RefObject<HTMLElement | null>;
   sticky: RefObject<HTMLElement | null>;
   hero: RefObject<HTMLElement | null>;
   end: RefObject<HTMLElement | null>;
   sectionIds: readonly string[];
 };
 
-/** Drives the header progress bar, the mobile sticky CTA and the active nav link from one scroll listener. */
-export function useScrollEffects({ progress, sticky, hero, end, sectionIds }: ScrollTargets) {
+/** Drives the mobile sticky CTA and the active nav link from one scroll listener. */
+export function useScrollEffects({ sticky, hero, end, sectionIds }: ScrollTargets) {
   const [activeId, setActiveId] = useState<string | null>(null);
   useEffect(() => {
     let raf = 0;
     const update = () => {
       raf = 0;
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      progress.current?.style.setProperty("transform", `scaleX(${max > 0 ? window.scrollY / max : 0})`);
       const heroEl = hero.current;
       const endEl = end.current;
       const show =
@@ -123,6 +121,6 @@ export function useScrollEffects({ progress, sticky, hero, end, sectionIds }: Sc
       window.removeEventListener("resize", schedule);
       cancelAnimationFrame(raf);
     };
-  }, [progress, sticky, hero, end, sectionIds]);
+  }, [sticky, hero, end, sectionIds]);
   return activeId;
 }

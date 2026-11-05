@@ -6,7 +6,7 @@ const FEATURES = [
   "Customer & pipeline deal",
   "Quotation, revisi & PDF",
   "Follow-up & composer WhatsApp",
-  "Invoice & pencatatan pembayaran",
+  "Pesanan, invoice & uang masuk",
   "Role Owner, Admin, Sales & Finance",
 ];
 

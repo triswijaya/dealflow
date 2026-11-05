@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport = { themeColor: "#F8F8F8" };
+export const viewport = { themeColor: "#F7F8FA" };
 
 export default async function Home() {
   const session = await auth.api.getSession({ headers: await headers() });

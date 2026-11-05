@@ -1,64 +1,57 @@
 # Landing page design language
 
-Reference: devin.ai. Soft paper canvas, near-black type with grey secondary text, pill-shaped controls, generously rounded panels, and a product panel with a card floating over its edge.
+The landing page keeps its own composition (a left-aligned hero over a product window with a card floating off its edge, alternating feature rows, a dark bento for roles, centred closing statement) but speaks the app's visual language, so a visitor who signs up lands in a product that looks like the page they just read.
 
-**Adapted, not copied.** Devin is an agent product, so its hero shows a Mac app window (traffic lights, session sidebar, pull-request card). DealFlow is a sales CRM, so the hero shows its own deal view instead and borrows only the language: round shapes, soft elevation, a card overlapping the panel edge. No operating-system window chrome.
-
-**Provenance.** Written from three screenshots of the live site (home hero, home closing section with footer, `/security` hero), measured at 1506 CSS px wide, plus an earlier token reference. Sections between the hero and the closing block were not observed; they are adapted to the same rules, not copied.
+**Source of truth for values:** the app tokens in `src/app/inkwash.css` and the refined prototype they came from. The `--lp-*` tokens in `landing.css` copy those values; when the app palette changes, change them together.
 
 ## Colour
 
-| Token | Value | Use |
-|---|---|---|
-| `--lp-bg` | `#f8f8f8` | Page canvas, nav, footer |
-| `--lp-card` | `#ffffff` | Cards, product window, floating card |
-| `--lp-sunken` | `#f1f1f1` | Tags, nested panels, logo tiles, hover rows |
-| `--lp-line` | `#e5e5e5` | 1px hairlines, secondary button border |
-| `--lp-ink` | `#141414` | Headings, primary button fill, active states |
-| `--lp-body` | `#6b6b6b` | Secondary text (the site uses `#7d7d7d`; darkened to pass 4.5:1) |
-| `--lp-dim` | `#8a8a8a` | First half of two-tone headlines (large text only, 3.3:1) |
-| `--lp-dark` | `#1f1f1f` | Dark bento panels (team, recommended plan) |
-| `--lp-dot` | `#367df7` | Unread / current dots, "info" status |
-| `--lp-blue` | `#2200ff` | Focus ring and scroll progress only |
-| green `#1f9d57`, red `#d6453d` | | Product-mock semantics only (paid, overdue) |
+| Token | Value | App token | Use |
+|---|---|---|---|
+| `--lp-bg` | `#F7F8FA` | `--neutral-50` | Page canvas, nav, footer |
+| `--lp-card` | `#FFFFFF` | `--surface-panel` | Cards, product window, floating card |
+| `--lp-sunken` | `#EFF1F4` | `--neutral-75` | Tiles, nested panels, segmented controls |
+| `--lp-line` | `#E6E8EC` | `--border-subtle` | 1px hairlines, outline button border |
+| `--lp-ink` | `#14161B` | `--ink` | Headings, primary button, focus ring, active states |
+| `--lp-body` | `#656B76` | `--text-secondary` | Secondary text (5:1 on the canvas) |
+| `--lp-dim` | `#868C97` | `--neutral-500` | First half of two-tone headlines (large text only) |
+| `--lp-dark` | `#1C1F25` | `--neutral-900` | Dark bento panels (roles, recommended plan, "after" slider) |
+| `--lp-signal` | `#F2862B` | `--signal` | 6px attention dot in the ticker only |
+| `--lp-green` | `#15A34A` | success glyph | Paid progress (invoice bar, donut) |
 
-No other hues. Backgrounds behind the hero window carry very pale blurred washes, as on the reference.
+Status badges inside product mock-ups use the app's status washes: success green, warning orange, danger red, info teal, neutral grey.
+
+**No blue, indigo or violet anywhere.** No scroll progress bar, no coloured background washes, no gradient text. The only decoration behind the hero window is a faint grey dot grid that fades out.
 
 ## Type
 
-- **Marketing text:** Hanken Grotesk, the closest free match to the reference face (slanted-cut `t`, straight `y`, neutral grotesque, plain zeros). Weights 400 and 500 only.
-- **Product mock UI:** Inter, as in the reference's app window.
-- No monospace anywhere.
-- Hero `h1`: `clamp(34px, 3.2vw, 48px)`, weight 500, line-height 1.04, tracking −0.035em, left-aligned.
-- Section `h2`: `clamp(32px, 3.8vw, 56px)`, weight 500, line-height 1.1, tracking −0.035em.
+- **Geist** for all text, **Geist Mono** for figures (rupiah, counts, percentages, document numbers, revision tabs) and the `dealflow` wordmark, exactly as the app sets them. Both are loaded once in the root layout.
+- Hero `h1`: `clamp(36px, 3.6vw, 52px)`, weight 600, line-height 1.04, tracking −0.04em, left-aligned.
+- Section `h2`: `clamp(30px, 3.6vw, 52px)`, weight 600, line-height 1.08, tracking −0.04em.
 - Two-tone headlines: first clause `--lp-dim`, second clause `--lp-ink`, on separate lines.
-- Body 16–17px / 1.45 in `--lp-body`. Nav and buttons 15–16px weight 400.
+- Body 16–17px / 1.45 in `--lp-body`. Buttons 14.5–15px weight 500.
 
 ## Shape
 
-Everything is round.
-
 | Element | Radius |
 |---|---|
-| Buttons, tabs, tags, badges, inputs, status pills | `999px` |
-| Product panel, floating card, plan cards, bento | `20–24px` |
-| Panes inside a card | `14–16px` |
-| Rows, list items | `10–12px` |
+| Buttons, steps, segmented controls, menu toggle | `10px` (app control radius) |
+| Badges, tags, small chips | `6px` (app badge) |
+| Product window, floating card, plan cards, bento, slider | `20px` (app card) |
+| Panes inside a card | `14px` |
+| Rows, kanban cards | `10px` |
 
-Elevation: hairline plus a long, soft, low-opacity shadow on the product panel and the floating card only. Everything else is flat.
+Elevation: hairline plus a long, soft, low-opacity cool shadow on the product window and the floating card only. Everything else is flat or hairline.
 
 ## Components
 
-- **Nav:** 64px, logo glyph + wordmark left, links left-aligned after it, right side a pill pair: outlined "Masuk" and black "Buat ruang kerja".
-- **Primary button:** `--lp-ink` pill, white text, 44px tall in content (34px in nav).
-- **Secondary button:** transparent pill, 1px `--lp-line`, ink text; white fill on hover.
-- **Product panel:** white, 24px radius. Header with the deal name and a value pill; below it the deal stages as a row of pill buttons (current = ink fill, done = grey fill); then the WhatsApp thread on the left and an activity list on the right. A white 20px-radius invoice card hangs off the bottom-right edge, overlapping it.
-- **Ticker row:** hairline above, small blue square + uppercase label + one line of text, right-aligned link with an arrow.
-- **Closing section:** centred two-tone headline, centred pill pair, hairline, footer with a large grey logo left and link columns right (headings ink, links grey).
+- **Brand:** the app's `BrandMark` (ink tile, three bars) plus the mono wordmark, from `src/components/brand.tsx`.
+- **Nav:** 64px, brand left, grey links that turn ink on hover or when their section is in view, right side an outline "Masuk" and an ink "Buat ruang kerja".
+- **Product mock-ups** (hero window, pipeline, quotation, invoice, roles) show the app's real vocabulary: stage names from `src/lib/labels.ts`, role access from `src/lib/auth-permissions.ts`, rupiah in mono.
 
 ## Do / don't
 
-- Do keep controls pill-shaped and panels generously rounded.
 - Do keep hero copy left-aligned and closing copy centred.
-- Don't use square-cornered buttons, heavy shadows, gradients on text, or blue in headlines.
-- Don't set display text above weight 500.
+- Do keep product copy in sync with the app when stages, roles or modules change.
+- Don't introduce a new hue; reuse an app status colour if a mock-up needs meaning.
+- Don't set display text above weight 600.

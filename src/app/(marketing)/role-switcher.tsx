@@ -16,33 +16,34 @@ const MODULES = [
   { name: "Pipeline & deal", icon: "brand" },
   { name: "Quotation", icon: "fileText" },
   { name: "Follow-up", icon: "calendar" },
+  { name: "Pesanan", icon: "briefcase" },
   { name: "Invoice", icon: "receipt" },
-  { name: "Pembayaran", icon: "wallet" },
+  { name: "Uang masuk", icon: "wallet" },
   { name: "Anggota & pengaturan", icon: "settings" },
 ] as const;
 
-// Mirrors the permission matrix in requirement.md section 6.2.
+// Mirrors the role bundles in src/lib/auth-permissions.ts.
 const ROLES: Array<{ id: string; label: string; summary: string; scope: string; access: Access[] }> = [
   {
     id: "owner",
     label: "Owner & Admin",
     summary: "Melihat keseluruhan alur, mengelola anggota, dan mengatur profil perusahaan.",
     scope: "Gambaran bisnis & pengelolaan tim",
-    access: ["full", "full", "full", "full", "full", "full", "full"],
+    access: ["full", "full", "full", "full", "full", "full", "full", "full"],
   },
   {
     id: "sales",
     label: "Sales",
-    summary: "Mengelola customer, deal, quotation, dan follow-up tanpa akses ke invoice atau pembayaran.",
+    summary: "Mengelola customer, deal, quotation, follow-up, dan pesanan tanpa akses ke invoice atau uang masuk.",
     scope: "Peluang & percakapan customer",
-    access: ["full", "full", "full", "full", "none", "none", "none"],
+    access: ["full", "full", "full", "full", "full", "none", "none", "none"],
   },
   {
     id: "finance",
     label: "Finance",
-    summary: "Melihat deal Menang, menerbitkan invoice, dan mencatat pembayaran.",
+    summary: "Melihat deal Menang, mengelola pesanan, menerbitkan invoice, dan mencatat uang masuk.",
     scope: "Tagihan & penerimaan pembayaran",
-    access: ["read", "won", "won", "none", "full", "full", "none"],
+    access: ["read", "won", "won", "none", "full", "full", "full", "none"],
   },
 ];
 

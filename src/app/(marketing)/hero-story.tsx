@@ -17,7 +17,7 @@ const STEP_NOTES: Note[] = [
   { id: "customer", icon: "users", title: "Customer baru", body: "PT Maju Jaya · Budi Santoso" },
   { id: "deal", icon: "brand", title: "Deal dibuat", body: "CCTV Installation - Bekasi · Rp30.000.000" },
   { id: "quote", icon: "fileText", title: "Quotation R1 terkirim", body: "QUO-2026-0018 · berlaku 14 hari" },
-  { id: "won", icon: "trophy", title: "Deal Menang", body: "Finance bisa menerbitkan invoice" },
+  { id: "won", icon: "trophy", title: "Deal Menang", body: "PO diterima, pesanan siap ditagih" },
 ];
 
 function notesFor(step: number, payments: number): Note[] {
@@ -149,7 +149,7 @@ export function HeroStory() {
               )}
               {shownStep >= 3 && (
                 <div className="lp-st-bubble lp-st-in">
-                  Sudah oke. Kami lanjut, tolong kirim invoice.
+                  Sudah oke, Pak. PO kami kirim hari ini.
                   <small>10.24</small>
                 </div>
               )}

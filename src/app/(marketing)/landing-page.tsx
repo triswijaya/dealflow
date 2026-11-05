@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Icon } from "./landing-icon";
-import { hanken } from "./landing-font";
+import { BrandMark } from "@/components/brand";
 import { CompareSlider } from "./compare-slider";
 import { InvoiceDemo, KanbanDemo, QuotationDemo } from "./feature-demos";
 import { HeroStory } from "./hero-story";
@@ -23,7 +23,7 @@ const SCATTERED = [
 ] as const;
 
 const HERO_FACTS = [
-  { value: "5 tahap", label: "pipeline siap pakai, tanpa setup" },
+  { value: "4 tahap", label: "pipeline siap pakai, bebas maju atau mundur" },
   { value: "R0 \u2192 R2", label: "setiap revisi quotation tersimpan" },
   { value: "Rp \u00b7 WIB", label: "rupiah tanpa desimal, jadwal waktu Jakarta" },
 ];
@@ -36,8 +36,8 @@ const FEATURES: Feature[] = [
     kicker: "Pipeline",
     title: "Buka pipeline, langsung tahu deal mana yang harus dikejar.",
     body: "Setiap deal punya tahap, nilai, dan sales yang memegangnya. Follow-up yang terlambat muncul paling atas, bukan terkubur di chat.",
-    facts: ["Tahap tetap dari Baru sampai Negosiasi, lalu Menang atau Kalah", "Pengingat follow-up hari ini dan yang terlambat", "Alasan kalah tercatat untuk evaluasi"],
-    hint: "Klik kartu bergaris untuk memajukan tahapnya.",
+    facts: ["Gali kebutuhan, Penawaran dikirim, Negosiasi, Menunggu komitmen", "Tanda otomatis untuk tugas terlambat dan deal yang lama diam", "Deal yang tidak dilanjutkan tercatat beserta alasannya"],
+    hint: "Klik kartu yang bergaris untuk memajukan tahapnya.",
     demo: <KanbanDemo />,
   },
   {
@@ -51,10 +51,10 @@ const FEATURES: Feature[] = [
   },
   {
     id: "invoice",
-    kicker: "Invoice & pembayaran",
+    kicker: "Pesanan, invoice & uang masuk",
     title: "Deal menang belum tentu uang masuk. DealFlow memisahkan keduanya.",
-    body: "Finance membuat invoice dari deal yang Menang, mencatat pembayaran sebagian, dan langsung melihat siapa yang lewat jatuh tempo.",
-    facts: ["Belum dibayar, Dibayar sebagian, Lunas, Lewat jatuh tempo", "Pembayaran tidak bisa melebihi sisa tagihan", "Transfer, tunai, atau metode lain dengan referensi"],
+    body: "Deal Menang dikunci dengan PO, kontrak, atau DP lalu menjadi pesanan. Finance menagih dari pesanan itu, mencatat pembayaran sebagian, dan langsung melihat siapa yang lewat jatuh tempo.",
+    facts: ["Belum dibayar, Dibayar sebagian, Lunas, Lewat jatuh tempo", "Pembayaran tidak bisa melebihi sisa tagihan", "Potongan PPh dicatat terpisah dari uang yang benar-benar masuk"],
     hint: "Catat pembayaran sampai invoice lunas.",
     demo: <InvoiceDemo />,
   },
@@ -63,11 +63,10 @@ const FEATURES: Feature[] = [
 export function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const progressRef = useRef<HTMLDivElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLElement>(null);
   const endRef = useRef<HTMLElement>(null);
-  const activeSection = useScrollEffects({ progress: progressRef, sticky: stickyRef, hero: heroRef, end: endRef, sectionIds: NAV_SECTIONS });
+  const activeSection = useScrollEffects({ sticky: stickyRef, hero: heroRef, end: endRef, sectionIds: NAV_SECTIONS });
   useReveal(rootRef);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -84,11 +83,11 @@ export function LandingPage() {
   }, [menuOpen]);
 
   return (
-    <div className={`lp-root ${hanken.variable}`} ref={rootRef}>
+    <div className="lp-root" ref={rootRef}>
         <a className="lp-skip" href="#konten">Lewati ke konten</a>
         <header className="lp-topnav">
           <div className="lp-container lp-navinner">
-            <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><span><Icon name="brand" /></span>dealflow</a>
+            <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><BrandMark />dealflow</a>
             <nav className="lp-navlinks" aria-label="Navigasi utama">
               {NAV_SECTIONS.map((id) => (
                 <a key={id} href={`#${id}`} className={activeSection === id ? "lp-active" : undefined} aria-current={activeSection === id ? "location" : undefined}>{NAV_LABELS[id]}</a>
@@ -109,7 +108,6 @@ export function LandingPage() {
             <Link href="/login">Masuk</Link>
             <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja</Link>
           </nav>
-          <div className="lp-progress" ref={progressRef} aria-hidden="true" />
         </header>
         <main id="konten">
           <section className="lp-hero lp-container" id="beranda" ref={heroRef}>
@@ -190,7 +188,7 @@ export function LandingPage() {
               <div className="lp-team-copy lp-reveal">
                 <p className="lp-kicker">Untuk seluruh tim</p>
                 <h2><span className="lp-dim">Sales menutup deal, finance menagih,</span> owner melihat semuanya.</h2>
-                <p>Owner, Admin, Sales, dan Finance bekerja di data yang sama, dengan akses sesuai tanggung jawabnya. Pilih peran di samping untuk melihat apa yang mereka buka.</p>
+                <p>Owner, Admin, Sales, dan Finance bekerja di data yang sama, dengan akses sesuai tanggung jawabnya. Pilih peran untuk melihat apa yang mereka buka.</p>
                 <ul className="lp-checklist">
                   <li><Icon name="check" /><span>Data perusahaan terpisah di ruang kerjanya sendiri.</span></li>
                   <li><Icon name="check" /><span>Setiap perubahan penting tercatat bersama siapa yang melakukannya.</span></li>
@@ -245,7 +243,7 @@ export function LandingPage() {
                     <span>Apa bedanya deal Menang dan pembayaran diterima?</span>
                     <Icon name="plus" />
                   </summary>
-                  <p>Deal Menang berarti kesepakatan sudah dikunci. Setelah itu, Owner, Admin, atau Finance dapat membuat invoice. Uang masuk baru tercatat ketika pembayaran dicatat pada invoice tersebut.</p>
+                  <p>Deal Menang berarti customer sudah memberi komitmen: PO, kontrak atau SPK, konfirmasi tertulis, atau DP. Deal itu menjadi pesanan, lalu Owner, Admin, atau Finance menagihnya lewat invoice. Uang masuk baru tercatat ketika pembayaran dicatat pada invoice tersebut.</p>
                 </details>
                 <details name="faq">
                   <summary>
@@ -288,7 +286,7 @@ export function LandingPage() {
           <div className="lp-container">
             <div className="lp-footer-top">
               <div className="lp-footer-brand">
-                <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><span><Icon name="brand" /></span>dealflow</a>
+                <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><BrandMark />dealflow</a>
                 <p>Dari calon customer sampai pembayaran, dalam satu alur.</p>
               </div>
               <div className="lp-footer-links">
