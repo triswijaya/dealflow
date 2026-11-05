@@ -1718,7 +1718,6 @@ How this system is applied in this repository. Everything above is unchanged; on
 |---|---|
 | `src/app/inkwash.css` | §15.1 token file, pasted as is. The Product layer block sets the ambient hue and `--font-sans` (resolved to the Inter that `next/font` loads). |
 | `src/app/design-system.css` | Components and patterns, scoped under `.df`, in the Tailwind `components` layer so utilities can still override a rule. |
-| `src/app/tokens.css` | Palette of the marketing page only. It is not part of this system. |
 
 **Ambient hue.** `sand` (§3.7), the preset for CRM and scheduling products.
 

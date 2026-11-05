@@ -21,10 +21,8 @@
     "reconcile": "tsx scripts/reconcile.ts"
   },
   "dependencies": {
-    "@base-ui/react": "1.8.0",
     "@react-pdf/renderer": "4.9.0",
     "better-auth": "1.7.7",
-    "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "drizzle-orm": "0.45.3",
     "lucide-react": "1.35.0",
