@@ -71,6 +71,11 @@ function isRetryable(error: unknown): boolean {
  */
 export async function processOutbox(options: { limit?: number; ids?: string[]; now?: Date } = {}): Promise<{ claimed: number; sent: number; failed: number; dead: number }> {
   const limit = options.limit ?? 25;
+  // A handler that kills the process (out of memory, function timeout) never reaches the catch below.
+  // Its lock runs out and the row would be claimed again forever, so a row that has used every attempt gives up here.
+  await db.execute(sql`
+    update outbox_events set status = 'DEAD', locked_until = null, last_error = 'CRASHED'
+    where status in ('PENDING', 'FAILED') and attempts >= ${MAX_ATTEMPTS} and (locked_until is null or locked_until < now())`);
   const idFilter = options.ids?.length ? sql`and id in (${sql.join(options.ids.map((id) => sql`${id}::uuid`), sql`, `)})` : sql``;
   const claimed = await db.execute<{ id: string }>(sql`
     update outbox_events set locked_until = now() + ${`${LOCK_MS} milliseconds`}::interval, attempts = attempts + 1

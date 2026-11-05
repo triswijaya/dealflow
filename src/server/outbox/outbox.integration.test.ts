@@ -116,6 +116,18 @@ describe("transactional outbox (ADR-0004)", () => {
       expect(await row(id)).toMatchObject({ status: "SENT", attempts: 3, lastError: null });
     });
 
+    it("gives up on a row whose handler crashed the process on its last attempt", async () => {
+      const org = await setupOrganization();
+      const id = (await enqueue(org, "test.crash"))!;
+      // What a killed process leaves behind: every attempt used, the lock already expired, no catch ever ran.
+      await db
+        .update(outboxEvents)
+        .set({ status: "FAILED", attempts: MAX_ATTEMPTS, lockedUntil: new Date(Date.now() - 1000), nextAttemptAt: new Date(Date.now() - 1000) })
+        .where(eq(outboxEvents.id, id));
+      expect(await processOutbox({ ids: [id] })).toMatchObject({ claimed: 0 });
+      expect(await row(id)).toMatchObject({ status: "DEAD", lastError: "CRASHED" });
+    });
+
     it("goes DEAD after the last attempt, and at once when waiting cannot help", async () => {
       const org = await setupOrganization();
       registerOutboxHandler("test.always", async () => {

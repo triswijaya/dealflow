@@ -18,6 +18,13 @@ export const serverEnvSchema = z.object({
   SENTRY_PROJECT: z.string().min(1).optional(),
   SENTRY_ENVIRONMENT: z.string().min(1).optional(),
   SENTRY_RELEASE: z.string().min(1).optional(),
+}).superRefine((env, ctx) => {
+  // A hosted deployment without these would still boot: mail would go nowhere and the
+  // scheduled sweeps would answer 401 forever, so fail at startup instead.
+  if (env.APP_ENV === "local" || env.APP_ENV === "test") return;
+  for (const key of ["EMAIL_PROVIDER_API_KEY", "CRON_SECRET"] as const) {
+    if (!env[key]) ctx.addIssue({ code: "custom", path: [key], message: `required when APP_ENV is ${env.APP_ENV}` });
+  }
 });
 
 export const clientEnvSchema = z.object({
@@ -37,8 +44,8 @@ const fieldDescriptions: Record<string, string> = {
   BETTER_AUTH_URL: "invalid URL",
   APP_URL: "invalid URL",
   EMAIL_FROM: "invalid email address",
-  EMAIL_PROVIDER_API_KEY: "must not be empty",
-  CRON_SECRET: "must be at least 16 characters",
+  EMAIL_PROVIDER_API_KEY: "must not be empty (required outside local and test)",
+  CRON_SECRET: "must be at least 16 characters (required outside local and test)",
   SENTRY_DSN: "invalid URL",
   SENTRY_AUTH_TOKEN: "must not be empty",
   SENTRY_ORG: "must not be empty",
