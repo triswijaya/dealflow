@@ -85,7 +85,7 @@ export default async function QuotationsPage({ searchParams }: PageProps<"/quota
           <EmptyState title="Belum ada quotation" description="Buat quotation dari halaman deal, atau pilih deal dengan tombol di atas." />
         )
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap sticky-end">
           <table>
             <thead>
               <tr>

@@ -170,7 +170,7 @@ export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
           />
         )
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap sticky-end">
           <table>
             <thead>
               <tr>

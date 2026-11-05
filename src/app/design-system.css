@@ -132,6 +132,8 @@ html:has(.df){background:var(--surface-shell)}
 .df .main>*:not(.pagehead):not(dialog){margin-left:var(--content-inset);margin-right:var(--content-inset)}
 .df .main>.pagehead{margin-bottom:var(--section-gap)}
 .df .main>.stepper{margin-top:var(--grid-gap)}
+.df .main>.deal-notices{margin-bottom:var(--grid-gap)}
+.df .main>.deal-notices:empty{display:none}
 .df .main>.shell-notices{margin-top:var(--space-6);margin-bottom:0}
 .df .shell-notices{display:flex;flex-direction:column;gap:8px}
 .df .mobile-top,.df .bottomnav,.df .mobilebar,.df .mobile-stage-tabs{display:none}
@@ -300,11 +302,11 @@ html:has(.df){background:var(--surface-shell)}
 /* Deal facts: one region between two hairlines, divided into columns. */
 .df .dealmeta{overflow:hidden}
 .df .dealmeta dl{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:0}
-.df .dealmeta .kv{display:block;min-height:0;padding:var(--space-4) var(--card-pad);border-left:1px solid var(--border-divider)}
+.df .dealmeta .kv{container-type:inline-size;display:block;min-height:0;padding:var(--space-4) var(--card-pad);border-left:1px solid var(--border-divider)}
 .df .dealmeta .kv:first-child{border-left:0}
 .df .dealmeta dt{margin-bottom:4px;font-size:12px}
 .df .dealmeta dd{font-size:13px;font-weight:500}
-.df .dealmeta dd strong{font-size:22px!important;line-height:30px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.df .dealmeta dd strong{display:block;white-space:nowrap;font-size:clamp(15px,14cqi,22px)!important;line-height:30px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 /* A state block: a faint sketch of rows (the skeleton's shape, at rest), title,
    description, actions, centred. Page size under a page header; region size
    inside a section or tab. Tone tints the sketch's first row only. */
@@ -330,8 +332,8 @@ html:has(.df){background:var(--surface-shell)}
 .df .skel{display:block;max-width:100%;height:12px;border-radius:var(--radius-xs);background:linear-gradient(90deg,var(--neutral-75) 30%,var(--neutral-100) 50%,var(--neutral-75) 70%);background-size:300% 100%;animation:ds-shimmer 1.6s var(--ease-standard) infinite}
 .df .skeleton .skel:nth-child(even){width:62%}
 .df tbody tr:has(.skel):hover{background:none}
-.df .alert{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:var(--radius-lg);background:var(--status-info-wash);color:var(--text-secondary);font-size:13px;line-height:20px}
-.df .alert>svg{margin-top:2px;color:var(--status-info-glyph)}
+.df .alert{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border-radius:var(--radius-lg);background:var(--status-info-wash);color:var(--text-secondary);font-size:13px;line-height:20px}
+.df .alert>svg{flex-shrink:0;margin-top:2px;color:var(--status-info-glyph)}
 .df .alert.warning{background:var(--status-warning-wash)}
 .df .alert.warning>svg{color:var(--status-warning-glyph)}
 .df .alert.error{background:var(--status-danger-wash)}
@@ -384,7 +386,7 @@ html:has(.df){background:var(--surface-shell)}
 .df .setup-step .btn{margin-top:var(--space-4)}
 .df .step-num{display:grid;place-items:center;width:24px;height:24px;border-radius:var(--radius-full);background:var(--surface-muted);color:var(--text-secondary);font-size:12px;line-height:16px;font-weight:500}
 .df .setup-step:first-child .step-num{background:var(--ink);color:var(--on-ink)}
-.df .metric-card{display:flex;flex-direction:column;justify-content:space-between;gap:var(--space-6);min-width:0;min-height:136px;padding:var(--card-pad);background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);color:inherit;transition:border-color var(--duration-fast) var(--ease-standard)}
+.df .metric-card{container-type:inline-size;display:flex;flex-direction:column;justify-content:space-between;gap:var(--space-6);min-width:0;min-height:136px;padding:var(--card-pad);background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);color:inherit;transition:border-color var(--duration-fast) var(--ease-standard)}
 .df a.metric-card:hover{border-color:var(--neutral-200);text-decoration:none}
 .df .metric-head{display:flex;align-items:center;gap:8px}
 .df .metric-head h3{flex:1;min-width:0;font-size:13px;line-height:20px;font-weight:500;color:var(--text-secondary)}
@@ -396,7 +398,7 @@ html:has(.df){background:var(--surface-shell)}
 .df .marker[data-hue=mint]{background:var(--cat-docs)}
 .df .marker[data-hue=butter],.df .marker[data-hue=copper]{background:var(--cat-billing)}
 .df .marker[data-hue=coral]{background:var(--cat-infra)}
-.df .metric-value{display:block;font-size:var(--fs-kpi);line-height:var(--lh-kpi);font-weight:600;letter-spacing:var(--ls-kpi);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-primary)}
+.df .metric-value{display:block;font-size:clamp(15px,12.5cqi,var(--fs-kpi));line-height:var(--lh-kpi);font-weight:600;letter-spacing:var(--ls-kpi);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-primary)}
 .df .metric-label{display:block;min-height:40px;margin-top:4px;font-size:12px;line-height:18px;color:var(--text-tertiary)}
 .df .metric-card.is-danger .metric-value{color:var(--status-danger-glyph)}
 .df .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:var(--grid-gap)}
@@ -615,7 +617,7 @@ html:has(.df){background:var(--surface-shell)}
 .df .step:not(.done):not(.current){color:var(--text-secondary)}
 .df .step small{display:block;margin-top:0;font-weight:400;color:var(--text-tertiary)}
 /* Pipeline: lanes on subtle fill, records as white rows with no border. */
-.df .board{display:flex;gap:var(--gap-tight);align-items:flex-start;overflow-x:auto;padding-bottom:4px}
+.df .board{display:flex;gap:var(--gap-tight);align-items:stretch;overflow-x:auto;padding-bottom:4px}
 .df .column{display:flex;flex-direction:column;flex:1 0 220px;max-width:340px;gap:8px;min-width:0;padding:var(--space-3);background:var(--neutral-50);border:1px solid var(--border-subtle);border-radius:var(--radius-xl)}
 .df .column-head{padding:0 4px;margin-bottom:2px}
 .df .column-head .row{flex-wrap:nowrap;gap:8px;height:36px}
@@ -639,6 +641,10 @@ html:has(.df){background:var(--surface-shell)}
 .df .deal-card-foot{display:flex;align-items:center;gap:8px;margin-top:var(--space-3);padding-top:var(--space-2-5);border-top:1px solid var(--border-divider)}
 .df .deal-card-foot .avatar{width:20px;height:20px;font-size:9px}
 .df .deal-card-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.df .deal-card[draggable=true]{cursor:grab}
+.df .deal-card.is-dragging{opacity:.45;cursor:grabbing}
+.df .column.is-drop{border-color:var(--ink);background:var(--neutral-75)}
+.df .column.is-drop-blocked{cursor:not-allowed}
 .df .deal-card.is-held{background:repeating-linear-gradient(135deg,var(--neutral-0) 0 10px,var(--neutral-50) 10px 20px)}
 .df .overdue-note{display:inline-flex;align-items:center;gap:4px;height:20px;margin-top:8px;padding:0 8px 0 6px;border-radius:var(--radius-full);background:var(--status-danger-soft);font-size:11px;line-height:16px;font-weight:500;color:var(--text-primary)}
 .df .overdue-note svg{width:12px;height:12px;color:var(--status-danger-glyph);stroke-width:2}
@@ -808,6 +814,29 @@ html:has(.df){background:var(--surface-shell)}
 @keyframes ds-drop{from{opacity:0;transform:translateY(4px) scale(.98)}}
 @keyframes ds-slide{from{opacity:0;transform:translateX(24px)}}
 
+/* Secondary columns give way before a wide list has to scroll (phones stack the whole row, so they keep them). */
+@media(min-width:768px) and (max-width:1535px){.df .table-wrap .hide-md{display:none}}
+/* Wide lists scroll sideways inside their box; the action column stays in view. */
+@media(min-width:768px){
+.df .table-wrap.sticky-end :is(th,td):last-child{position:sticky;right:0;z-index:1;box-shadow:-1px 0 0 var(--border-divider)}
+.df .table-wrap.sticky-end td:last-child{background:var(--surface-panel)}
+.df .table-wrap.sticky-end th:last-child{background:var(--neutral-50)}
+.df .table-wrap.sticky-end tbody tr:hover td:last-child{background:var(--surface-subtle)}
+}
+/* The widest list (invoices) stacks into labelled cards below 1200px, the way phones do, instead of scrolling. */
+@media(min-width:768px) and (max-width:1199px){
+.df .main>.table-wrap.stack-md{background:transparent;border:0;box-shadow:none;overflow:visible}
+.df .main>.table-wrap.stack-md+.pagination{background:transparent;border:0;box-shadow:none}
+.df .table-wrap.stack-md table,.df .table-wrap.stack-md tbody,.df .table-wrap.stack-md tr,.df .table-wrap.stack-md td{display:block;width:100%}
+.df .table-wrap.stack-md thead{display:none}
+.df .table-wrap.stack-md tr{margin-bottom:8px;padding:4px 16px;background:var(--surface-panel);border:1px solid var(--border-subtle);border-radius:var(--radius-lg)}
+.df .table-wrap.stack-md tbody tr:hover{background:var(--surface-panel)}
+.df .table-wrap.stack-md td,.df .table-wrap.stack-md td:first-child,.df .table-wrap.stack-md td:last-child,.df .table-wrap.stack-md td.hide-md{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;height:auto;padding:8px 0;border:0;border-bottom:1px solid var(--border-divider);text-align:right;font-size:13px;white-space:normal;position:static;box-shadow:none;background:transparent}
+.df .table-wrap.stack-md tr td:last-child,.df .table-wrap.stack-md tbody tr:last-child td{border-bottom:0}
+.df .table-wrap.stack-md td::before{content:attr(data-label);flex-shrink:0;max-width:38%;text-align:left;font-size:12px;color:var(--text-tertiary)}
+.df .table-wrap.stack-md td>div{min-width:0}
+}
+
 /* ------------------------------------------------------------------ */
 /* 15. Medium screens: 960-1279 keeps the sidebar; 768-959 is an icon rail   */
 /* ------------------------------------------------------------------ */
@@ -878,7 +907,7 @@ html:has(.df){background:var(--surface-shell)}
 .df .dealmeta .kv:nth-child(n){border-left:0}
 .df .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
 .df .metric-card{min-height:112px;padding:16px;gap:16px}
-.df .metric-value{font-size:19px;line-height:26px}
+.df .metric-value{font-size:clamp(15px,12.5cqi,19px);line-height:26px}
 .df .tiles{grid-template-columns:minmax(0,1fr)}
 .df .dashboard-agenda{order:-1}
 .df .chart-summary>div{padding:0 16px}

@@ -2,6 +2,7 @@
 
 import { Check, Circle, CircleAlert, CircleDashed, FileText, Info, X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/misc";
 import { Badge, Count } from "@/components/ui/badge";
@@ -12,7 +13,7 @@ import { formatDate, formatRelative, formatRupiah } from "@/lib/format";
 import { ACTIVE_DEAL_STAGES, DEAL_SIGNAL, DEAL_STAGE, type ActiveDealStage, type BadgeTone, type Role } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import type { DealFilters, PipelineCardDto, PipelineStageDto } from "@/server/deals/deal-views";
-import { loadMorePipelineAction } from "../deals/actions";
+import { loadMorePipelineAction, transitionDealAction } from "../deals/actions";
 import { DealTransitionDialog, type TransitionMode } from "../deals/transition-dialog";
 import { FollowUpFormDialog, WhatsAppDialog } from "../follow-ups/follow-up-dialogs";
 
@@ -51,7 +52,12 @@ export function PipelineBoard({
   today: string;
 }) {
   const toast = useToast();
+  const router = useRouter();
   const [loaded, setLoaded] = useState<Partial<Record<ActiveDealStage, PipelineCardDto[]>>>({});
+  // A dropped card shows in its new column at once; the server's fresh stages replace this.
+  const [moved, setMoved] = useState<{ card: PipelineCardDto; to: ActiveDealStage } | null>(null);
+  const [dragging, setDragging] = useState<PipelineCardDto | null>(null);
+  const [over, setOver] = useState<ActiveDealStage | null>(null);
   // A move or edit sends fresh stages down; cards appended by "Muat lebih
   // banyak" belong to the old snapshot, so they are dropped with it.
   const signature = stages.map((stage) => `${stage.count}:${stage.items.map((card) => `${card.id}.${card.version}`).join(",")}`).join("|");
@@ -59,6 +65,7 @@ export function PipelineBoard({
   if (seen !== signature) {
     setSeen(signature);
     setLoaded({});
+    setMoved(null);
   }
   const [loading, setLoading] = useState<ActiveDealStage | null>(null);
   const [mobileStage, setMobileStage] = useState<ActiveDealStage>("PROSPECT");
@@ -76,7 +83,38 @@ export function PipelineBoard({
     setDialogOpen(true);
   };
 
-  const cardsOf = (stage: PipelineStageDto) => [...stage.items, ...(loaded[stage.status] ?? [])];
+  const cardsOf = (stage: PipelineStageDto) => {
+    const cards = [...stage.items, ...(loaded[stage.status] ?? [])].filter((card) => card.id !== moved?.card.id);
+    return moved?.to === stage.status ? [{ ...moved.card, status: stage.status }, ...cards] : cards;
+  };
+  // Count and value follow the moved card so the column header agrees with what is shown.
+  const shiftOf = (stage: PipelineStageDto) => (moved?.to === stage.status ? 1 : moved?.card.status === stage.status ? -1 : 0);
+  const valueOf = (stage: PipelineStageDto) => {
+    const delta = BigInt(moved?.card.estimatedValue ?? 0) * BigInt(shiftOf(stage));
+    return BigInt(stage.totalValue) + delta;
+  };
+
+  /** Jira-style move: dropping a card on another column changes its stage right away. */
+  async function drop(card: PipelineCardDto, to: ActiveDealStage) {
+    setDragging(null);
+    setOver(null);
+    if (card.status === to) return;
+    // A value is required from "Penawaran dikirim" on; the dialog asks for it instead of failing.
+    if (to !== "PROSPECT" && BigInt(card.estimatedValue) <= 0n) {
+      openDialog({ mode: { kind: "move", to }, card });
+      return;
+    }
+    setMoved({ card, to });
+    const result = await transitionDealAction({ dealId: card.id, expectedVersion: card.version, toStatus: to });
+    if (!result.ok) {
+      setMoved(null);
+      toast(result.error.message, "error");
+      if (result.error.code === "CONFLICT") router.refresh();
+      return;
+    }
+    toast(`Deal dipindahkan ke ${DEAL_STAGE[to].label}`, "success");
+    router.refresh();
+  }
 
   async function loadMore(stage: PipelineStageDto) {
     setLoading(stage.status);
@@ -109,17 +147,35 @@ export function PipelineBoard({
       <div className="board">
         {stages.map((stage) => {
           const cards = cardsOf(stage);
-          const remaining = stage.count - cards.length;
+          const remaining = stage.count + shiftOf(stage) - cards.length;
           return (
-            <section key={stage.status} className={cn("column", mobileStage === stage.status && "is-mobile-active")} aria-label={DEAL_STAGE[stage.status].label}>
+            <section
+              key={stage.status}
+              className={cn("column", mobileStage === stage.status && "is-mobile-active", dragging && over === stage.status && "is-drop")}
+              aria-label={DEAL_STAGE[stage.status].label}
+              onDragOver={(event) => {
+                if (!dragging || dragging.status === stage.status) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                if (over !== stage.status) setOver(stage.status);
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver((current) => (current === stage.status ? null : current));
+              }}
+              onDrop={(event) => {
+                if (!dragging) return;
+                event.preventDefault();
+                void drop(dragging, stage.status);
+              }}
+            >
               <div className="column-head">
                 <div className="row">
                   <StageGlyph tone={DEAL_STAGE[stage.status].tone} />
                   <strong>{DEAL_STAGE[stage.status].label}</strong>
-                  <Count>{stage.count}</Count>
+                  <Count>{stage.count + shiftOf(stage)}</Count>
                 </div>
                 <small>
-                  {stage.count} deal · {formatRupiah(stage.totalValue)}
+                  {stage.count + shiftOf(stage)} deal · {formatRupiah(valueOf(stage))}
                 </small>
               </div>
               {cards.length === 0 ? (
@@ -128,7 +184,20 @@ export function PipelineBoard({
                 cards.map((card) => {
                   const held = card.onHoldUntil !== null;
                   return (
-                    <article key={card.id} className={cn("deal-card", held && "is-held")}>
+                    <article
+                      key={card.id}
+                      className={cn("deal-card", held && "is-held", dragging?.id === card.id && "is-dragging")}
+                      draggable={!held}
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", card.id); // Firefox only starts a drag with data
+                        setDragging(card);
+                      }}
+                      onDragEnd={() => {
+                        setDragging(null);
+                        setOver(null);
+                      }}
+                    >
                       <div className="deal-card-head">
                         <small title={card.customerName}>{card.customerName}</small>
                         <Menu label="Menu tindakan">
@@ -149,7 +218,9 @@ export function PipelineBoard({
                         </Menu>
                       </div>
                       <h3>
-                        <Link href={`/deals/${card.id}`}>{card.title}</Link>
+                        <Link href={`/deals/${card.id}`} draggable={false}>
+                          {card.title}
+                        </Link>
                       </h3>
                       <div className="deal-card-value">
                         <b className="money">{BigInt(card.estimatedValue) > 0n ? formatRupiah(card.estimatedValue) : "Nilai belum diisi"}</b>

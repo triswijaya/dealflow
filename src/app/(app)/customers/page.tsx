@@ -81,7 +81,7 @@ export default async function CustomersPage({ searchParams }: PageProps<"/custom
           />
         )
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap sticky-end">
           <table>
             <thead>
               <tr>

@@ -135,16 +135,16 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
           />
         )
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap sticky-end stack-md">
           <table>
             <thead>
               <tr>
                 <th>Nomor</th>
                 <th>Customer · deal</th>
-                <th>Tanggal terbit</th>
+                <th className="hide-md">Tanggal terbit</th>
                 <th>Jatuh tempo</th>
                 <th className="num">Total</th>
-                <th className="num">Terbayar</th>
+                <th className="num hide-md">Terbayar</th>
                 <th className="num">Sisa</th>
                 <th>Status</th>
                 <th>Aksi</th>
@@ -174,7 +174,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
                         </small>
                       </div>
                     </td>
-                    <td className="nowrap" data-label="Tanggal terbit">
+                    <td className="nowrap hide-md" data-label="Tanggal terbit">
                       <div>{formatDate(row.issueDate)}</div>
                     </td>
                     <td className="nowrap" data-label="Jatuh tempo">
@@ -186,7 +186,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
                     <td className="num" data-label="Total">
                       <div>{formatRupiah(row.total)}</div>
                     </td>
-                    <td className="num" data-label="Terbayar">
+                    <td className="num hide-md" data-label="Terbayar">
                       <div>{formatRupiah(row.paidAmount)}</div>
                     </td>
                     <td className="num" data-label="Sisa">

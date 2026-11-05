@@ -214,7 +214,7 @@ export default async function DealDetailPage({ params, searchParams }: PageProps
 
   const reviewDue = held && deal.onHoldUntil! <= workspace.today;
   const finalNotice = (
-    <div className="stack" style={{ gap: 8 }}>
+    <div className="stack deal-notices" style={{ gap: 8 }}>
       {held ? (
         <Alert tone={reviewDue ? "error" : "warning"}>
           {reviewDue ? `Waktunya ditinjau. Tanggal tinjau ${formatDate(deal.onHoldUntil!)} sudah lewat.` : `Ditunda sampai ${formatDate(deal.onHoldUntil!)}.`}
