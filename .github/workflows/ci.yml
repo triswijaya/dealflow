@@ -15,8 +15,11 @@ concurrency:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Pinned so the OS does not change under CI when `ubuntu-latest` moves to Ubuntu 26 (announced for
+    # late 2026). Move on purpose, once Playwright supports the new image.
+    runs-on: ubuntu-24.04
+    # A normal run is about 11.5 minutes (the integration tests alone take about 8), so 15 left no room.
+    timeout-minutes: 20
 
     services:
       postgres:
@@ -93,8 +96,12 @@ jobs:
       - name: Reconcile
         run: pnpm reconcile
 
+      # Normally 20 to 30 seconds. On 2026-11-05 the apt mirror served the font packages at about 1 minute
+      # each and the step hung until the job was cancelled. The first try is cut at 4 minutes and repeated
+      # once; apt keeps the packages it already fetched, so the second try is shorter.
       - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 10
+        run: timeout 240 pnpm exec playwright install --with-deps chromium || pnpm exec playwright install --with-deps chromium
 
       - name: E2E tests
         run: pnpm test:e2e
