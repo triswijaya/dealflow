@@ -3,7 +3,7 @@
 import { Check, Circle, CircleAlert, CircleDashed, FileText, Info, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type DragEvent } from "react";
 import { Avatar } from "@/components/ui/misc";
 import { Badge, Count } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ function StageGlyph({ tone }: { tone: BadgeTone }) {
 }
 
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+
+const DRAG_TYPE = "application/x-dealflow-deal";
 
 type Dialog = { mode: TransitionMode; card: PipelineCardDto };
 
@@ -94,6 +96,24 @@ export function PipelineBoard({
     return BigInt(stage.totalValue) + delta;
   };
 
+  // The card id travels in the drag data, which dragover can see (by type) before any re-render.
+  function dragOverColumn(event: DragEvent<HTMLElement>, to: ActiveDealStage) {
+    if (!event.dataTransfer.types.includes(DRAG_TYPE)) return;
+    event.preventDefault(); // allows the drop
+    event.dataTransfer.dropEffect = "move";
+    if (over !== to) setOver(to);
+  }
+  function dragLeaveColumn(event: DragEvent<HTMLElement>, from: ActiveDealStage) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver((current) => (current === from ? null : current));
+  }
+  function dropOnColumn(event: DragEvent<HTMLElement>, to: ActiveDealStage) {
+    const id = event.dataTransfer.getData(DRAG_TYPE);
+    const card = stages.flatMap(cardsOf).find((item) => item.id === id);
+    if (!card) return;
+    event.preventDefault();
+    void drop(card, to);
+  }
+
   /** Jira-style move: dropping a card on another column changes its stage right away. */
   async function drop(card: PipelineCardDto, to: ActiveDealStage) {
     setDragging(null);
@@ -153,20 +173,9 @@ export function PipelineBoard({
               key={stage.status}
               className={cn("column", mobileStage === stage.status && "is-mobile-active", dragging && over === stage.status && "is-drop")}
               aria-label={DEAL_STAGE[stage.status].label}
-              onDragOver={(event) => {
-                if (!dragging || dragging.status === stage.status) return;
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                if (over !== stage.status) setOver(stage.status);
-              }}
-              onDragLeave={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver((current) => (current === stage.status ? null : current));
-              }}
-              onDrop={(event) => {
-                if (!dragging) return;
-                event.preventDefault();
-                void drop(dragging, stage.status);
-              }}
+              onDragOver={(event) => dragOverColumn(event, stage.status)}
+              onDragLeave={(event) => dragLeaveColumn(event, stage.status)}
+              onDrop={(event) => dropOnColumn(event, stage.status)}
             >
               <div className="column-head">
                 <div className="row">
@@ -190,7 +199,7 @@ export function PipelineBoard({
                       draggable={!held}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = "move";
-                        event.dataTransfer.setData("text/plain", card.id); // Firefox only starts a drag with data
+                        event.dataTransfer.setData(DRAG_TYPE, card.id);
                         setDragging(card);
                       }}
                       onDragEnd={() => {
