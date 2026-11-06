@@ -15,9 +15,16 @@ describe("parseServerEnv", () => {
     EMAIL_FROM: "no-reply@dealflow.test",
   } as const;
 
-  it("requires the mail key and the cron secret on a hosted environment", () => {
+  it("requires the mail key and the cron secret in production", () => {
     expect(() => parseServerEnv({ ...validEnv, APP_ENV: "production" })).toThrow(/EMAIL_PROVIDER_API_KEY[\s\S]*CRON_SECRET/);
     expect(parseServerEnv({ ...validEnv, APP_ENV: "production", EMAIL_PROVIDER_API_KEY: "re_key", CRON_SECRET: "a-cron-secret-of-16+" }).APP_ENV).toBe("production");
+  });
+
+  it("requires only the cron secret on a demo or preview deployment", () => {
+    for (const APP_ENV of ["demo", "preview"] as const) {
+      expect(() => parseServerEnv({ ...validEnv, APP_ENV })).toThrow(/CRON_SECRET/);
+      expect(parseServerEnv({ ...validEnv, APP_ENV, CRON_SECRET: "a-cron-secret-of-16+" }).APP_ENV).toBe(APP_ENV);
+    }
   });
 
   it("accepts a fully valid environment", () => {
