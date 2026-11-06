@@ -8,7 +8,7 @@ import { logger } from "./logger";
 // language is Indonesian (§3). This table is the single place that turns
 // a known service message into what a user reads, optionally pinned to the
 // form field it concerns.
-const KNOWN_MESSAGES: [RegExp, string, string?][] = [
+export const KNOWN_MESSAGES: [RegExp, string, string?][] = [
   [/modified by someone else|newer version, reload/i, "Data sudah diubah orang lain. Muat ulang untuk melihat versi terbaru sebelum menyimpan lagi."],
   [/The contact has no phone number for WhatsApp/i, "Kontak ini belum punya nomor telepon, jadi WhatsApp tidak bisa dibuka."],
   [/Contact not found for this customer/i, "Kontak tidak ditemukan pada customer ini.", "contactId"],

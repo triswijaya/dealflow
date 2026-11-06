@@ -1,6 +1,5 @@
-import { APIError } from "better-auth/api";
 import { exportCsv } from "@/server/reports/reports";
-import { getRequestId, logger } from "@/server/shared/logger";
+import { routeError } from "@/server/shared/route-response";
 
 /** CSV export: permission and tenant are checked on every request and nothing is cached. */
 export async function GET(request: Request, ctx: RouteContext<"/api/export/[kind]">) {
@@ -21,14 +20,9 @@ export async function GET(request: Request, ctx: RouteContext<"/api/export/[kind
       },
     });
   } catch (error) {
-    if (error instanceof APIError) {
-      const message = typeof error.body?.message === "string" ? error.body.message : "Request failed";
-      return Response.json({ code: error.status, message }, { status: error.statusCode });
-    }
     if (error instanceof Error && error.name === "ZodError") {
       return Response.json({ code: "BAD_REQUEST", message: "Invalid date range" }, { status: 400 });
     }
-    logger.error("export.failed", { requestId: getRequestId(request), error });
-    return Response.json({ code: "INTERNAL_SERVER_ERROR", message: "Export failed" }, { status: 500 });
+    return routeError(error, request, "export.failed", "Export failed");
   }
 }

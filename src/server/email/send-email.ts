@@ -44,6 +44,8 @@ const sendsForReal = () => Boolean(env.EMAIL_PROVIDER_API_KEY) && env.APP_ENV !=
  */
 export async function sendEmail(message: EmailMessage): Promise<void> {
   if (!sendsForReal()) {
+    // The sink prints the whole text, links with tokens included, so it never runs on a hosted environment.
+    if (env.APP_ENV !== "local" && env.APP_ENV !== "test") throw new EmailDeliveryError("NOT_CONFIGURED", false);
     console.log("[email:dev-sink]", {
       from: env.EMAIL_FROM,
       to: message.to,

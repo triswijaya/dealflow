@@ -18,6 +18,15 @@ export const serverEnvSchema = z.object({
   SENTRY_PROJECT: z.string().min(1).optional(),
   SENTRY_ENVIRONMENT: z.string().min(1).optional(),
   SENTRY_RELEASE: z.string().min(1).optional(),
+}).superRefine((env, ctx) => {
+  // A hosted deployment without a cron secret would still boot but the scheduled sweeps would
+  // answer 401 forever. Mail is only required in production: a demo or preview deployment
+  // runs without it (sends fail with NOT_CONFIGURED, sign-up and the app itself still work).
+  if (env.APP_ENV === "local" || env.APP_ENV === "test") return;
+  const required = env.APP_ENV === "production" ? (["EMAIL_PROVIDER_API_KEY", "CRON_SECRET"] as const) : (["CRON_SECRET"] as const);
+  for (const key of required) {
+    if (!env[key]) ctx.addIssue({ code: "custom", path: [key], message: `required when APP_ENV is ${env.APP_ENV}` });
+  }
 });
 
 export const clientEnvSchema = z.object({
@@ -37,8 +46,8 @@ const fieldDescriptions: Record<string, string> = {
   BETTER_AUTH_URL: "invalid URL",
   APP_URL: "invalid URL",
   EMAIL_FROM: "invalid email address",
-  EMAIL_PROVIDER_API_KEY: "must not be empty",
-  CRON_SECRET: "must be at least 16 characters",
+  EMAIL_PROVIDER_API_KEY: "must not be empty (required when APP_ENV is production)",
+  CRON_SECRET: "must be at least 16 characters (required outside local and test)",
   SENTRY_DSN: "invalid URL",
   SENTRY_AUTH_TOKEN: "must not be empty",
   SENTRY_ORG: "must not be empty",
