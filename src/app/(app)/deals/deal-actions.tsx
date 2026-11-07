@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, MessageCircle, Play, Trophy } from "lucide-react";
+import { ArrowLeftRight, MessageCircle, Play, Plus, Trophy } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,8 @@ import { DealTransitionDialog, type SourceQuotation, type TransitionMode } from 
 /**
  * The buttons in a deal's header. An open deal can move to any stage, be held,
  * closed or won; a held deal resumes; a closed deal can be reopened (a won one
- * only by Owner/Admin while it has no live invoice). Finance only reads.
+ * only by Owner/Admin while it has no live invoice). A won deal can take a
+ * further order. Finance only reads.
  */
 export function DealActions({
   deal,
@@ -136,6 +137,12 @@ export function DealActions({
         <Button onClick={() => start({ kind: "won" })}>
           <Trophy aria-hidden="true" />
           Konfirmasi menang
+        </Button>
+      ) : null}
+      {deal.status === "WON" ? (
+        <Button variant="secondary" onClick={() => start({ kind: "order" })}>
+          <Plus aria-hidden="true" />
+          Tambah pesanan
         </Button>
       ) : null}
       {canReopen ? (

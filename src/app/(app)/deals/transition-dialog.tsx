@@ -10,7 +10,7 @@ import { Field, Input, MoneyInput, Select, Textarea } from "@/components/ui/fiel
 import { useToast } from "@/components/ui/toast";
 import { formatDate, formatRupiah } from "@/lib/format";
 import { ACTIVE_DEAL_STAGES, COMMITMENT_TYPES, DEAL_STAGE, LOST_REASONS, QUOTATION_STATUS, isActiveStage, type ActiveDealStage, type Role } from "@/lib/labels";
-import { confirmWonAction, holdDealAction, reopenDealAction, transitionDealAction, type PlanItemInput } from "./actions";
+import { addOrderToDealAction, confirmWonAction, holdDealAction, reopenDealAction, transitionDealAction, type PlanItemInput } from "./actions";
 
 export type TransitionDeal = {
   id: string;
@@ -26,7 +26,7 @@ export type TransitionDeal = {
 /** A quotation the won value and the order can be taken from. */
 export type SourceQuotation = { id: string; quotationNumber: string; status: string; total: string };
 
-export type TransitionMode = { kind: "move"; to: ActiveDealStage } | { kind: "won" } | { kind: "lost" } | { kind: "hold" } | { kind: "reopen" };
+export type TransitionMode = { kind: "move"; to: ActiveDealStage } | { kind: "won" } | { kind: "order" } | { kind: "lost" } | { kind: "hold" } | { kind: "reopen" };
 
 const NOTE_LIMIT = 5000;
 
@@ -73,6 +73,8 @@ function titleOf(mode: TransitionMode, deal: TransitionDeal) {
       return `Pindahkan ke ${DEAL_STAGE[mode.to].label}?`;
     case "won":
       return "Konfirmasi menang";
+    case "order":
+      return "Tambah pesanan";
     case "lost":
       return "Tidak dilanjutkan";
     case "hold":
@@ -85,7 +87,8 @@ function titleOf(mode: TransitionMode, deal: TransitionDeal) {
 /**
  * Every change of a deal's state in one dialog (DEAL-03/04/07/08): moving to
  * any active stage, winning with commitment evidence and a termin plan,
- * closing as not continued, holding until a review date, and reopening.
+ * closing as not continued, holding until a review date, and reopening. A won
+ * deal can take a further order (a follow-up PO) through the same order form.
  */
 export function DealTransitionDialog({
   open,
@@ -109,7 +112,7 @@ export function DealTransitionDialog({
   preferredQuotationId?: string;
 }) {
   return (
-    <Dialog open={open} onClose={onClose} title={titleOf(mode, deal)} size={mode.kind === "won" ? "large" : undefined}>
+    <Dialog open={open} onClose={onClose} title={titleOf(mode, deal)} size={mode.kind === "won" || mode.kind === "order" ? "large" : undefined}>
       <TransitionBody mode={mode} deal={deal} role={role} today={today} quotations={quotations} preferredQuotationId={preferredQuotationId} onClose={onClose} />
     </Dialog>
   );
@@ -142,8 +145,9 @@ function TransitionBody({
   const [commitmentType, setCommitmentType] = useState<string>("");
   const [commitmentRef, setCommitmentRef] = useState("");
   const [commitmentDate, setCommitmentDate] = useState(today);
-  const [sourceId, setSourceId] = useState(accepted?.id ?? "");
-  const [value, setValue] = useState(accepted ? accepted.total : BigInt(deal.estimatedValue) > 0n ? deal.estimatedValue : "");
+  const [sourceId, setSourceId] = useState(mode.kind === "won" ? (accepted?.id ?? "") : "");
+  // A further order starts empty: its value is the new PO's, not the deal's.
+  const [value, setValue] = useState(accepted && mode.kind === "won" ? accepted.total : mode.kind === "won" && BigInt(deal.estimatedValue) > 0n ? deal.estimatedValue : "");
   const [plan, setPlan] = useState<PlanKey>("full");
   const [retention, setRetention] = useState(false);
   const [reviewDate, setReviewDate] = useState(deal.onHoldUntil && deal.onHoldUntil > today ? deal.onHoldUntil : addDays(today, 30));
@@ -157,8 +161,9 @@ function TransitionBody({
   const noteTooLong = note.trim().length > NOTE_LIMIT;
   const needsValue = mode.kind === "move" && mode.to !== "PROSPECT" && BigInt(deal.estimatedValue) <= 0n;
 
+  const ordering = mode.kind === "won" || mode.kind === "order";
   const blocked =
-    mode.kind === "won"
+    ordering
       ? !commitmentType || amount <= 0n
       : mode.kind === "lost"
         ? !reason || noteTooLong
@@ -175,11 +180,13 @@ function TransitionBody({
     const result =
       mode.kind === "won"
         ? await confirmWonAction({ ...base, commitmentType, commitmentRef, commitmentDate, value, sourceQuotationId: sourceId || undefined, billingItems: items })
-        : mode.kind === "hold"
-          ? await holdDealAction({ ...base, reviewDate, reason })
-          : mode.kind === "reopen"
-            ? await reopenDealAction({ ...base, toStatus: reopenTo, reason })
-            : await transitionDealAction({ ...base, toStatus: mode.kind === "move" ? mode.to : "LOST", ...(mode.kind === "lost" ? { lostReason: reason, lostNote: note } : {}) });
+        : mode.kind === "order"
+          ? await addOrderToDealAction({ dealId: deal.id, commitmentType, commitmentRef, commitmentDate, value, sourceQuotationId: sourceId || undefined, billingItems: items })
+          : mode.kind === "hold"
+            ? await holdDealAction({ ...base, reviewDate, reason })
+            : mode.kind === "reopen"
+              ? await reopenDealAction({ ...base, toStatus: reopenTo, reason })
+              : await transitionDealAction({ ...base, toStatus: mode.kind === "move" ? mode.to : "LOST", ...(mode.kind === "lost" ? { lostReason: reason, lostNote: note } : {}) });
     setPending(false);
 
     if (!result.ok) {
@@ -191,6 +198,7 @@ function TransitionBody({
     const message = {
       move: () => `Deal dipindahkan ke ${mode.kind === "move" ? DEAL_STAGE[mode.to].label : ""}`,
       won: () => (role === "SALES" ? "Deal menang. Pesanan dibuat, Finance yang menagih per termin." : "Deal menang. Pesanan dan rencana termin dibuat."),
+      order: () => "Pesanan tambahan dan rencana terminnya dibuat.",
       lost: () => "Deal ditutup, tugas terbuka dibatalkan",
       hold: () => `Deal ditahan sampai ${formatDate(reviewDate)}`,
       reopen: () => `Deal dibuka kembali di ${DEAL_STAGE[reopenTo].label}`,
@@ -220,7 +228,9 @@ function TransitionBody({
           )
         ) : null}
 
-        {mode.kind === "won" ? (
+        {mode.kind === "order" ? <p>Untuk PO atau kontrak susulan dari customer yang sama. Pesanan pertama tidak berubah.</p> : null}
+
+        {ordering ? (
           <>
             <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
               <legend className="field-legend">
@@ -244,7 +254,7 @@ function TransitionBody({
               </Field>
             </div>
             <div className="input-grid">
-              <Field label="Nilai pesanan (Rp)" htmlFor="won-value" required hint={accepted ? `Dari ${accepted.quotationNumber}. Ubah jika nilai PO berbeda.` : "Nilai yang disepakati customer."}>
+              <Field label="Nilai pesanan (Rp)" htmlFor="won-value" required hint={accepted && mode.kind === "won" ? `Dari ${accepted.quotationNumber}. Ubah jika nilai PO berbeda.` : "Nilai yang disepakati customer."}>
                 <MoneyInput id="won-value" value={value} onValueChange={setValue} />
               </Field>
               {sources.length ? (
@@ -309,7 +319,10 @@ function TransitionBody({
                 </table>
               </div>
             ) : null}
-            <small>Rencana termin masih bisa diubah di pesanan selama termin belum ditagih. Tugas terbuka deal ini akan dibatalkan.</small>
+            <small>
+              Rencana termin masih bisa diubah di pesanan selama termin belum ditagih.
+              {mode.kind === "won" ? " Tugas terbuka deal ini akan dibatalkan." : ""}
+            </small>
           </>
         ) : null}
 
@@ -376,7 +389,7 @@ function TransitionBody({
           Batal
         </Button>
         <Button variant={mode.kind === "lost" ? "destructive" : "primary"} disabled={blocked} pending={pending} pendingText="Memproses..." onClick={submit}>
-          {{ move: "Pindahkan", won: "Konfirmasi menang", lost: "Tutup deal", hold: "Simpan", reopen: "Buka kembali" }[mode.kind]}
+          {{ move: "Pindahkan", won: "Konfirmasi menang", order: "Buat pesanan", lost: "Tutup deal", hold: "Simpan", reopen: "Buka kembali" }[mode.kind]}
         </Button>
       </DialogFooter>
 

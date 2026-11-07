@@ -6,7 +6,7 @@ import type { ActionResult } from "@/lib/action-result";
 import { listContacts, type ContactDto } from "@/server/customers/contacts";
 import { createDeal, putDealOnHold, reopenDeal, resumeDeal, transitionDeal, updateDeal } from "@/server/deals/deals";
 import { listPipelineStageCards, type DealFilters, type PipelineCardDto } from "@/server/deals/deal-views";
-import { confirmWon } from "@/server/orders/orders";
+import { addOrderToDeal, confirmWon } from "@/server/orders/orders";
 import { runAction } from "@/server/shared/action";
 
 export type DealFormValues = {
@@ -93,6 +93,35 @@ export async function confirmWonAction(input: {
     });
     refresh(deal.id, deal.customerId);
     return { status: deal.status, orderId: order.id };
+  });
+}
+
+/** A further order on a deal that is already won, e.g. a follow-up PO (ORD-02). */
+export async function addOrderToDealAction(input: {
+  dealId: string;
+  commitmentType: string;
+  commitmentRef?: string;
+  commitmentDate?: string;
+  value: string;
+  sourceQuotationId?: string;
+  billingItems?: PlanItemInput[];
+}): Promise<ActionResult<{ orderId: string }>> {
+  return runAction(async () => {
+    const order = await addOrderToDeal({
+      headers: await headers(),
+      dealId: input.dealId,
+      input: {
+        commitmentType: input.commitmentType,
+        commitmentRef: input.commitmentRef || undefined,
+        commitmentDate: input.commitmentDate || undefined,
+        value: input.value,
+        sourceQuotationId: input.sourceQuotationId || undefined,
+        billingItems: input.billingItems?.length ? input.billingItems : undefined,
+      },
+    });
+    refresh(input.dealId, order.customerId);
+    revalidatePath("/orders");
+    return { orderId: order.id };
   });
 }
 

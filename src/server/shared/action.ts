@@ -42,6 +42,8 @@ export const KNOWN_MESSAGES: [RegExp, string, string?][] = [
   [/Sales can only assign a new deal to themselves/i, "Sales hanya dapat menugaskan deal baru ke dirinya sendiri.", "assignedToId"],
   [/Customer not found in this organization/i, "Customer tidak ditemukan.", "customerId"],
   [/Invalid phone number/i, "Nomor tidak valid. Gunakan format 08xx atau kode negara (+62).", "phone"],
+  [/order can only be added to a won deal/i, "Pesanan tambahan hanya bisa dibuat untuk deal yang sudah menang."],
+  [/rejected quotation cannot be the source/i, "Penawaran yang ditolak tidak bisa menjadi sumber pesanan.", "sourceQuotationId"],
   [/quotation for a closed deal/i, "Quotation baru tidak dapat dibuat untuk deal yang sudah menang atau kalah."],
   [/validUntil cannot be before issueDate/i, "Tanggal berlaku tidak boleh sebelum tanggal terbit.", "validUntil"],
   [/can no longer be edited/i, "Quotation ini sudah dikunci dan tidak dapat diedit. Buat revisi untuk perubahan."],
