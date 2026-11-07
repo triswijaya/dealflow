@@ -7,7 +7,9 @@ services:
       POSTGRES_PASSWORD: dealflow
       POSTGRES_DB: dealflow
     ports:
-      - "5432:5432"
+      # Host port 5433, not the default 5432, so another project's Postgres on 5432 cannot
+      # silently answer for this one.
+      - "5433:5432"
     volumes:
       - dealflow_pgdata:/var/lib/postgresql/data
     healthcheck:

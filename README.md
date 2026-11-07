@@ -51,7 +51,7 @@ pnpm dev
 ```
 
 Edit `.env.local` after copying it:
-- `DATABASE_URL` and `DATABASE_MIGRATION_URL`: `postgresql://dealflow:dealflow@localhost:5432/dealflow` (matches `compose.yaml`).
+- `DATABASE_URL` and `DATABASE_MIGRATION_URL`: already set to `postgresql://dealflow:dealflow@localhost:5433/dealflow`, which matches `compose.yaml`. The host port is 5433 on purpose, so a Postgres from another project on the default 5432 cannot answer for this one.
 - `BETTER_AUTH_SECRET`: generate with `openssl rand -base64 32`.
 - `BETTER_AUTH_URL` and `APP_URL`: `http://localhost:3000`.
 
@@ -133,5 +133,6 @@ A failed readiness check does not say why; look at the server logs for the cause
 
 ### Troubleshooting
 
-- `docker compose up -d db` fails with a port conflict: something else on this machine is already using `5432` (including another clone of this same repo). Stop it first, or change the host port in `compose.yaml`.
+- `docker compose up -d db` fails with a port conflict: something else on this machine is already using `5433` (including another clone of this same repo). Stop it first, or change the host port in `compose.yaml` and in both URLs in `.env.local`.
+- `pnpm dev` answers 500 with "Failed to get session" (and the browser console adds "Encountered a script tag while rendering React component"): the app cannot reach its database, or reaches another one. Run `docker compose ps` and check that `db` is up, and that both URLs in `.env.local` use port 5433. The script warning is only a side effect of the failed server render.
 - `pnpm dev`/`pnpm build` fails with "Invalid environment configuration": a required variable in `.env.local` is missing or malformed. The error lists exactly which field and why.
