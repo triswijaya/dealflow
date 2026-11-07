@@ -15,7 +15,7 @@ import { getInvoiceSummary, getReceivedThisMonth } from "@/server/invoices/invoi
 import { logger } from "@/server/shared/logger";
 import { requireWorkspace } from "../workspace";
 import { CHART_RANGES, PipelineChart, type ChartMetric, type ChartRange } from "./pipeline-chart";
-import { AgendaWidget, CloserWidget, FeedWidget, NearestDueWidget, PipelineWidget, ReadyToInvoiceWidget, RecentPaymentsWidget } from "./widgets";
+import { AgendaWidget, AttentionWidget, CloserWidget, FeedWidget, NearestDueWidget, PipelineWidget, ReadyToInvoiceWidget, RecentPaymentsWidget } from "./widgets";
 
 export const metadata: Metadata = { title: "Ringkasan · DealFlow" };
 
@@ -246,6 +246,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <div className="rail-side">
             <Widget>
               <AgendaWidget agenda={one(agenda)} timezone={timezone} today={workspace.today} />
+            </Widget>
+            <Widget>
+              <AttentionWidget />
             </Widget>
             <Widget>
               <CloserWidget timezone={timezone} />

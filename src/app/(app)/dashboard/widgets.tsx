@@ -10,10 +10,10 @@ import { ButtonLink } from "@/components/ui/button";
 import { CardHeading } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatDate, formatDateTime, formatRelative, formatRupiah, formatRupiahCompact } from "@/lib/format";
-import { DEAL_STAGE, INVOICE_STATUS, paymentMethodLabel } from "@/lib/labels";
+import { DEAL_SIGNAL, DEAL_STAGE, INVOICE_STATUS, paymentMethodLabel, type DealStage } from "@/lib/labels";
 import { getPipelineMetrics } from "@/server/dashboard/dashboard";
 import { logger } from "@/server/shared/logger";
-import { listDealRows, listRecentActivities } from "@/server/deals/deal-views";
+import { listDealRows, listDealsNeedingAttention, listRecentActivities } from "@/server/deals/deal-views";
 import { getFollowUpCounts, listFollowUpRows } from "@/server/follow-ups/follow-up-views";
 import { listInvoiceableItems, listNearestDueInvoices, listRecentPayments } from "@/server/invoices/invoice-views";
 import { FollowUpItem } from "../follow-ups/follow-up-item";
@@ -220,6 +220,57 @@ export async function FeedWidget({ timezone, title = "Kabar dari tim" }: { timez
           <EmptyState size="region" title="Belum ada aktivitas" description="Catatan, perubahan tahap, dan dokumen dari tim akan muncul di sini." />
         ) : (
           <ActivityTimeline events={events} timezone={timezone} showDeal />
+        )}
+      </section>
+    ),
+  );
+}
+
+const ATTENTION_SHOWN = 5;
+
+export async function AttentionWidget() {
+  return guard(
+    "Perlu perhatian",
+    async () => listDealsNeedingAttention({ headers: await headers() }),
+    (deals) => (
+      <section className="region">
+        <CardHeading
+          title="Perlu perhatian"
+          description="Deal aktif yang tertahan, terlambat, atau tanpa langkah berikut"
+          action={
+            <ButtonLink variant="tertiary" href="/pipeline">
+              Buka pipeline
+            </ButtonLink>
+          }
+        />
+        {deals.length === 0 ? (
+          <EmptyState size="region" tone="success" title="Semua deal terawat" description="Deal yang terlambat, terlalu lama di satu tahap, atau tanpa langkah berikut akan muncul di sini." />
+        ) : (
+          <>
+            {deals.slice(0, ATTENTION_SHOWN).map((deal) => (
+              <div key={deal.id} className="follow" style={{ gridTemplateColumns: "minmax(0,1fr) auto" }}>
+                <div>
+                  <h3>
+                    <Link href={`/deals/${deal.id}`}>{deal.title}</Link>
+                  </h3>
+                  <p>
+                    {deal.customerName} · {DEAL_STAGE[deal.status as DealStage]?.label ?? deal.status} · {deal.assignedToName}
+                  </p>
+                  <div className="deal-card-tags">
+                    {deal.signals.map((signal) => (
+                      <Badge key={signal} tone={DEAL_SIGNAL[signal]?.tone}>
+                        {DEAL_SIGNAL[signal]?.label ?? signal}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <strong className="num" title={formatRupiah(deal.estimatedValue)}>
+                  {formatRupiahCompact(deal.estimatedValue)}
+                </strong>
+              </div>
+            ))}
+            {deals.length > ATTENTION_SHOWN ? <small>dan {deals.length - ATTENTION_SHOWN} deal lain.</small> : null}
+          </>
         )}
       </section>
     ),
