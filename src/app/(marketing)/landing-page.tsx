@@ -1,317 +1,466 @@
-"use client";
-
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { Icon } from "./landing-icon";
+import type { CSSProperties } from "react";
+import { ArrowRight, BookOpenText, ChatsCircle, Check, FilePdf, FileXls, Minus, Plus, UsersThree } from "@phosphor-icons/react/ssr";
 import { BrandMark } from "@/components/brand";
-import { CompareSlider } from "./compare-slider";
-import { InvoiceDemo, KanbanDemo, QuotationDemo } from "./feature-demos";
-import { HeroStory } from "./hero-story";
-import { useReveal, useScrollEffects, type CSSVars } from "./landing-hooks";
-import { PricingPlans } from "./pricing-plans";
-import { RoleSwitcher } from "./role-switcher";
+import { FAQ, HERO_FACTS, HISTORY, PLAN_INCLUDES, PLANS, ROLES, SCATTERED, STEPS, TOUR } from "./content";
+import { LandingEffects } from "./landing-effects";
+import { LandingNav } from "./landing-nav";
+import { ProductTour } from "./product-tour";
+import dashboard from "./screens/dashboard.webp";
+import { TaglineReveal } from "./tagline-reveal";
 
-const NAV_SECTIONS = ["produk", "tim", "harga", "faq"] as const;
-const NAV_LABELS: Record<(typeof NAV_SECTIONS)[number], string> = { produk: "Produk", tim: "Untuk tim", harga: "Harga", faq: "FAQ" };
+const SCATTERED_ICON = { chat: ChatsCircle, sheet: FileXls, pdf: FilePdf, book: BookOpenText } as const;
+const delay = (step: number) => ({ "--d": step }) as CSSProperties;
 
-// What a typical team juggles today. Named the way people actually name these things.
-const SCATTERED = [
-  { label: "Grup WhatsApp sales", icon: "message" },
-  { label: "Sheet \u201cPipeline 2026\u201d", icon: "sheet" },
-  { label: "Penawaran_FINAL_v3(2).pdf", icon: "fileText" },
-  { label: "Buku tagihan finance", icon: "receipt" },
-] as const;
-
-const HERO_FACTS = [
-  { value: "4 tahap", label: "pipeline siap pakai, bebas maju atau mundur" },
-  { value: "R0 \u2192 R2", label: "setiap revisi quotation tersimpan" },
-  { value: "Rp \u00b7 WIB", label: "rupiah tanpa desimal, jadwal waktu Jakarta" },
-];
-
-type Feature = { id: string; kicker: string; title: string; body: string; facts: string[]; hint: string; demo: ReactNode };
-
-const FEATURES: Feature[] = [
-  {
-    id: "pipeline",
-    kicker: "Pipeline",
-    title: "Buka pipeline, langsung tahu deal mana yang harus dikejar.",
-    body: "Setiap deal punya tahap, nilai, dan sales yang memegangnya. Follow-up yang terlambat muncul paling atas, bukan terkubur di chat.",
-    facts: ["Gali kebutuhan, Penawaran dikirim, Negosiasi, Menunggu komitmen", "Tanda otomatis untuk tugas terlambat dan deal yang lama diam", "Deal yang tidak dilanjutkan tercatat beserta alasannya"],
-    hint: "Klik kartu yang bergaris untuk memajukan tahapnya.",
-    demo: <KanbanDemo />,
-  },
-  {
-    id: "quotation",
-    kicker: "Quotation",
-    title: "Revisi harga ketiga, tanpa kehilangan versi pertama.",
-    body: "Quotation dibuat dari deal dan dihitung otomatis. Setiap revisi tersimpan sebagai versi baru yang bisa dibandingkan baris per baris.",
-    facts: ["PDF siap kirim dengan data perusahaan Anda", "Bandingkan R0, R1, dan R2", "Pesan WhatsApp disiapkan, Anda yang menekan kirim"],
-    hint: "Pindah R0, R1, R2 untuk melihat bagian yang berubah.",
-    demo: <QuotationDemo />,
-  },
-  {
-    id: "invoice",
-    kicker: "Pesanan, invoice & uang masuk",
-    title: "Deal menang belum tentu uang masuk. DealFlow memisahkan keduanya.",
-    body: "Deal Menang dikunci dengan PO, kontrak, atau DP lalu menjadi pesanan. Finance menagih dari pesanan itu, mencatat pembayaran sebagian, dan langsung melihat siapa yang lewat jatuh tempo.",
-    facts: ["Belum dibayar, Dibayar sebagian, Lunas, Lewat jatuh tempo", "Pembayaran tidak bisa melebihi sisa tagihan", "Potongan PPh dicatat terpisah dari uang yang benar-benar masuk"],
-    hint: "Catat pembayaran sampai invoice lunas.",
-    demo: <InvoiceDemo />,
-  },
-];
+function Kicker({ children, tone = "light" }: { children: string; tone?: "light" | "dark" }) {
+  return <p className={`lp-kicker lp-kicker-${tone} caption-1`}>{children}</p>;
+}
 
 export function LandingPage() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const stickyRef = useRef<HTMLDivElement>(null);
-  const heroRef = useRef<HTMLElement>(null);
-  const endRef = useRef<HTMLElement>(null);
-  const activeSection = useScrollEffects({ sticky: stickyRef, hero: heroRef, end: endRef, sectionIds: NAV_SECTIONS });
-  useReveal(rootRef);
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-        menuButtonRef.current?.focus();
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [menuOpen]);
-
   return (
-    <div className="lp-root" ref={rootRef}>
-        <a className="lp-skip" href="#konten">Lewati ke konten</a>
-        <header className="lp-topnav">
-          <div className="lp-container lp-navinner">
-            <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><BrandMark />dealflow</a>
-            <nav className="lp-navlinks" aria-label="Navigasi utama">
-              {NAV_SECTIONS.map((id) => (
-                <a key={id} href={`#${id}`} className={activeSection === id ? "lp-active" : undefined} aria-current={activeSection === id ? "location" : undefined}>{NAV_LABELS[id]}</a>
-              ))}
-            </nav>
-            <div className="lp-navactions">
-              <Link className="lp-btn lp-secondary" href="/login">Masuk</Link>
-              <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja</Link>
-            </div>
-            <button ref={menuButtonRef} type="button" className="lp-menu-toggle" aria-label={menuOpen ? "Tutup navigasi" : "Buka navigasi"} aria-expanded={menuOpen} aria-controls="mobile-menu" onClick={() => setMenuOpen((open) => !open)}>
-              <Icon name="more" />
-            </button>
-          </div>
-          <nav id="mobile-menu" className={menuOpen ? "lp-mobile-menu lp-open" : "lp-mobile-menu"} aria-label="Navigasi mobile" inert={!menuOpen} onClick={(event) => { if ((event.target as HTMLElement).closest("a")) setMenuOpen(false); }}>
-            {NAV_SECTIONS.map((id) => (
-              <a key={id} href={`#${id}`}>{NAV_LABELS[id]}</a>
-            ))}
-            <Link href="/login">Masuk</Link>
-            <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja</Link>
-          </nav>
-        </header>
-        <main id="konten">
-          <section className="lp-hero lp-container" id="beranda" ref={heroRef}>
-            <h1>Dari chat pertama sampai uang masuk.</h1>
-            <p className="lp-hero-copy">Customer, penawaran, follow-up, dan tagihan di satu tempat. Sales tahu siapa yang harus dihubungi hari ini. Finance tahu siapa yang belum bayar.</p>
-            <div className="lp-row lp-hero-actions">
-              <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja</Link>
-              <a className="lp-btn lp-secondary" href="#produk">Lihat produknya</a>
-            </div>
-            <HeroStory />
-            <div className="lp-ticker">
-              <p><span className="lp-ticker-tag"><i />Untuk tim</span>Sales dan finance bisnis B2B, dari chat pertama sampai pembayaran terakhir.</p>
-              <a href="#produk">Lihat alurnya<Icon name="arrowRight" /></a>
-            </div>
-            <dl className="lp-hero-facts">
-              {HERO_FACTS.map((fact) => (
-                <div key={fact.value}>
-                  <dt>{fact.value}</dt>
-                  <dd>{fact.label}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
+    <div className="lp">
+      <a className="lp-skip button-sm" href="#konten">
+        Lewati ke konten
+      </a>
+      <LandingNav />
 
-          <section className="lp-scattered lp-container" aria-labelledby="scattered-title">
-            <p id="scattered-title" className="lp-kicker">Yang selama ini tersebar di</p>
-            <ul className="lp-tiles">
-              {SCATTERED.map((item) => (
-                <li key={item.label} className="lp-tile">
-                  <Icon name={item.icon} />
-                  <span>{item.label}</span>
-                </li>
+      <main id="konten">
+        {/* Hero: one promise, one primary action, and the real product under it. */}
+        <section className="lp-hero" id="beranda" aria-labelledby="hero-title">
+          <div className="lp-container lp-hero-head">
+            <p className="lp-chip caption-1 lp-enter">
+              <i aria-hidden="true" />
+              Untuk tim sales dan finance B2B di Indonesia
+            </p>
+            <h1 id="hero-title" className="lp-hero-title heading-1 lp-enter" style={delay(1)}>
+              Dari chat pertama <br />
+              sampai uang masuk.
+            </h1>
+            <p className="lp-hero-sub body-7 lp-enter" style={delay(2)}>
+              Pipeline, penawaran, termin, invoice, dan pembayaran di satu ruang kerja. Sales tahu siapa yang dihubungi hari ini. Finance tahu siapa yang belum bayar.
+            </p>
+            <div className="lp-actions lp-enter" style={delay(3)}>
+              <Link className="lp-btn lp-btn-light button-md" href="/register">
+                Buat ruang kerja
+                <ArrowRight aria-hidden="true" size={16} weight="bold" />
+              </Link>
+              <a className="lp-btn lp-btn-ghost-dark button-md" href="#produk">
+                Lihat produknya
+              </a>
+            </div>
+            <ul className="lp-facts caption-4 lp-enter" style={delay(4)} aria-label="Dibuat untuk cara kerja bisnis Indonesia">
+              {HERO_FACTS.map((fact) => (
+                <li key={fact}>{fact}</li>
               ))}
             </ul>
-            <p className="lp-scattered-end">kini di satu ruang kerja.</p>
-          </section>
+          </div>
 
-          <section className="lp-section lp-container" id="masalah">
-            <div className="lp-intro lp-reveal">
-              <p className="lp-kicker">Masalahnya</p>
-              <h2><span className="lp-dim">Deal bisa hilang</span> hanya karena satu follow-up terlewat.</h2>
-              <p>Saat chat ada di WhatsApp, angka di spreadsheet, dan penawaran di folder, tidak ada yang melihat gambaran utuhnya. Geser untuk melihat bedanya.</p>
+          <div className="lp-container">
+            <div className="lp-hero-visual">
+              <figure className="lp-window">
+                <div className="lp-window-bar" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                  <b className="caption-5">dealflow.tristantowijaya.com/dashboard</b>
+                </div>
+                <div className="lp-shot">
+                  <Image
+                    src={dashboard}
+                    alt="Ringkasan DealFlow untuk Owner: nilai pipeline aktif Rp361 jt, menang bulan ini Rp66 jt, tagihan belum lunas Rp90 jt, dan grafik pipeline 30 hari terakhir."
+                    sizes="(max-width: 1200px) 100vw, 1152px"
+                    loading="eager"
+                    fetchPriority="high"
+                    placeholder="blur"
+                  />
+                </div>
+              </figure>
+
+              <div className="lp-float lp-float-a" aria-hidden="true">
+                <p className="caption-5 lp-muted">SO-2026-00007 · Hotel Mega Kencana</p>
+                <p className="title-4">Termin DP 30%</p>
+                <div className="lp-float-row">
+                  <span className="lp-badge lp-badge-warn caption-4">Siap ditagih</span>
+                  <b className="lp-mono body-4">Rp26.250.000</b>
+                </div>
+              </div>
+              <div className="lp-float lp-float-b" aria-hidden="true">
+                <p className="caption-5 lp-muted">INV-2026-00002 · Klinik Sehat Sentosa</p>
+                <div className="lp-float-row">
+                  <p className="title-4">Dibayar sebagian</p>
+                  <b className="lp-mono caption-3">33%</b>
+                </div>
+                <span className="lp-meter">
+                  <i style={{ transform: "scaleX(0.33)" }} />
+                </span>
+                <p className="caption-5 lp-muted">
+                  Sisa <span className="lp-mono">Rp20.000.000</span> · jatuh tempo 23 Nov
+                </p>
+              </div>
             </div>
+          </div>
+        </section>
+
+        {/* Problem to solution: the four places a deal lives today, then the one history it gets. */}
+        <section className="lp-section" id="masalah" aria-labelledby="masalah-title">
+          <div className="lp-container">
+            <header className="lp-head lp-reveal">
+              <Kicker>Masalahnya</Kicker>
+              <h2 id="masalah-title" className="heading-2">
+                <span className="lp-dim">Satu deal hari ini</span> tersebar di empat tempat.
+              </h2>
+              <p className="body-7 lp-lead">Chat di WhatsApp, angka di spreadsheet, penawaran di folder, tagihan di buku finance. Tidak ada yang melihat gambaran utuhnya sampai ada yang terlewat.</p>
+            </header>
+
+            <div className="lp-compare">
+              <article className="lp-card lp-card-sunken lp-reveal">
+                <h3 className="title-3">Sebelum</h3>
+                <ul className="lp-files">
+                  {SCATTERED.map((item) => {
+                    const Icon = SCATTERED_ICON[item.icon];
+                    return (
+                      <li key={item.name}>
+                        <span className="lp-file-icon" aria-hidden="true">
+                          <Icon size={20} />
+                        </span>
+                        <span className="lp-file-text">
+                          <span className="title-4">{item.name}</span>
+                          <span className="caption-5 lp-muted">{item.meta}</span>
+                        </span>
+                        <span className="lp-badge lp-badge-risk caption-4">{item.pain}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </article>
+
+              <span className="lp-compare-arrow" aria-hidden="true">
+                <ArrowRight size={20} />
+              </span>
+
+              <article className="lp-card lp-reveal" style={delay(1)}>
+                <h3 className="title-3">Di DealFlow</h3>
+                <p className="caption-2 lp-muted">Paket CCTV hotel 32 kamera · Hotel Mega Kencana</p>
+                <ol className="lp-history">
+                  {HISTORY.map((event) => (
+                    <li key={event.what}>
+                      <span className="title-4">{event.what}</span>
+                      <span className="caption-5 lp-muted">
+                        {event.who} · {event.when}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="lp-card-foot caption-1">Satu deal, satu riwayat, dilihat sales dan finance bersama.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        {/* Product tour: five screens of the real app, one open at a time. */}
+        <section className="lp-section lp-sunken" id="produk" aria-labelledby="produk-title">
+          <div className="lp-container">
+            <header className="lp-head lp-reveal">
+              <Kicker>Produknya</Kicker>
+              <h2 id="produk-title" className="heading-2">
+                <span className="lp-dim">Lima layar,</span> satu alur sampai lunas.
+              </h2>
+              <p className="body-7 lp-lead">Semua yang Anda lihat di bawah adalah tampilan asli DealFlow dengan data contoh perusahaan fiktif.</p>
+            </header>
             <div className="lp-reveal">
-              <CompareSlider />
+              <ProductTour />
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section className="lp-section lp-container" id="produk">
-            <div className="lp-intro lp-reveal">
-              <p className="lp-kicker">Produknya</p>
-              <h2><span className="lp-dim">Tiga layar</span> yang akan dibuka tim Anda setiap hari.</h2>
-            </div>
-            <div className="lp-features">
-              {FEATURES.map((feature, index) => (
-                <article className={index % 2 ? "lp-feature-row lp-flip" : "lp-feature-row"} key={feature.id}>
-                  <div className="lp-feature-copy lp-reveal">
-                    <p className="lp-feature-kicker"><span>0{index + 1}</span>{feature.kicker}</p>
-                    <h3>{feature.title}</h3>
-                    <p>{feature.body}</p>
-                    <ul className="lp-checklist">
-                      {feature.facts.map((fact) => (
-                        <li key={fact}><Icon name="check" /><span>{fact}</span></li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="lp-feature-stage lp-reveal" style={{ "--d": 1 } as CSSVars}>
-                    <div className="lp-feature-visual">{feature.demo}</div>
-                    <p className="lp-try"><Icon name="pointer" />{feature.hint}</p>
-                  </div>
+        {/* The tagline, said once in large type, lit word by word. */}
+        <section className="lp-section lp-statement" aria-labelledby="tagline">
+          <div className="lp-container">
+            <TaglineReveal id="tagline" text="Deal yang menang belum tentu dibayar. DealFlow mengawal setiap termin sampai lunas." />
+          </div>
+        </section>
+
+        {/* Roles: the real menus each role sees, taken from the app. */}
+        <section className="lp-section lp-dark" id="peran" aria-labelledby="peran-title">
+          <div className="lp-container">
+            <header className="lp-head lp-reveal">
+              <Kicker tone="dark">Untuk seluruh tim</Kicker>
+              <h2 id="peran-title" className="heading-2">
+                <span className="lp-dim">Satu data,</span> akses sesuai peran.
+              </h2>
+              <p className="body-7 lp-lead">Sales menutup deal, finance menagih, owner melihat semuanya. Menu di bawah persis seperti yang tampil di aplikasi untuk setiap peran.</p>
+            </header>
+            <div className="lp-roles">
+              {ROLES.map((role, index) => (
+                <article key={role.name} className="lp-role lp-reveal" style={delay(index)}>
+                  <h3 className="heading-6">{role.name}</h3>
+                  <p className="body-6 lp-muted">{role.lead}</p>
+                  <p className="caption-3 lp-role-label">Menu yang terlihat</p>
+                  <ul className="lp-chips">
+                    {role.menus.map((menu) => (
+                      <li key={menu} className="caption-4">
+                        <Check aria-hidden="true" size={12} weight="bold" />
+                        {menu}
+                      </li>
+                    ))}
+                  </ul>
+                  {role.hidden.length ? (
+                    <>
+                      <p className="caption-3 lp-role-label">Tidak terlihat</p>
+                      <ul className="lp-chips lp-chips-off">
+                        {role.hidden.map((menu) => (
+                          <li key={menu} className="caption-4">
+                            <Minus aria-hidden="true" size={12} weight="bold" />
+                            {menu}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
                 </article>
               ))}
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section className="lp-team" id="tim">
-            <div className="lp-container lp-team-grid">
-              <div className="lp-team-copy lp-reveal">
-                <p className="lp-kicker">Untuk seluruh tim</p>
-                <h2><span className="lp-dim">Sales menutup deal, finance menagih,</span> owner melihat semuanya.</h2>
-                <p>Owner, Admin, Sales, dan Finance bekerja di data yang sama, dengan akses sesuai tanggung jawabnya. Pilih peran untuk melihat apa yang mereka buka.</p>
-                <ul className="lp-checklist">
-                  <li><Icon name="check" /><span>Data perusahaan terpisah di ruang kerjanya sendiri.</span></li>
-                  <li><Icon name="check" /><span>Setiap perubahan penting tercatat bersama siapa yang melakukannya.</span></li>
-                  <li><Icon name="check" /><span>Quotation dan pesan WhatsApp tetap dikirim oleh tim Anda sendiri.</span></li>
-                </ul>
-              </div>
-              <div className="lp-bento lp-reveal" style={{ "--d": 1 } as CSSVars}>
-                <RoleSwitcher />
-              </div>
-            </div>
-          </section>
-
-          <section className="lp-section lp-pricing-section" id="harga">
-            <div className="lp-container">
-              <div className="lp-intro lp-intro-center lp-reveal">
-                <p className="lp-kicker">Harga</p>
-                <h2><span className="lp-dim">Bayar per perusahaan,</span> bukan per orang.</h2>
-                <p>Semua paket berisi alur yang sama. Yang berbeda hanya jumlah anggota tim.</p>
-              </div>
-              <div className="lp-pricing-note">
-                <Icon name="info" />
-                <span><b>Usulan paket untuk pratinjau.</b> Harga dan kapasitas berikut belum final dan belum tersedia untuk pembelian.</span>
-              </div>
-              <PricingPlans />
-              <p className="lp-pricing-footer">Nominal adalah simulasi bulanan. Pajak, ketentuan penagihan, dan batas penggunaan akan ditetapkan pada harga resmi.</p>
-            </div>
-          </section>
-          <section className="lp-section lp-container" id="faq">
-            <div className="lp-faq-layout">
-              <div className="lp-faq-copy lp-reveal">
-                <p className="lp-kicker">FAQ</p>
-                <h2>Pertanyaan yang biasanya muncul.</h2>
-                <p>Belum terjawab? Buat ruang kerja, masukkan satu customer, dan lihat alurnya sendiri.</p>
-              </div>
-              <div className="lp-faq-list lp-reveal" style={{ "--d": 1 } as CSSVars}>
-                <details name="faq" open>
-                  <summary>
-                    <span>DealFlow cocok untuk bisnis seperti apa?</span>
-                    <Icon name="plus" />
-                  </summary>
-                  <p>DealFlow dirancang untuk bisnis B2B yang mengelola peluang melalui quotation dan follow-up: vendor CCTV, networking, agency, kontraktor, dan event vendor. Alurnya tetap, sehingga tim tidak perlu mengatur pipeline dari awal.</p>
-                </details>
-                <details name="faq">
-                  <summary>
-                    <span>Apakah WhatsApp dikirim otomatis?</span>
-                    <Icon name="plus" />
-                  </summary>
-                  <p>Tidak. DealFlow menyiapkan pesan yang bisa Anda edit lalu membuka WhatsApp. Anda tetap mengirim pesan sendiri. Membuka WhatsApp tidak otomatis mengubah status quotation atau menandai follow-up selesai.</p>
-                </details>
-                <details name="faq">
-                  <summary>
-                    <span>Apa bedanya deal Menang dan pembayaran diterima?</span>
-                    <Icon name="plus" />
-                  </summary>
-                  <p>Deal Menang berarti customer sudah memberi komitmen: PO, kontrak atau SPK, konfirmasi tertulis, atau DP. Deal itu menjadi pesanan, lalu Owner, Admin, atau Finance menagihnya lewat invoice. Uang masuk baru tercatat ketika pembayaran dicatat pada invoice tersebut.</p>
-                </details>
-                <details name="faq">
-                  <summary>
-                    <span>Bisa mencatat pembayaran sebagian?</span>
-                    <Icon name="plus" />
-                  </summary>
-                  <p>Bisa. Setiap pembayaran mengurangi sisa tagihan. Invoice dapat berstatus Belum dibayar, Dibayar sebagian, Lunas, atau Lewat jatuh tempo, sehingga tim tetap dapat melihat tagihan yang perlu ditindaklanjuti.</p>
-                </details>
-                <details name="faq">
-                  <summary>
-                    <span>Apakah satu akun bisa berpindah perusahaan?</span>
-                    <Icon name="plus" />
-                  </summary>
-                  <p>Satu akun hanya aktif di satu organisasi. Owner membuat organisasi, lalu anggota lainnya bergabung melalui undangan. DealFlow tidak menggunakan pemilih multi-organisasi.</p>
-                </details>
-                <details name="faq">
-                  <summary>
-                    <span>Apakah harga di halaman ini sudah berlaku?</span>
-                    <Icon name="plus" />
-                  </summary>
-                  <p>Belum. Bagian pricing ini adalah usulan untuk membantu meninjau penawaran paket. Harga, kapasitas anggota, pajak, dan ketentuan langganan harus ditetapkan sebelum penjualan dibuka.</p>
-                </details>
-              </div>
-            </div>
-          </section>
-          <section className="lp-final-cta" ref={endRef}>
-            <div className="lp-container">
-              <div className="lp-cta-box lp-reveal">
-              <h2><span className="lp-dim">Rapikan pipeline Anda</span> sebelum deal berikutnya terlewat.</h2>
-              <p>Buat ruang kerja, undang tim, lalu masukkan customer pertama Anda.</p>
-              <div className="lp-row lp-cta-actions">
-                <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja</Link>
-                <Link className="lp-btn lp-secondary" href="/login">Sudah punya akun? Masuk</Link>
-              </div>
-              </div>
-            </div>
-          </section>
-        </main>
-        <footer className="lp-footer">
+        {/* How it works: three steps, each with what the screen asks for. */}
+        <section className="lp-section" id="cara-kerja" aria-labelledby="cara-title">
           <div className="lp-container">
-            <div className="lp-footer-top">
-              <div className="lp-footer-brand">
-                <a className="lp-brand" href="#beranda" aria-label="Beranda DealFlow"><BrandMark />dealflow</a>
-                <p>Dari calon customer sampai pembayaran, dalam satu alur.</p>
-              </div>
-              <div className="lp-footer-links">
-                <div>
-                  <h3>Jelajahi</h3>
-                  <a href="#produk">Produk</a>
-                  <a href="#tim">Untuk tim</a>
-                  <a href="#harga">Harga</a>
-                </div>
-                <div>
-                  <h3>Mulai</h3>
-                  <Link href="/login">Masuk</Link>
-                  <a href="#faq">FAQ</a>
-                </div>
-              </div>
+            <header className="lp-head lp-reveal">
+              <Kicker>Cara mulai</Kicker>
+              <h2 id="cara-title" className="heading-2">
+                <span className="lp-dim">Tiga langkah</span> sampai deal pertama tercatat.
+              </h2>
+            </header>
+            <ol className="lp-steps">
+              {STEPS.map((step, index) => (
+                <li key={step.title} className="lp-step lp-reveal" style={delay(index)}>
+                  <span className="lp-step-num lp-mono caption-3">0{index + 1}</span>
+                  <h3 className="heading-6">{step.title}</h3>
+                  <p className="body-6 lp-muted">{step.body}</p>
+                  <StepSample index={index} />
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* Pricing: proposed plans, labelled as such. */}
+        <section className="lp-section lp-sunken" id="harga" aria-labelledby="harga-title">
+          <div className="lp-container">
+            <header className="lp-head lp-head-center lp-reveal">
+              <Kicker>Harga</Kicker>
+              <h2 id="harga-title" className="heading-2">
+                <span className="lp-dim">Bayar per perusahaan,</span> bukan per orang.
+              </h2>
+              <p className="body-7 lp-lead">Semua paket berisi alur yang sama. Yang berbeda hanya jumlah anggota tim.</p>
+              <p className="lp-badge lp-badge-info caption-4">Usulan harga untuk ditinjau. Belum dijual.</p>
+            </header>
+            <div className="lp-plans">
+              {PLANS.map((plan, index) => (
+                <article key={plan.name} className={plan.featured ? "lp-plan lp-plan-featured lp-reveal" : "lp-plan lp-reveal"} style={delay(index)}>
+                  <div className="lp-plan-top">
+                    <h3 className="title-1">{plan.name}</h3>
+                    {plan.featured ? <span className="lp-badge lp-badge-on-dark caption-4">Disarankan</span> : null}
+                  </div>
+                  <p className="body-6 lp-muted">{plan.lead}</p>
+                  <p className="lp-price">
+                    <span className="heading-4 lp-mono">{plan.price}</span>
+                    <span className="caption-2 lp-muted">/ bulan</span>
+                  </p>
+                  <p className="lp-plan-seats body-5">
+                    <UsersThree aria-hidden="true" size={18} />
+                    Hingga {plan.seats} anggota
+                  </p>
+                </article>
+              ))}
             </div>
-            <div className="lp-footer-bottom">
-              <span>© 2026 DealFlow</span>
-              <span>Dibuat untuk alur penjualan bisnis B2B Indonesia.</span>
+            <div className="lp-includes lp-reveal">
+              <h3 className="title-3">Semua paket termasuk</h3>
+              <ul>
+                {PLAN_INCLUDES.map((item) => (
+                  <li key={item} className="body-6">
+                    <Check aria-hidden="true" size={16} weight="bold" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link className="lp-btn lp-btn-dark button-md" href="/register">
+                Coba tanpa kartu kredit
+                <ArrowRight aria-hidden="true" size={16} weight="bold" />
+              </Link>
             </div>
           </div>
-        </footer>
-        <div className="lp-sticky-cta" ref={stickyRef}>
-          <Link className="lp-btn lp-primary" href="/register">Buat ruang kerja</Link>
+        </section>
+
+        {/* FAQ: objections answered in plain words. */}
+        <section className="lp-section" id="faq" aria-labelledby="faq-title">
+          <div className="lp-container lp-faq">
+            <header className="lp-head lp-reveal">
+              <Kicker>FAQ</Kicker>
+              <h2 id="faq-title" className="heading-3">
+                Pertanyaan yang biasanya muncul.
+              </h2>
+              <p className="body-3 lp-muted">Belum terjawab? Buat ruang kerja, masukkan satu customer, dan lihat alurnya sendiri.</p>
+            </header>
+            <div className="lp-faq-list lp-reveal" style={delay(1)}>
+              {FAQ.map((item, index) => (
+                <details key={item.q} name="faq" open={index === 0}>
+                  <summary className="title-3">
+                    {item.q}
+                    <Plus aria-hidden="true" size={18} />
+                  </summary>
+                  <p className="body-3 lp-muted">{item.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Closing call to action, the same promise as the hero. */}
+        <section className="lp-final" id="mulai" aria-labelledby="mulai-title">
+          <div className="lp-container">
+            <div className="lp-final-card lp-reveal">
+              <h2 id="mulai-title" className="heading-2">
+                Mulai dari satu customer. <br />
+                Lihat sendiri alurnya.
+              </h2>
+              <p className="body-7">Buat ruang kerja, undang tim, lalu catat deal pertama Anda. Tanpa kartu kredit.</p>
+              <div className="lp-actions">
+                <Link className="lp-btn lp-btn-light button-md" href="/register">
+                  Buat ruang kerja
+                  <ArrowRight aria-hidden="true" size={16} weight="bold" />
+                </Link>
+                <Link className="lp-btn lp-btn-ghost-dark button-md" href="/login">
+                  Sudah punya akun? Masuk
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="lp-footer">
+        <div className="lp-container">
+          <div className="lp-footer-top">
+            <div className="lp-footer-brand">
+              <a className="lp-brand lp-brand-dark" href="#beranda" aria-label="DealFlow, kembali ke atas">
+                <BrandMark />
+                <span>dealflow</span>
+              </a>
+              <p className="body-6 lp-muted">Ruang kerja penjualan untuk bisnis B2B. Dari chat pertama sampai pembayaran terakhir.</p>
+            </div>
+            <nav className="lp-footer-cols" aria-label="Tautan footer">
+              <div>
+                <h3 className="title-4">Produk</h3>
+                <ul>
+                  {TOUR.map((item) => (
+                    <li key={item.key}>
+                      <a className="body-6" href={`#fitur-${item.key}`}>
+                        {item.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h3 className="title-4">Jelajahi</h3>
+                <ul>
+                  <li>
+                    <a className="body-6" href="#peran">
+                      Peran dan akses
+                    </a>
+                  </li>
+                  <li>
+                    <a className="body-6" href="#cara-kerja">
+                      Cara mulai
+                    </a>
+                  </li>
+                  <li>
+                    <a className="body-6" href="#harga">
+                      Harga
+                    </a>
+                  </li>
+                  <li>
+                    <a className="body-6" href="#faq">
+                      FAQ
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="title-4">Akun</h3>
+                <ul>
+                  <li>
+                    <Link className="body-6" href="/register">
+                      Buat ruang kerja
+                    </Link>
+                  </li>
+                  <li>
+                    <Link className="body-6" href="/login">
+                      Masuk
+                    </Link>
+                  </li>
+                  <li>
+                    <Link className="body-6" href="/forgot-password">
+                      Lupa password
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+            </nav>
+          </div>
+          <div className="lp-footer-bottom caption-4 lp-mono">
+            <span>© 2026 DEALFLOW</span>
+            <span>DIBUAT UNTUK BISNIS B2B INDONESIA</span>
+          </div>
         </div>
+      </footer>
+
+      <div className="lp-sticky" aria-hidden="true">
+        <Link className="lp-btn lp-btn-light button-md" href="/register" tabIndex={-1}>
+          Buat ruang kerja
+          <ArrowRight aria-hidden="true" size={16} weight="bold" />
+        </Link>
+      </div>
+      <LandingEffects />
+    </div>
+  );
+}
+
+/** A small, static picture of what each step's screen asks for. */
+function StepSample({ index }: { index: number }) {
+  if (index === 0) {
+    return (
+      <div className="lp-sample" aria-hidden="true">
+        <span className="caption-4 lp-muted">Nama perusahaan</span>
+        <span className="lp-sample-input body-6">
+          CV Sinar Teknik Mandiri
+          <i />
+        </span>
+      </div>
+    );
+  }
+  if (index === 1) {
+    return (
+      <div className="lp-sample" aria-hidden="true">
+        <span className="caption-4 lp-muted">Undang anggota</span>
+        <span className="lp-sample-row">
+          <span className="lp-sample-input body-6">rina@sinarteknik.co.id</span>
+          <span className="lp-badge lp-badge-neutral caption-4">Sales</span>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="lp-sample" aria-hidden="true">
+      <span className="caption-4 lp-muted">Gali kebutuhan</span>
+      <span className="lp-sample-deal">
+        <span className="caption-5 lp-muted">PT Lintas Gudang Sejahtera</span>
+        <span className="title-4">Instalasi CCTV gudang</span>
+        <span className="body-4 lp-mono">Rp42.750.000</span>
+      </span>
     </div>
   );
 }

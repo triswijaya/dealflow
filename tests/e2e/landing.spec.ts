@@ -20,6 +20,29 @@ test("landing page shows the promise and leads to registration", async ({ page }
   await expect(page).toHaveURL(/\/register$/);
 });
 
+test("the product tour shows one screen of the app at a time", async ({ page }) => {
+  await page.goto("/");
+  const pipeline = page.getByRole("button", { name: /Tahu deal mana yang harus dikejar/ });
+  const invoice = page.getByRole("button", { name: /Tagih per termin/ });
+  await expect(pipeline).toHaveAttribute("aria-expanded", "true");
+
+  await invoice.click();
+  await expect(invoice).toHaveAttribute("aria-expanded", "true");
+  await expect(pipeline).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("img", { name: /INV-2026-00002/ })).toBeVisible();
+});
+
+test("the phone menu opens, jumps to a section, and closes", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Buka menu" }).click();
+  await expect(page.getByRole("button", { name: "Tutup menu" })).toHaveAttribute("aria-expanded", "true");
+
+  await page.locator("#lp-menu").getByRole("link", { name: "Harga" }).click();
+  await expect(page.getByRole("button", { name: "Buka menu" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#harga")).toBeInViewport();
+});
+
 test("landing page does not scroll sideways on a phone", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/");
