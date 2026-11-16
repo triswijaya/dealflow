@@ -30,7 +30,11 @@ for (const viewport of [
       // Reveal-on-scroll content must be visible to be scanned for contrast, and mid-transition
       // opacity would be measured as low contrast, so show it and switch the transitions off.
       await page.addStyleTag({ content: "*,*::before,*::after{transition:none!important;animation:none!important}" });
-      await page.evaluate(() => document.querySelectorAll(".lp-reveal").forEach((el) => el.classList.add("lp-in")));
+      // The tagline lights word by word on scroll; scan it in its finished state.
+      await page.evaluate(() => {
+        document.querySelectorAll(".lp-reveal").forEach((el) => el.classList.add("lp-in"));
+        document.querySelectorAll(".lp-word").forEach((el) => el.classList.add("lp-on"));
+      });
       await scan(page, `${label} (${viewport.name})`);
     }
   });
