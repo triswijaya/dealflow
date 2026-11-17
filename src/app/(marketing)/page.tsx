@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   },
 };
 
-// The hero is dark, so the browser chrome on phones matches it.
-export const viewport = { themeColor: "#181818" };
+// The page ground is the grey canvas, so the browser chrome on phones matches it.
+export const viewport = { themeColor: "#f4f5f7" };
 
 // FAQ structured data, from the same list the page shows (AEO).
 const faqSchema = {
