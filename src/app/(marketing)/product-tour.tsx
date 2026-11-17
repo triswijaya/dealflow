@@ -10,7 +10,7 @@ import quotation from "./screens/quotation.webp";
 import reports from "./screens/reports.webp";
 
 const SHOTS: Record<TourKey, StaticImageData> = { pipeline, quotation, order, invoice, reports };
-const SIZES = "(max-width: 959px) 100vw, 680px";
+const SIZES = "(max-width: 959px) 100vw, 616px";
 
 function subscribeHash(onChange: () => void) {
   window.addEventListener("hashchange", onChange);
@@ -33,7 +33,7 @@ export function ProductTour() {
   const active: TourKey = (picked && picked.hash === hash ? picked.key : keyOf(hash)) ?? picked?.key ?? "pipeline";
 
   return (
-    <div className="lp-tour">
+    <div className="lp-split">
       <ol className="lp-tour-list">
         {TOUR.map((item, index) => {
           const open = item.key === active;
@@ -41,16 +41,15 @@ export function ProductTour() {
             <li key={item.key} id={`fitur-${item.key}`} className="lp-tour-item" data-open={open}>
               <h3>
                 <button type="button" aria-expanded={open} aria-controls={`fitur-${item.key}-isi`} onClick={() => setPicked({ key: item.key, hash })}>
-                  <span className="lp-tour-label caption-4">
-                    <span className="lp-mono">0{index + 1}</span>
-                    {item.label}
+                  <span className="lp-tour-num lp-num" aria-hidden="true">
+                    0{index + 1}
                   </span>
-                  <span className="heading-6">{item.title}</span>
+                  <span className="t-title">{item.title}</span>
                 </button>
               </h3>
               <div id={`fitur-${item.key}-isi`} className="lp-tour-body" hidden={!open}>
-                <p className="body-3">{item.body}</p>
-                <div className="lp-tour-shot-inline">
+                <p className="t-body">{item.body}</p>
+                <div className="lp-window lp-window-light lp-tour-inline">
                   <Image src={SHOTS[item.key]} alt={item.alt} sizes={SIZES} placeholder="blur" />
                 </div>
               </div>
@@ -58,7 +57,7 @@ export function ProductTour() {
           );
         })}
       </ol>
-      <div className="lp-tour-stage">
+      <div className="lp-window lp-window-light lp-tour-stage">
         {TOUR.map((item) => (
           <Image
             key={item.key}

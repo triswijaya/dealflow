@@ -54,7 +54,7 @@ export function TaglineReveal({ text, id }: { text: string; id: string }) {
   }, []);
 
   return (
-    <h2 ref={ref} id={id} className="lp-tagline heading-2">
+    <h2 ref={ref} id={id} className="lp-tagline t-display">
       {words.map((word, index) => (
         <span key={index} className="lp-word">
           {word}
