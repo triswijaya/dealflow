@@ -131,7 +131,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     followups: {
       id: "followups",
       label: "Follow-up hari ini",
-      color: "var(--cat-infra)",
+      color: "var(--cat-mobile)",
       value: followUps ? String(followUps.today + followUps.overdue) : dash,
       delta: followUps && followUps.overdue > 0 ? { text: `${followUps.overdue} terlambat`, tone: "neg" } : undefined,
       note: followUps ? `${followUps.upcoming} follow-up mendatang` : failed,

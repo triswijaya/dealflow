@@ -1,7 +1,8 @@
-/* Inkwash design tokens (DESIGN.md §15.1), pasted unchanged except for the
-   Product layer at the end. Components read the semantic tokens; primitives
-   are read directly only for categorical colour. The document preview repeats
-   the light set so a quotation or invoice stays on white paper in night mode. */
+/* Inkwash design tokens (DESIGN.md §15.1). The colour, elevation and radius values
+   follow the landing page (DESIGN.proposed.md §10): ink, cool greys and one signal
+   orange, with green and red kept for status. Components read the semantic tokens;
+   primitives are read directly only for categorical colour. The document preview
+   repeats the light set so a quotation or invoice stays on white paper in night mode. */
 :root,
 :root[data-theme="dark"] .df .document {
   /* ───────── Primitives: neutrals ───────── */
@@ -9,7 +10,7 @@
   --neutral-0:   #FFFFFF;  --neutral-25:  #FBFBFC;  --neutral-50:  #F7F8FA;
   --neutral-75:  #EFF1F4;  --neutral-100: #ECEEF2;  --neutral-150: #E6E8EC;
   --neutral-200: #DCDFE5;  --neutral-300: #CDD1D8;  --neutral-400: #9BA1AC;
-  --neutral-500: #868C97;  --neutral-600: #646A75;  --neutral-700: #656B76;
+  --neutral-500: #868C97;  --neutral-600: #646A75;  --neutral-700: #5B616C;
   --neutral-800: #2E323A;  --neutral-900: #1C1F25;  --neutral-950: #14161B;
   --black: #000000;
 
@@ -20,19 +21,20 @@
   --danger-solid: #DC2626;      /* danger buttons only (4.8:1 with white) */
 
   /* ───────── Primitives: colour families ─────────
-     The final prototype's palette (store, mobile, docs, billing, infra plus
-     the up/down/warn/info status hues), laid out on the old family steps
-     (50 wash · 100 soft · 200 tint · 300 band · 400 fill · 600 glyph · 800 ink)
-     so every component that read a family now reads the prototype colours. */
-  --cat-store: #6B72F0;  --cat-mobile: #15B3A1;  --cat-docs: #2FB463;  --cat-billing: #F2862B;  --cat-infra: #EC5A9B;
-  --violet-50:#F5F6FE; --violet-100:#ECEEFD; --violet-200:#DADCFB; --violet-300:#C3C6F8; --violet-400:#6B72F0; --violet-600:#4F56D9; --violet-800:#2E3392;
-  --indigo-50:#F5F6FE; --indigo-100:#ECEEFD; --indigo-200:#DADCFB; --indigo-300:#C3C6F8; --indigo-400:#6B72F0; --indigo-600:#4F56D9; --indigo-800:#2E3392;
-  --sky-50:#F0FBF9;    --sky-100:#E1F6F3;    --sky-200:#C3ECE6;    --sky-300:#9BDFD5;    --sky-400:#15B3A1;    --sky-600:#0E8A7C;    --sky-800:#0A5950;
+     The landing page's palette: ink and slate carry identity, signal orange
+     marks what needs action, green and red are status. The violet, indigo, sky
+     and pink families are kept as names (components still read them) but point
+     at the neutral ramp, so they follow the theme on their own.
+     Steps: 50 wash · 100 soft · 200 tint · 300 band · 400 fill · 600 glyph · 800 ink. */
+  --cat-store: var(--ink);  --cat-mobile: var(--neutral-600);  --cat-docs: #15A34A;  --cat-billing: #F2862B;  --cat-infra: var(--status-danger-glyph);
+  --violet-50:var(--neutral-50); --violet-100:var(--neutral-75); --violet-200:var(--neutral-150); --violet-300:var(--neutral-300); --violet-400:var(--neutral-600); --violet-600:var(--neutral-800); --violet-800:var(--neutral-950);
+  --indigo-50:var(--neutral-50); --indigo-100:var(--neutral-75); --indigo-200:var(--neutral-150); --indigo-300:var(--neutral-300); --indigo-400:var(--neutral-600); --indigo-600:var(--neutral-800); --indigo-800:var(--neutral-950);
+  --sky-50:var(--neutral-50);    --sky-100:var(--neutral-75);    --sky-200:var(--neutral-150);    --sky-300:var(--neutral-300);    --sky-400:var(--neutral-600);    --sky-600:var(--neutral-800);    --sky-800:var(--neutral-950);
+  --pink-50:var(--neutral-50);   --pink-100:var(--neutral-75);   --pink-200:var(--neutral-150);   --pink-300:var(--neutral-300);   --pink-400:var(--neutral-600);   --pink-600:var(--neutral-800);   --pink-800:var(--neutral-950);
   --mint-50:#F2FBF5;   --mint-100:#E8F7EE;   --mint-200:#CDEFD9;   --mint-300:#A6E2BC;   --mint-400:#2FB463;   --mint-600:#15A34A;   --mint-800:#166534;
-  --butter-50:#FFF8F0; --butter-100:#FFF1E3; --butter-200:#FDE1C4; --butter-300:#FAC898; --butter-400:#F2862B; --butter-600:#C2620A; --butter-800:#7C3A06;
-  --copper-50:#FFF8F0; --copper-100:#FFF1E3; --copper-200:#FDE1C4; --copper-300:#FAC898; --copper-400:#F2862B; --copper-600:#C2620A; --copper-800:#7C3A06;
+  --butter-50:#FFF8F0; --butter-100:#FFF1E3; --butter-200:#FDE1C4; --butter-300:#FAC898; --butter-400:#F2862B; --butter-600:#A8510B; --butter-800:#7C3A06;
+  --copper-50:#FFF8F0; --copper-100:#FFF1E3; --copper-200:#FDE1C4; --copper-300:#FAC898; --copper-400:#F2862B; --copper-600:#A8510B; --copper-800:#7C3A06;
   --coral-50:#FEF5F5;  --coral-100:#FDECEC;  --coral-200:#FAD4D4;  --coral-300:#F5B3B3;  --coral-400:#F87171;  --coral-600:#DC2626;  --coral-800:#991B1B;
-  --pink-50:#FEF4F9;   --pink-100:#FCE8F2;   --pink-200:#F9D0E4;   --pink-300:#F4ACCD;   --pink-400:#EC5A9B;   --pink-600:#C2347A;   --pink-800:#7D1F4E;
 
   /* ───────── Semantic: surfaces ───────── */
   --surface-panel:   var(--neutral-0);
@@ -45,7 +47,8 @@
   /* Work area is a flat cool grey; content sits on white cards above it. */
   --surface-shell:   #F4F5F7;
   --surface-sidebar: var(--neutral-25);
-  --shadow-card: 0 1px 2px rgba(17,24,39,.04), 0 6px 24px -12px rgba(17,24,39,.10);
+  /* Cards are flat: a hairline and the white fill separate them from the grey shell. */
+  --shadow-card: none;
 
   /* ───────── Semantic: text ───────── */
   --text-primary:   var(--neutral-950);
@@ -69,7 +72,7 @@
   --action-ghost-hover:     rgba(10,10,10,0.04);
   --action-ghost-pressed:   rgba(10,10,10,0.06);
   --focus-gap: var(--surface-panel);
-  --focus-ring: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--cat-store);
+  --focus-ring: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--ink);
   --input-halo: 0 0 0 3px rgba(10,10,10,0.08);
   --input-halo-error: 0 0 0 3px rgba(220,38,38,0.15);
 
@@ -81,11 +84,11 @@
   --status-danger-wash:var(--coral-50);   --status-danger-soft:var(--coral-100);   --status-danger-tint:var(--coral-200);   --status-danger-band:var(--coral-300);   --status-danger-fill:var(--coral-400);   --status-danger-glyph:var(--coral-600);   --status-danger-ink:var(--coral-800);
   --status-info-wash:var(--sky-50);       --status-info-soft:var(--sky-100);       --status-info-tint:var(--sky-200);       --status-info-band:var(--sky-300);       --status-info-fill:var(--sky-400);       --status-info-glyph:var(--sky-600);       --status-info-ink:var(--sky-800);
   --status-neutral-wash:var(--neutral-50);--status-neutral-soft:var(--neutral-75);--status-neutral-tint:var(--neutral-100);--status-neutral-band:var(--neutral-150);--status-neutral-fill:var(--neutral-300);--status-neutral-glyph:var(--neutral-600);--status-neutral-ink:var(--neutral-800);
-  /* Prototype status colours: clearer green, red, orange and indigo than the pastels. */
+  /* Clear green, red and orange. Information is neutral: a stronger grey than "neutral". */
   --status-success-wash:#F2FBF5; --status-success-soft:#E8F7EE; --status-success-glyph:#15A34A; --status-success-fill:#4ADE80; --status-success-ink:#166534;
   --status-danger-wash:#FEF5F5;  --status-danger-soft:#FDECEC;  --status-danger-glyph:#DC2626;  --status-danger-fill:#F87171;  --status-danger-ink:#991B1B;
-  --status-warning-wash:#FFF8F0; --status-warning-soft:#FFF1E3; --status-warning-glyph:#C2620A; --status-warning-fill:#FB923C; --status-warning-ink:#7C3A06;
-  --status-info-wash:#F5F6FE;    --status-info-soft:#ECEEFD;    --status-info-glyph:#4F56D9;    --status-info-fill:#A5A9FF;    --status-info-ink:#2E3392;
+  --status-warning-wash:#FFF8F0; --status-warning-soft:#FFF1E3; --status-warning-glyph:#A8510B; --status-warning-fill:#FB923C; --status-warning-ink:#7C3A06;
+  --status-info-wash:var(--neutral-75); --status-info-soft:var(--neutral-150); --status-info-tint:var(--neutral-200); --status-info-band:var(--neutral-300); --status-info-fill:var(--neutral-400); --status-info-glyph:var(--neutral-800); --status-info-ink:var(--neutral-950);
 
   /* ───────── Typography ───────── */
   --font-sans: var(--font-geist), "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -132,7 +135,7 @@
 
   /* ───────── Radii ───────── */
   --radius-2xs: 4px;  --radius-xs: 6px;  --radius-sm: 8px;  --radius-md: 10px;
-  --radius-lg: 12px;  --radius-xl: 20px; --radius-2xl: 24px; --radius-full: 9999px;
+  --radius-lg: 12px;  --radius-xl: 16px; --radius-2xl: 24px; --radius-full: 9999px;
 
   /* ───────── Shadows ───────── */
   --shadow-xs:  0 1px 2px rgba(10,10,10,0.05);
@@ -171,10 +174,15 @@
                                       --fs-title-lg: 20px; --lh-title-lg: 28px; --fs-display: 28px; --lh-display: 36px;
                                       --fs-hero: 30px; --lh-hero: 34px; --fs-kpi: 24px; --lh-kpi: 28px; } }
 
-/* Pipeline stage colours (v2 stages), shared by pills, lanes and charts. */
+/* Pipeline stage colours (v2 stages), shared by pills, lanes and charts. The stages are
+   ordered, so they darken step by step and the last one before a win takes the signal. */
 :root {
-  --stage-PROSPECT: #6B72F0;  --stage-PROPOSAL: #15B3A1;  --stage-NEGOTIATION: #F2862B;
-  --stage-COMMITMENT: #EC5A9B; --stage-WON: #2FB463;      --stage-LOST: #DC2626;
+  --stage-PROSPECT: #8B919C;  --stage-PROPOSAL: #5B616C;  --stage-NEGOTIATION: #14161B;
+  --stage-COMMITMENT: #F2862B; --stage-WON: #15A34A;      --stage-LOST: #DC2626;
+}
+:root[data-theme="dark"] {
+  --stage-PROSPECT: #6E7480;  --stage-PROPOSAL: #AEB3BC;  --stage-NEGOTIATION: #F1F2F4;
+  --stage-WON: #4ADE80;       --stage-LOST: #F87171;
 }
 
 /* Night mode. data-theme is set on <html> before first paint by the script in
@@ -182,39 +190,33 @@
    redefined so every semantic token follows; colour families become washes
    mixed into the dark panel, with lighter glyph and ink steps for contrast. */
 :root[data-theme="dark"] {
-  --neutral-0:   #16181D;  --neutral-25:  #121419;  --neutral-50:  #1A1D23;
-  --neutral-75:  #21242B;  --neutral-100: #262930;  --neutral-150: #2B2F37;
-  --neutral-200: #343841;  --neutral-300: #40454F;  --neutral-400: #6E7480;
+  --neutral-0:   #1C1F25;  --neutral-25:  #181B20;  --neutral-50:  #20232A;
+  --neutral-75:  #262930;  --neutral-100: #2A2D35;  --neutral-150: #2E323A;
+  --neutral-200: #383C45;  --neutral-300: #444953;  --neutral-400: #6E7480;
   --neutral-500: #838995;  --neutral-600: #9A9FA9;  --neutral-700: #AEB3BC;
   --neutral-800: #D5D8DE;  --neutral-900: #E6E8EC;  --neutral-950: #F1F2F4;
 
   --ink: #F1F2F4;  --ink-hover: #FFFFFF;  --ink-pressed: #D9DCE1;
-  --on-ink: #121419;  --on-ink-muted: rgba(18,20,25,0.64);
+  --on-ink: #14161B;  --on-ink-muted: rgba(20,22,27,0.64);
 
-  --violet-50:color-mix(in srgb,#6B72F0 8%,#16181D);  --violet-100:color-mix(in srgb,#6B72F0 16%,#16181D);  --violet-200:color-mix(in srgb,#6B72F0 26%,#16181D);  --violet-300:color-mix(in srgb,#6B72F0 40%,#16181D);  --violet-600:#A5AAFF; --violet-800:#D3D6FF;
-  --indigo-50:var(--violet-50); --indigo-100:var(--violet-100); --indigo-200:var(--violet-200); --indigo-300:var(--violet-300); --indigo-600:#A5AAFF; --indigo-800:#D3D6FF;
-  --sky-50:color-mix(in srgb,#15B3A1 8%,#16181D);     --sky-100:color-mix(in srgb,#15B3A1 16%,#16181D);     --sky-200:color-mix(in srgb,#15B3A1 26%,#16181D);     --sky-300:color-mix(in srgb,#15B3A1 40%,#16181D);     --sky-600:#4FD1C1;    --sky-800:#A8EDE4;
-  --mint-50:color-mix(in srgb,#2FB463 8%,#16181D);    --mint-100:color-mix(in srgb,#2FB463 16%,#16181D);    --mint-200:color-mix(in srgb,#2FB463 26%,#16181D);    --mint-300:color-mix(in srgb,#2FB463 40%,#16181D);    --mint-600:#4ADE80;   --mint-800:#A7F0C1;
-  --butter-50:color-mix(in srgb,#F2862B 8%,#16181D);  --butter-100:color-mix(in srgb,#F2862B 16%,#16181D);  --butter-200:color-mix(in srgb,#F2862B 26%,#16181D);  --butter-300:color-mix(in srgb,#F2862B 40%,#16181D);  --butter-600:#FBA864; --butter-800:#FDD3AE;
+  --mint-50:color-mix(in srgb,#2FB463 8%,#1C1F25);    --mint-100:color-mix(in srgb,#2FB463 16%,#1C1F25);    --mint-200:color-mix(in srgb,#2FB463 26%,#1C1F25);    --mint-300:color-mix(in srgb,#2FB463 40%,#1C1F25);    --mint-600:#4ADE80;   --mint-800:#A7F0C1;
+  --butter-50:color-mix(in srgb,#F2862B 8%,#1C1F25);  --butter-100:color-mix(in srgb,#F2862B 16%,#1C1F25);  --butter-200:color-mix(in srgb,#F2862B 26%,#1C1F25);  --butter-300:color-mix(in srgb,#F2862B 40%,#1C1F25);  --butter-600:#FBA864; --butter-800:#FDD3AE;
   --copper-50:var(--butter-50); --copper-100:var(--butter-100); --copper-200:var(--butter-200); --copper-300:var(--butter-300); --copper-600:#FBA864; --copper-800:#FDD3AE;
-  --coral-50:color-mix(in srgb,#F87171 8%,#16181D);   --coral-100:color-mix(in srgb,#F87171 16%,#16181D);   --coral-200:color-mix(in srgb,#F87171 26%,#16181D);   --coral-300:color-mix(in srgb,#F87171 40%,#16181D);   --coral-600:#F87171;  --coral-800:#FCB5B5;
-  --pink-50:color-mix(in srgb,#EC5A9B 8%,#16181D);    --pink-100:color-mix(in srgb,#EC5A9B 16%,#16181D);    --pink-200:color-mix(in srgb,#EC5A9B 26%,#16181D);    --pink-300:color-mix(in srgb,#EC5A9B 40%,#16181D);    --pink-600:#F48BBB;   --pink-800:#F9C6DD;
+  --coral-50:color-mix(in srgb,#F87171 8%,#1C1F25);   --coral-100:color-mix(in srgb,#F87171 16%,#1C1F25);   --coral-200:color-mix(in srgb,#F87171 26%,#1C1F25);   --coral-300:color-mix(in srgb,#F87171 40%,#1C1F25);   --coral-600:#F87171;  --coral-800:#FCB5B5;
 
-  /* The light theme pins these four status hues to hex; point them back at the families. */
+  /* The light theme pins these three status hues to hex; point them back at the families. */
   --status-success-wash:var(--mint-50);   --status-success-soft:var(--mint-100);   --status-success-glyph:var(--mint-600);   --status-success-ink:var(--mint-800);
   --status-danger-wash:var(--coral-50);   --status-danger-soft:var(--coral-100);   --status-danger-glyph:var(--coral-600);   --status-danger-ink:var(--coral-800);
   --status-warning-wash:var(--butter-50); --status-warning-soft:var(--butter-100); --status-warning-glyph:var(--butter-600); --status-warning-ink:var(--butter-800);
-  --status-info-wash:var(--violet-50);    --status-info-soft:var(--violet-100);    --status-info-glyph:var(--violet-600);    --status-info-ink:var(--violet-800);
 
-  --surface-shell: #0E1014;
-  --shell-tint:    #0E1014;
-  --border-divider: #23262D;
+  --surface-shell: #14161B;
+  --shell-tint:    #14161B;
+  --border-divider: #262930;
   --scrim: rgba(0,0,0,0.6);
   --action-ghost-hover:   rgba(255,255,255,0.05);
   --action-ghost-pressed: rgba(255,255,255,0.08);
   --input-halo: 0 0 0 3px rgba(255,255,255,0.10);
   --input-halo-error: 0 0 0 3px rgba(248,113,113,0.25);
-  --shadow-card: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px -12px rgba(0,0,0,.6);
   --shadow-xs:  0 1px 2px rgba(0,0,0,0.4);
   --shadow-sm:  0 1px 2px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3);
   --shadow-ink: 0 2px 6px rgba(0,0,0,0.5);
