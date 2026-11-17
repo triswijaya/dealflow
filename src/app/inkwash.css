@@ -93,6 +93,9 @@
   /* ───────── Typography ───────── */
   --font-sans: var(--font-geist), "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* Numbers use the text face with tabular figures: plain zeros, columns still line up.
+     The mono face stays for the wordmark and key hints only. */
+  --font-figure: var(--font-sans);
   --weight-regular: 400;  --weight-medium: 500;  --weight-semibold: 600;
   /* size / line-height pairs */
   /* The prototype scale at SaaS density: hero 48→40, kpi 32→28, h1 28→24, h2 18→16. */

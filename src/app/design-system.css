@@ -89,7 +89,7 @@ html:has(.df){background:var(--surface-shell)}
 .df .navitem:active{background:var(--action-ghost-pressed)}
 .df .navitem.active{background:var(--neutral-0);color:var(--text-primary);box-shadow:0 0 0 1px var(--border-subtle),var(--shadow-xs)}
 .df .navitem.active svg{color:var(--text-primary)}
-.df .navitem .count{margin-left:auto;min-width:0;height:auto;padding:0;border-radius:0;background:none;color:var(--status-danger-glyph);font-family:var(--font-mono);font-size:13px;line-height:20px;font-weight:400}
+.df .navitem .count{margin-left:auto;min-width:0;height:auto;padding:0;border-radius:0;background:none;color:var(--status-danger-glyph);font-family:var(--font-figure);font-variant-numeric:tabular-nums;font-size:13px;line-height:20px;font-weight:400}
 .df .navtext{overflow:hidden;text-overflow:ellipsis}
 .df .sidebar-foot{margin-top:auto;display:flex;flex-direction:column;gap:14px;padding-top:var(--space-6)}
 .df .sidebar-foot .foot-row{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:16px 4px 0;border-top:1px solid var(--border-subtle)}
@@ -421,14 +421,14 @@ html:has(.df){background:var(--surface-shell)}
 .df .kpi-lbl{display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;font-weight:400;color:var(--text-secondary)}
 .df .kpi-lbl i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .df .kpi-val{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;margin-top:10px}
-.df .kpi-num{font-family:var(--font-mono);font-size:34px;line-height:40px;font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-primary)}
+.df .kpi-num{font-family:var(--font-figure);font-size:34px;line-height:40px;font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-primary)}
 .df .unit{font-size:.6em;font-weight:500;letter-spacing:0;color:var(--text-secondary)}
 .df .unit.pre{margin-right:.12em}
 .df .unit.post{margin-left:.15em}
 .df .kpi-num .unit,.df .chart-big .unit{font-size:inherit;font-weight:inherit;letter-spacing:inherit;color:inherit}
 .df .kpi-num .unit.pre,.df .chart-big .unit.pre{margin-right:0}
 .df .kpi-num .unit.post,.df .chart-big .unit.post{margin-left:.3em}
-.df .delta{padding:2px 6px;border-radius:6px;background:var(--status-success-soft);color:var(--status-success-ink);font-family:var(--font-mono);font-size:12px;line-height:18px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap}
+.df .delta{padding:2px 6px;border-radius:6px;background:var(--status-success-soft);color:var(--status-success-ink);font-family:var(--font-figure);font-size:12px;line-height:18px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap}
 .df .delta.neg{background:var(--status-danger-soft);color:var(--status-danger-ink)}
 .df .delta.flat{background:var(--border-divider);color:var(--text-secondary)}
 .df .kpi-vs{margin-top:4px;font-size:13px;line-height:18px;color:var(--text-tertiary)}
@@ -437,7 +437,7 @@ html:has(.df){background:var(--surface-shell)}
 .df .chart-card{margin-top:var(--grid-gap);padding:28px 30px 24px;background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);box-shadow:var(--shadow-card)}
 .df .chart-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
 .df .chart-top .t{font-size:14px;line-height:20px;font-weight:400;color:var(--text-secondary)}
-.df .chart-big{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px;margin-top:4px;font-family:var(--font-mono);font-size:52px;line-height:57px;font-weight:500;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.df .chart-big{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px;margin-top:4px;font-family:var(--font-figure);font-size:52px;line-height:57px;font-weight:500;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .df .chart-big .delta{letter-spacing:0;font-size:13px}
 .df .chart-segs{display:flex;gap:10px;flex-wrap:wrap}
 .df .segl{display:inline-flex;gap:2px;padding:4px;border-radius:12px;background:var(--neutral-100)}
@@ -446,11 +446,11 @@ html:has(.df){background:var(--surface-shell)}
 .df .segl a[aria-current=true]{background:var(--neutral-0);color:var(--text-primary);box-shadow:0 1px 2px rgba(17,24,39,.08),0 0 0 1px var(--border-subtle)}
 .df .area{margin-top:16px;height:340px}
 .df .area svg{display:block;width:100%;height:100%;overflow:visible;stroke:none}
-.df .chart-axis-dates{display:flex;justify-content:space-between;margin-top:8px;font-family:var(--font-mono);font-size:13px;line-height:18px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.df .chart-axis-dates{display:flex;justify-content:space-between;margin-top:8px;font-family:var(--font-figure);font-size:13px;line-height:18px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
 .df .area-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
 .df .area-legend span{display:inline-flex;align-items:center;gap:9px;padding:7px 12px;border:1px solid var(--border-subtle);border-radius:11px;background:var(--neutral-50);font-size:14px;line-height:20px;font-weight:400}
 .df .area-legend i{width:9px;height:9px;border-radius:50%}
-.df .area-legend b{font-family:var(--font-mono);font-size:12.5px;font-weight:400;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.df .area-legend b{font-family:var(--font-figure);font-size:12.5px;font-weight:400;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
 @media (max-width:1279px){.df .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:767px){.df .kpis,.df .kpis.n3{grid-template-columns:minmax(0,1fr)}.df .kpi{height:164px;padding:16px 16px 0}.df .area{height:220px}.df .chart-card{padding:16px}}
 .df .chart-summary{display:flex;flex-wrap:wrap;gap:8px 0;margin-bottom:var(--space-5)}
@@ -590,7 +590,7 @@ html:has(.df){background:var(--surface-shell)}
 .df .check:hover{border:1.5px solid var(--status-success-glyph);color:var(--status-success-glyph)}
 .df .type-tag{display:inline-flex;align-items:center;gap:6px;padding:1px 8px;border:1px solid var(--border-subtle);border-radius:7px;background:var(--neutral-0);color:var(--text-secondary);font-size:12.5px;line-height:20px;font-weight:400;white-space:nowrap}
 .df .type-tag svg{width:13px;height:13px}
-.df .seg .n{font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary)}
+.df .seg .n{font-family:var(--font-figure);font-variant-numeric:tabular-nums;font-size:12px;color:var(--text-tertiary)}
 .df .dashboard-agenda .seg{margin-bottom:var(--space-2)}
 .df .more-link{display:inline-flex;align-items:center;gap:6px;color:var(--text-secondary)}
 .df .more-link svg{width:15px;height:15px}
